@@ -1,7 +1,9 @@
 <?php
 
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
+use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
+use App\Models\AlarmExecution;
 use App\NativeComponents\Home;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Native\Mobile\Events\Alert\ButtonPressed;
@@ -29,6 +31,8 @@ it('renders only alarms created by the user with a trailing activation switch', 
         ->assertSee('7:15 a. m.')
         ->assertSee('Universidad')
         ->assertDontSee('ACTIVA')
+        ->assertDontSee('AlarmHistorySheet')
+        ->assertDontSee('SettingsSheet')
         ->assertElement('list', fn (array $node): bool => ($node['ref'] ?? null) === 'alarm-list'
             && collect($node['children'] ?? [])->contains(
                 fn (array $child): bool => ($child['type'] ?? null) === 'list_item'
@@ -132,4 +136,33 @@ it('keeps an alarm when the native deletion dialog is cancelled', function () {
         ->assertSee('Universidad');
 
     $this->assertDatabaseHas('alarms', ['id' => $alarm->id]);
+});
+
+it('opens the five most recent localized executions from settings', function () {
+    app(AppPreferences::class)->setLanguage('en');
+    $alarm = Alarm::factory()->create();
+
+    foreach (range(1, 6) as $position) {
+        AlarmExecution::factory()->for($alarm)->create([
+            'alarm_label' => "Execution {$position}",
+            'scheduled_for' => now()->addMinutes($position),
+            'status' => 'completed',
+        ]);
+    }
+
+    Native::visit('/')
+        ->assertElement('list', fn (array $node): bool => ($node['ref'] ?? null) === 'alarm-list'
+            && ! collect($node['children'] ?? [])->contains(
+                fn (array $child): bool => ($child['type'] ?? null) === 'list_item'
+                    && ($child['props']['headline'] ?? null) === 'Execution 6',
+            ))
+        ->tap('settings')
+        ->tap('open-history')
+        ->assertSet('settingsOpen', false)
+        ->assertSet('historyOpen', true)
+        ->assertSee('Completed')
+        ->assertSee('Execution 6')
+        ->assertDontSee('Execution 1')
+        ->call('closeHistory')
+        ->assertSet('historyOpen', false);
 });

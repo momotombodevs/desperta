@@ -2,10 +2,11 @@
 
 namespace App\NativeComponents;
 
-use App\Application\AlarmScheduling\AlarmSchedule;
+use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
+use App\Models\AlarmExecution;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -32,6 +33,8 @@ class Home extends NativeComponent
     private const array ChallengeThemePreferences = ['nicaragua', 'math', 'general_knowledge'];
 
     public bool $settingsOpen = false;
+
+    public bool $historyOpen = false;
 
     public bool $emptyStateVisible = false;
 
@@ -138,6 +141,8 @@ class Home extends NativeComponent
             app(NativeAlarmScheduler::class)->cancel($alarm->id);
         }
 
+        app(AlarmExecutionLifecycle::class)->cancelOpen($alarm);
+
         $alarm->delete();
         $this->emptyStateVisible = true;
     }
@@ -161,6 +166,8 @@ class Home extends NativeComponent
             if ($wasScheduled) {
                 $scheduler->cancel($alarm->id);
             }
+
+            app(AlarmExecutionLifecycle::class)->cancelOpen($alarm);
 
             return;
         }
@@ -236,6 +243,22 @@ class Home extends NativeComponent
         $this->settingsOpen = false;
     }
 
+    public function openHistory(): void
+    {
+        $this->historyOpen = true;
+    }
+
+    public function openHistoryFromSettings(): void
+    {
+        $this->settingsOpen = false;
+        $this->historyOpen = true;
+    }
+
+    public function closeHistory(): void
+    {
+        $this->historyOpen = false;
+    }
+
     public function updatedAppearancePreference(): void
     {
         app(AppPreferences::class)->setAppearance($this->appearancePreference);
@@ -287,6 +310,17 @@ class Home extends NativeComponent
         return $this->alarms->firstWhere('enabled', true);
     }
 
+    /** @return Collection<int, AlarmExecution> */
+    #[Computed]
+    public function recentExecutions(): Collection
+    {
+        return AlarmExecution::query()
+            ->orderByDesc('scheduled_for')
+            ->orderByDesc('id')
+            ->limit(5)
+            ->get();
+    }
+
     public function render(): View
     {
         return view('native.home');
@@ -331,15 +365,8 @@ class Home extends NativeComponent
                 $scheduler->cancel($alarm->id);
             }
 
-            $scheduler->schedule(new AlarmSchedule(
-                id: $alarm->id,
-                time: $alarm->time,
-                label: $alarm->label,
-                weekdays: $alarm->weekdays,
-                vibration: $alarm->vibration,
-                snoozeEnabled: $alarm->snooze_enabled,
-                difficulty: $alarm->difficulty,
-            ));
+            $schedule = app(AlarmExecutionLifecycle::class)->scheduleFor($alarm);
+            $scheduler->schedule($schedule);
 
             $alarm->update(['scheduling_status' => 'scheduled']);
         } catch (AlarmException $exception) {

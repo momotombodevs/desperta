@@ -66,103 +66,11 @@
             @endif
         @endforeach
     @endif
+
 </native:list>
 
 <native:fab ref="create-alarm" :ios-icon="Ios::Plus" :android-icon="Android::Add" :label="__('app.create_alarm')"
             @tap="createAlarm" :a11y-label="__('app.create_alarm')"/>
 
-<native:bottom-sheet :visible="$settingsOpen" detents="0.9" @dismiss="closeSettings">
-    <native:scroll-view class="w-full bg-theme-surface">
-        <native:column class="w-full gap-5 p-6">
-            <native:row class="w-full items-center gap-3">
-                <native:image
-                    :src="asset('images/brand/desperta-mark.svg')"
-                    :width="40"
-                    :height="40"
-                    :fit="1"
-                    :alt="__('app.app_name')"
-                />
-                <native:icon :ios="Ios::GearshapeFill" :android="Android::Settings" class="text-theme-primary"
-                             size="24"/>
-                <native:text font="accent" class="text-2xl text-theme-on-surface">{{ __('app.settings') }}</native:text>
-            </native:row>
-
-            <native:column class="w-full gap-2">
-                <native:row class="items-center gap-2">
-                    <native:icon :ios="Ios::SunMaxFill" :android="Android::LightMode" class="text-theme-secondary"
-                                 size="18"/>
-                    <native:text font="accent"
-                                 class="text-base text-theme-on-surface">{{ __('app.appearance') }}</native:text>
-                </native:row>
-                <native:button-group
-                    ref="appearance-selector"
-                    :options="[__('app.appearance_system'), __('app.appearance_light'), __('app.appearance_dark')]"
-                    native:model="appearanceSelection"
-                    :a11y-label="__('app.appearance')"
-                />
-            </native:column>
-
-            <native:column class="w-full gap-2">
-                <native:row class="items-center gap-2">
-                    <native:icon :ios="Ios::GlobeAmericasFill" :android="Android::Language" class="text-theme-secondary"
-                                 size="18"/>
-                    <native:text font="accent"
-                                 class="text-base text-theme-on-surface">{{ __('app.language') }}</native:text>
-                </native:row>
-                <native:row class="w-full gap-3">
-                    <native:pressable
-                        ref="language-spanish"
-                        class="flex-1 rounded-xl border p-3 {{ $languagePreference === 'es_NI' ? 'border-theme-primary bg-theme-primary/15' : 'border-theme-outline bg-theme-surface-variant' }}"
-                        @tap="selectLanguage('es_NI')"
-                        :a11y-label="__('app.select_spanish')"
-                    >
-                        <native:row class="items-center gap-3">
-                            <native:image :src="asset('images/flags/nicaragua.svg')" :width="32" :height="22" :fit="1"
-                                          :alt="__('app.nicaragua_flag')"/>
-                            <native:text
-                                class="flex-1 text-sm text-theme-on-surface">{{ __('app.language_spanish') }}</native:text>
-                            @if ($languagePreference === 'es_NI')
-                                <native:icon name="check" class="text-theme-primary" size="18"/>
-                            @endif
-                        </native:row>
-                    </native:pressable>
-
-                    <native:pressable
-                        ref="language-english"
-                        class="flex-1 rounded-xl border p-3 {{ $languagePreference === 'en' ? 'border-theme-primary bg-theme-primary/15' : 'border-theme-outline bg-theme-surface-variant' }}"
-                        @tap="selectLanguage('en')"
-                        :a11y-label="__('app.select_english')"
-                    >
-                        <native:row class="items-center gap-3">
-                            <native:image :src="asset('images/flags/united-states.svg')" :width="32" :height="22"
-                                          :fit="1" :alt="__('app.united_states_flag')"/>
-                            <native:text
-                                class="flex-1 text-sm text-theme-on-surface">{{ __('app.language_english') }}</native:text>
-                            @if ($languagePreference === 'en')
-                                <native:icon name="check" class="text-theme-primary" size="18"/>
-                            @endif
-                        </native:row>
-                    </native:pressable>
-                </native:row>
-            </native:column>
-
-            <native:column class="w-full gap-2">
-                <native:row class="items-center gap-2">
-                    <native:icon :ios="Ios::GraduationcapFill" :android="Android::School" class="text-theme-secondary"
-                                 size="18"/>
-                    <native:text font="accent"
-                                 class="text-base text-theme-on-surface">{{ __('app.challenge_theme') }}</native:text>
-                </native:row>
-                <native:tab-row ref="challenge-theme-selector" native:model="challengeThemeSelection"
-                                :a11y-label="__('app.challenge_theme')">
-                    <native:tab :label="__('challenges.nicaragua.name')" icon="flag"
-                                :a11y-label="__('challenges.nicaragua.name')"/>
-                    <native:tab :label="__('challenges.math.name')" icon="calculate"
-                                :a11y-label="__('challenges.math.name')"/>
-                    <native:tab :label="__('challenges.general_knowledge.name')" icon="globe"
-                                :a11y-label="__('challenges.general_knowledge.name')"/>
-                </native:tab-row>
-            </native:column>
-        </native:column>
-    </native:scroll-view>
-</native:bottom-sheet>
+@include('native.alarm-history-sheet', ['executions' => $this->recentExecutions])
+@include('native.settings-sheet')
