@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20" role="img" aria-labelledby="title">
+    <title>Flag of Nicaragua</title>
+    <rect width="30" height="20" fill="#fff"/>
+    <rect width="30" height="4" fill="#0067c6"/>
+    <rect y="16" width="30" height="4" fill="#0067c6"/>
+    <path d="M15 6.7 18.1 12H11.9Z" fill="#0f766e" stroke="#075985" stroke-width=".35"/>
+    <path d="m15 7.5.45 1.4h1.45l-1.17.85.45 1.4L15 10.3l-1.18.85.45-1.4-1.17-.85h1.45Z" fill="#f59e0b"/>
+</svg>

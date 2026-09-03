@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20" role="img" aria-labelledby="title">
+    <title>Flag of the United States</title>
+    <rect width="30" height="20" fill="#fff"/>
+    <g fill="#b22234">
+        <rect y="0" width="30" height="1.54"/>
+        <rect y="3.08" width="30" height="1.54"/>
+        <rect y="6.16" width="30" height="1.54"/>
+        <rect y="9.24" width="30" height="1.54"/>
+        <rect y="12.32" width="30" height="1.54"/>
+        <rect y="15.4" width="30" height="1.54"/>
+        <rect y="18.46" width="30" height="1.54"/>
+    </g>
+    <rect width="12" height="10.77" fill="#3c3b6e"/>
+    <g fill="#fff">
+        <circle cx="2" cy="1.8" r=".55"/>
+        <circle cx="5" cy="1.8" r=".55"/>
+        <circle cx="8" cy="1.8" r=".55"/>
+        <circle cx="3.5" cy="4" r=".55"/>
+        <circle cx="6.5" cy="4" r=".55"/>
+        <circle cx="9.5" cy="4" r=".55"/>
+        <circle cx="2" cy="6.2" r=".55"/>
+        <circle cx="5" cy="6.2" r=".55"/>
+        <circle cx="8" cy="6.2" r=".55"/>
+        <circle cx="3.5" cy="8.4" r=".55"/>
+        <circle cx="6.5" cy="8.4" r=".55"/>
+        <circle cx="9.5" cy="8.4" r=".55"/>
+    </g>
+</svg>
