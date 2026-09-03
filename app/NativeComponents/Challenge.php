@@ -1,0 +1,153 @@
+<?php
+
+namespace App\NativeComponents;
+
+use App\Application\AlarmScheduling\NativeAlarmScheduler;
+use App\Application\Challenges\ChallengeCatalog;
+use App\Application\Preferences\AppPreferences;
+use App\Models\Alarm;
+use App\Models\AlarmChallengeAttempt;
+use Illuminate\View\View;
+use Native\Mobile\Edge\NativeComponent;
+
+class Challenge extends NativeComponent
+{
+    public string $alarmId = '';
+
+    /** @var list<array{id: string, question: string, options: list<string>, answer: string}> */
+    public array $questions = [];
+
+    /** @var list<string> */
+    public array $usedQuestionIds = [];
+
+    public int $questionIndex = 0;
+
+    public string $selectedAnswer = '';
+
+    public int $correctAnswers = 0;
+
+    public int $attemptNumber = 1;
+
+    public bool $completed = false;
+
+    public bool $passed = false;
+
+    public bool $alarmStopped = false;
+
+    public function mount(): void
+    {
+        app(AppPreferences::class)->applyLanguage();
+        $this->alarmId = $this->data('alarmId', request()->query('alarmId', ''));
+        $this->questions = app(ChallengeCatalog::class)->questions();
+        $this->usedQuestionIds = array_column($this->questions, 'id');
+
+        if ($this->alarmId !== '') {
+            $this->attemptNumber = AlarmChallengeAttempt::query()
+                ->where('alarm_id', $this->alarmId)
+                ->max('attempt_number') + 1;
+        }
+    }
+
+    public function continueChallenge(): void
+    {
+        if ($this->selectedAnswer === '') {
+            return;
+        }
+
+        if ($this->selectedAnswer === $this->questions[$this->questionIndex]['answer']) {
+            $this->correctAnswers++;
+        }
+
+        $this->selectedAnswer = '';
+
+        if ($this->questionIndex === count($this->questions) - 1) {
+            $this->completed = true;
+            $this->passed = $this->correctAnswers === count($this->questions);
+            $this->recordAttempt();
+
+            if ($this->passed) {
+                $this->stopAlarm();
+            }
+
+            return;
+        }
+
+        $this->questionIndex++;
+    }
+
+    public function selectAnswer(string $answer): void
+    {
+        if (! in_array($answer, $this->questions[$this->questionIndex]['options'], true)) {
+            return;
+        }
+
+        $this->selectedAnswer = $answer;
+    }
+
+    public function retry(): void
+    {
+        $this->attemptNumber++;
+        $this->questionIndex = 0;
+        $this->selectedAnswer = '';
+        $this->correctAnswers = 0;
+        $this->completed = false;
+        $this->passed = false;
+        $this->alarmStopped = false;
+        $this->questions = app(ChallengeCatalog::class)->questions($this->usedQuestionIds);
+        $this->usedQuestionIds = array_merge($this->usedQuestionIds, array_column($this->questions, 'id'));
+    }
+
+    private function stopAlarm(): void
+    {
+        if (! $this->completed || ! $this->passed || $this->alarmStopped) {
+            return;
+        }
+
+        $scheduler = app(NativeAlarmScheduler::class);
+        $alarm = Alarm::query()->find($this->alarmId);
+
+        if ($alarm === null) {
+            $scheduler->completeRinging($this->alarmId);
+            $this->alarmStopped = true;
+
+            return;
+        }
+
+        if ($alarm->repeatsWeekly()) {
+            $scheduler->completeRinging($alarm->id);
+            $alarm->update(['enabled' => true, 'scheduling_status' => 'scheduled']);
+        } else {
+            $scheduler->cancel($alarm->id);
+            $alarm->update(['enabled' => false, 'scheduling_status' => 'not_scheduled']);
+        }
+
+        $this->alarmStopped = true;
+    }
+
+    public function returnHome(): void
+    {
+        if (! $this->alarmStopped) {
+            return;
+        }
+
+        $this->replace('/');
+    }
+
+    private function recordAttempt(): void
+    {
+        AlarmChallengeAttempt::query()->create([
+            'alarm_id' => $this->alarmId === '' ? null : $this->alarmId,
+            'challenge_theme' => app(AppPreferences::class)->challengeTheme(),
+            'attempt_number' => $this->attemptNumber,
+            'correct_answers' => $this->correctAnswers,
+            'question_count' => count($this->questions),
+            'required_correct_answers' => count($this->questions),
+            'passed' => $this->passed,
+        ]);
+    }
+
+    public function render(): View
+    {
+        return view('native.challenge');
+    }
+}
