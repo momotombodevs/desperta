@@ -44,9 +44,9 @@ class Challenge extends NativeComponent
     public function mount(): void
     {
         app(AppPreferences::class)->applyLanguage();
-        $this->alarmId = $this->data('alarmId', request()->query('alarmId', ''));
+        $this->alarmId = (string) $this->param('alarmId', $this->data('alarmId', request()->query('alarmId', '')));
         $this->recoverActiveAlarmId();
-        $this->executionId = (string) $this->data('executionId', request()->query('executionId', ''));
+        $this->executionId = (string) $this->param('executionId', $this->data('executionId', request()->query('executionId', '')));
         $this->questions = app(ChallengeCatalog::class)->questions();
         $this->usedQuestionIds = array_column($this->questions, 'id');
 
@@ -63,11 +63,10 @@ class Challenge extends NativeComponent
             return;
         }
 
-        $scheduledFor = (string) $this->data('scheduledFor', request()->query('scheduledFor', ''));
+        $scheduledFor = (string) $this->param('scheduledFor', $this->data('scheduledFor', request()->query('scheduledFor', '')));
         if ($scheduledFor !== '') {
             app(AlarmExecutionLifecycle::class)->begin($this->alarmId, $this->executionId, $scheduledFor);
         }
-
     }
 
     public function continueChallenge(): void

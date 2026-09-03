@@ -59,6 +59,21 @@ it('stops the active native alarm when a notification opens the challenge withou
         ->assertSet('alarmStopped', true);
 });
 
+it('starts the scheduled execution passed through the native challenge route', function () {
+    $alarm = Alarm::factory()->create();
+    $executionId = '018f0b8d-1d3e-7f14-8caa-111111111111';
+
+    Native::visit("/challenge/{$alarm->id}/{$executionId}/2026-09-03T07:00:00+00:00")
+        ->assertSet('alarmId', $alarm->id)
+        ->assertSet('executionId', $executionId);
+
+    $this->assertDatabaseHas('alarm_executions', [
+        'id' => $executionId,
+        'alarm_id' => $alarm->id,
+        'status' => 'ringing',
+    ]);
+});
+
 it('completes a repeating alarm without cancelling its future schedule', function () {
     $alarm = Alarm::factory()->create([
         'weekdays' => [1, 3, 5],

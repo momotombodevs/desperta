@@ -9,3 +9,4 @@ Route::native('/', Home::class);
 Route::native('/alarms/new', AlarmEditor::class);
 Route::native('/alarms/{alarm}/edit', AlarmEditor::class);
 Route::native('/challenge', Challenge::class);
+Route::native('/challenge/{alarmId}/{executionId}/{scheduledFor}', Challenge::class);

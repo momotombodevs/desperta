@@ -59,7 +59,7 @@ final class NativePHPAlarmGateway implements NativeAlarmGateway
             ->repeatOn($this->weekdays($alarm->weekdays))
             ->vibration($alarm->vibration)
             ->metadata([
-                'route' => "/challenge?alarmId={$alarm->id}&executionId={$alarm->executionId}&scheduledFor={$alarm->scheduledFor}",
+                'route' => "/challenge/{$alarm->id}/{$alarm->executionId}/{$alarm->scheduledFor}",
                 'execution_id' => $alarm->executionId,
                 'scheduled_for' => $alarm->scheduledFor,
             ]);

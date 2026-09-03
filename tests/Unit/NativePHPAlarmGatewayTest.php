@@ -41,7 +41,7 @@ it('maps an application alarm schedule to the plugin configuration', function ()
         'vibration' => true,
         'snooze_minutes' => 5,
         'metadata' => [
-            'route' => '/challenge?alarmId=wake-up&executionId=018f0b8d-1d3e-7f14-8caa-111111111111&scheduledFor=2026-09-03T06:30:00+00:00',
+            'route' => '/challenge/wake-up/018f0b8d-1d3e-7f14-8caa-111111111111/2026-09-03T06:30:00+00:00',
             'execution_id' => '018f0b8d-1d3e-7f14-8caa-111111111111',
             'scheduled_for' => '2026-09-03T06:30:00+00:00',
         ],
