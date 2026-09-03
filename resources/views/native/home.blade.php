@@ -8,7 +8,7 @@
         :ios-icon="Ios::Gearshape"
         :android-icon="Android::Settings"
         :label="__('app.settings')"
-        @tap="openSettings"
+        @navigate="'/settings'"
         :a11y-label="__('app.settings')"
     />
 </native:top-bar>
@@ -71,6 +71,3 @@
 
 <native:fab ref="create-alarm" :ios-icon="Ios::Plus" :android-icon="Android::Add" :label="__('app.create_alarm')"
             @tap="createAlarm" :a11y-label="__('app.create_alarm')"/>
-
-@include('native.alarm-history-sheet', ['executions' => $this->recentExecutions])
-@include('native.settings-sheet')
