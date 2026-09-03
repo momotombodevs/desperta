@@ -59,4 +59,9 @@ final class AndroidNativeAlarmScheduler implements NativeAlarmScheduler
     {
         $this->alarms->cancel($alarmId);
     }
+
+    public function snooze(string $alarmId, int $minutes): void
+    {
+        $this->alarms->snooze($alarmId, $minutes);
+    }
 }

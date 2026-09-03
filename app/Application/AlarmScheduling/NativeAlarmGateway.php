@@ -22,5 +22,7 @@ interface NativeAlarmGateway
 
     public function complete(string $alarmId): void;
 
+    public function snooze(string $alarmId, int $minutes): void;
+
     public function cancel(string $alarmId): void;
 }

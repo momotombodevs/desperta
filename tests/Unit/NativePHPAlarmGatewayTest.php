@@ -27,6 +27,8 @@ it('maps an application alarm schedule to the plugin configuration', function ()
         vibration: true,
         snoozeEnabled: true,
         difficulty: 'Normal',
+        executionId: '018f0b8d-1d3e-7f14-8caa-111111111111',
+        scheduledFor: '2026-09-03T06:30:00+00:00',
     ));
 
     expect($bridge->parameters)->toBe([
@@ -38,7 +40,11 @@ it('maps an application alarm schedule to the plugin configuration', function ()
         'sound' => null,
         'vibration' => true,
         'snooze_minutes' => 5,
-        'metadata' => ['route' => '/challenge?alarmId=wake-up'],
+        'metadata' => [
+            'route' => '/challenge?alarmId=wake-up&executionId=018f0b8d-1d3e-7f14-8caa-111111111111&scheduledFor=2026-09-03T06:30:00+00:00',
+            'execution_id' => '018f0b8d-1d3e-7f14-8caa-111111111111',
+            'scheduled_for' => '2026-09-03T06:30:00+00:00',
+        ],
     ]);
 });
 
@@ -135,4 +141,23 @@ it('completes an active alarm without cancelling its schedule', function () {
     (new NativePHPAlarmGateway(new AlarmScheduler($bridge)))->complete('weekday-wake-up');
 
     expect($bridge->methods)->toBe(['Alarms.Complete']);
+});
+
+it('uses the plugin snooze bridge for an active alarm', function () {
+    $bridge = new class implements NativeAlarmBridge
+    {
+        /** @var array<string, mixed> */
+        public array $parameters = [];
+
+        public function call(string $method, array $parameters = []): array
+        {
+            $this->parameters = $parameters;
+
+            return [];
+        }
+    };
+
+    (new NativePHPAlarmGateway(new AlarmScheduler($bridge)))->snooze('wake-up', 5);
+
+    expect($bridge->parameters)->toBe(['id' => 'wake-up', 'minutes' => 5]);
 });

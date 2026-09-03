@@ -59,7 +59,9 @@ final class NativePHPAlarmGateway implements NativeAlarmGateway
             ->repeatOn($this->weekdays($alarm->weekdays))
             ->vibration($alarm->vibration)
             ->metadata([
-                'route' => "/challenge?alarmId={$alarm->id}",
+                'route' => "/challenge?alarmId={$alarm->id}&executionId={$alarm->executionId}&scheduledFor={$alarm->scheduledFor}",
+                'execution_id' => $alarm->executionId,
+                'scheduled_for' => $alarm->scheduledFor,
             ]);
 
         if ($alarm->snoozeEnabled) {
@@ -77,6 +79,11 @@ final class NativePHPAlarmGateway implements NativeAlarmGateway
     public function cancel(string $alarmId): void
     {
         $this->alarms->cancel($alarmId);
+    }
+
+    public function snooze(string $alarmId, int $minutes): void
+    {
+        $this->alarms->snooze($alarmId, $minutes);
     }
 
     /** @param list<int> $weekdays @return list<Weekday> */

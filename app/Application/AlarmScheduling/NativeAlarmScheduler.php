@@ -22,5 +22,7 @@ interface NativeAlarmScheduler
 
     public function completeRinging(string $alarmId): void;
 
+    public function snooze(string $alarmId, int $minutes): void;
+
     public function cancel(string $alarmId): void;
 }
