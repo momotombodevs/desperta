@@ -10,6 +10,7 @@ use App\Models\Alarm;
 use App\Models\AlarmChallengeAttempt;
 use App\Models\AlarmExecution;
 use Illuminate\View\View;
+use Momotombo\NativePHPAlarms\Exceptions\NativeAlarmSchedulingFailed;
 use Native\Mobile\Edge\NativeComponent;
 
 class Challenge extends NativeComponent
@@ -44,6 +45,7 @@ class Challenge extends NativeComponent
     {
         app(AppPreferences::class)->applyLanguage();
         $this->alarmId = $this->data('alarmId', request()->query('alarmId', ''));
+        $this->recoverActiveAlarmId();
         $this->executionId = (string) $this->data('executionId', request()->query('executionId', ''));
         $this->questions = app(ChallengeCatalog::class)->questions();
         $this->usedQuestionIds = array_column($this->questions, 'id');
@@ -187,6 +189,19 @@ class Challenge extends NativeComponent
             'required_correct_answers' => count($this->questions),
             'passed' => $this->passed,
         ]);
+    }
+
+    private function recoverActiveAlarmId(): void
+    {
+        if ($this->alarmId !== '') {
+            return;
+        }
+
+        try {
+            $this->alarmId = app(NativeAlarmScheduler::class)->activeRingingAlarmId() ?? '';
+        } catch (NativeAlarmSchedulingFailed $exception) {
+            report($exception);
+        }
     }
 
     public function render(): View

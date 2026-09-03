@@ -3,15 +3,11 @@
 
 <native:bottom-sheet :visible="$settingsOpen" detents="large" @dismiss="closeSettings">
     <native:scroll-view class="w-full bg-theme-surface">
-        <native:column class="w-full gap-5 p-6">
-
-                <native:text font="accent" class="text-2xl text-theme-on-surface">{{ __('app.settings') }}</native:text>
-
-
-
-            <native:row class="w-full items-center justify-center gap-3">
-                <native:svg :src="public_path('images/brand/desperta-mark.svg')" :width="120" :height="120" :fit="1"
+        <native:column class="w-full gap-4 p-6">
+            <native:row class="w-full items-center gap-3">
+                <native:svg :src="public_path('images/brand/desperta-mark.svg')" :width="72" :height="72" :fit="1"
                             :alt="__('app.app_name')"/>
+                <native:text font="accent" class="text-2xl text-theme-on-surface">{{ __('app.settings') }}</native:text>
             </native:row>
 
 
@@ -55,18 +51,26 @@
 
             <native:column class="w-full gap-2">
                 <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.challenge_theme') }}</native:text>
-                <native:tab-row ref="challenge-theme-selector" native:model="challengeThemeSelection"
-                                :a11y-label="__('app.challenge_theme')">
-                    <native:tab :label="__('challenges.nicaragua.name')" icon="flag" :a11y-label="__('challenges.nicaragua.name')"/>
-                    <native:tab :label="__('challenges.math.name')" icon="calculate" :a11y-label="__('challenges.math.name')"/>
-                    <native:tab :label="__('challenges.general_knowledge.name')" icon="globe" :a11y-label="__('challenges.general_knowledge.name')"/>
-                </native:tab-row>
+                @php($challengeThemes = [
+                    'nicaragua' => __('challenges.nicaragua.name'),
+                    'math' => __('challenges.math.name'),
+                    'general_knowledge' => __('challenges.general_knowledge.name'),
+                ])
+                <native:select ref="challenge-theme-selector" :label="__('app.challenge_theme')"
+                               :options="array_values($challengeThemes)" :value="$challengeThemes[$challengeThemePreference]"
+                               @change="selectChallengeTheme" :a11y-label="__('app.challenge_theme')"/>
             </native:column>
-            <native:button ref="open-history" variant="secondary"  class="w-full" size="lg"
-                           @tap="openHistoryFromSettings"
-                           :a11y-label="__('app.alarm_history')">
-                {{ __('app.alarm_history') }}
-            </native:button>
+            <native:pressable ref="open-history" class="w-full rounded-xl border border-theme-outline bg-theme-surface-variant p-4"
+                              @tap="openHistoryFromSettings" :a11y-label="__('app.view_history')">
+                <native:row class="w-full items-center gap-3">
+                    <native:icon :ios="Ios::ClockArrowCirclepath" :android="Android::History" class="text-theme-primary" size="24"/>
+                    <native:column class="flex-1 gap-1">
+                        <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.alarm_history') }}</native:text>
+                        <native:text class="text-sm text-theme-on-surface">{{ __('app.alarm_history_subtitle') }}</native:text>
+                    </native:column>
+                    <native:icon :ios="Ios::ChevronForward" :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
+                </native:row>
+            </native:pressable>
         </native:column>
     </native:scroll-view>
 </native:bottom-sheet>

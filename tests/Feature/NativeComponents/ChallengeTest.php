@@ -41,6 +41,24 @@ it('stops a one-time alarm after one successful challenge', function () {
     ]);
 });
 
+it('stops the active native alarm when a notification opens the challenge without route data', function () {
+    $alarm = Alarm::factory()->create([
+        'scheduling_status' => 'scheduled',
+    ]);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingAlarmId')->once()->andReturn($alarm->id);
+    $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    $challenge = Native::test(Challenge::class);
+
+    completeChallenge($challenge);
+
+    $challenge
+        ->assertSet('alarmId', $alarm->id)
+        ->assertSet('alarmStopped', true);
+});
+
 it('completes a repeating alarm without cancelling its future schedule', function () {
     $alarm = Alarm::factory()->create([
         'weekdays' => [1, 3, 5],

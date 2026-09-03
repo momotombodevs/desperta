@@ -3,10 +3,8 @@
     <native:scroll-view class="w-full bg-theme-surface">
         <native:column class="w-full gap-3 p-6">
             <native:row class="w-full items-center gap-3">
-                <native:icon name="history" class="text-theme-secondary" size="24"/>
                 <native:column class="flex-1 gap-1">
                     <native:text font="accent" class="text-2xl text-theme-on-surface">{{ __('app.alarm_history') }}</native:text>
-                    <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.alarm_history_subtitle') }}</native:text>
                 </native:column>
             </native:row>
 

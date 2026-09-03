@@ -14,23 +14,17 @@ use Momotombo\NativePHPAlarms\Events\NotificationAuthorizationChanged;
 use Momotombo\NativePHPAlarms\Exceptions\AlarmException;
 use Momotombo\NativePHPAlarms\Exceptions\NativeAlarmSchedulingFailed;
 use Native\Mobile\Attributes\Computed;
-use Native\Mobile\Attributes\Lazy;
 use Native\Mobile\Attributes\On;
-use Native\Mobile\Edge\Element;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Transition;
 use Native\Mobile\Events\Alert\ButtonPressed;
 use Native\Mobile\Facades\Dialog;
 use Victorycodedev\ToastKit\Facades\Toast;
 
-#[Lazy]
 class Home extends NativeComponent
 {
     /** @var list<string> */
     private const array AppearancePreferences = ['system', 'light', 'dark'];
-
-    /** @var list<string> */
-    private const array ChallengeThemePreferences = ['nicaragua', 'math', 'general_knowledge'];
 
     public bool $settingsOpen = false;
 
@@ -58,8 +52,6 @@ class Home extends NativeComponent
 
     public string $challengeThemePreference = 'nicaragua';
 
-    public int $challengeThemeSelection = 0;
-
     public function mount(): void
     {
         $preferences = app(AppPreferences::class);
@@ -69,19 +61,9 @@ class Home extends NativeComponent
         $this->languagePreference = $preferences->language();
         $this->challengeThemePreference = $preferences->challengeTheme();
         $this->appearanceSelection = $this->selectionFor(self::AppearancePreferences, $this->appearancePreference);
-        $this->challengeThemeSelection = $this->selectionFor(self::ChallengeThemePreferences, $this->challengeThemePreference);
         $this->emptyStateVisible = Alarm::query()->doesntExist();
 
         $this->resumeActiveChallenge();
-    }
-
-    protected function placeholder(): Element|View
-    {
-        if (Alarm::query()->exists()) {
-            return parent::placeholder();
-        }
-
-        return view('native.home');
     }
 
     private function resumeActiveChallenge(): void
@@ -98,7 +80,7 @@ class Home extends NativeComponent
             return;
         }
 
-        $this->replace("/challenge?alarmId={$alarmId}");
+        $this->replace('/challenge', ['alarmId' => $alarmId]);
     }
 
     public function createAlarm(): void
@@ -284,17 +266,17 @@ class Home extends NativeComponent
         app(AppPreferences::class)->setLanguage($this->languagePreference);
     }
 
-    public function updatedChallengeThemePreference(): void
+    public function selectChallengeTheme(string $label): void
     {
-        app(AppPreferences::class)->setChallengeTheme($this->challengeThemePreference);
-        $this->challengeThemeSelection = $this->selectionFor(self::ChallengeThemePreferences, $this->challengeThemePreference);
-    }
+        $theme = array_search($label, $this->challengeThemeOptions(), true);
 
-    public function updatedChallengeThemeSelection(): void
-    {
-        $this->challengeThemePreference = self::ChallengeThemePreferences[$this->challengeThemeSelection] ?? self::ChallengeThemePreferences[0];
+        if ($theme === false) {
+            return;
+        }
 
-        app(AppPreferences::class)->setChallengeTheme($this->challengeThemePreference);
+        $this->challengeThemePreference = $theme;
+
+        app(AppPreferences::class)->setChallengeTheme($theme);
     }
 
     /** @return Collection<int, Alarm> */
@@ -332,6 +314,16 @@ class Home extends NativeComponent
         $selection = array_search($value, $options, true);
 
         return $selection === false ? 0 : $selection;
+    }
+
+    /** @return array<string, string> */
+    private function challengeThemeOptions(): array
+    {
+        return [
+            'nicaragua' => __('challenges.nicaragua.name'),
+            'math' => __('challenges.math.name'),
+            'general_knowledge' => __('challenges.general_knowledge.name'),
+        ];
     }
 
     private function continueScheduling(Alarm $alarm): void

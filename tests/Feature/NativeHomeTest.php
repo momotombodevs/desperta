@@ -4,6 +4,7 @@ use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use App\Models\AlarmExecution;
+use App\NativeComponents\Challenge;
 use App\NativeComponents\Home;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Native\Mobile\Events\Alert\ButtonPressed;
@@ -13,13 +14,16 @@ use function Pest\Laravel\mock;
 
 uses(LazilyRefreshDatabase::class);
 
-it('reopens the challenge when an alarm is still ringing', function () {
+it('reopens the challenge with the active alarm id when an alarm is still ringing', function () {
     $scheduler = mock(NativeAlarmScheduler::class);
     $scheduler->shouldReceive('activeRingingAlarmId')->once()->andReturn('wake-up');
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
     Native::test(Home::class)
-        ->assertReplacedWith('/challenge?alarmId=wake-up');
+        ->assertReplacedWith('/challenge')
+        ->follow()
+        ->assertScreen(Challenge::class)
+        ->assertSet('alarmId', 'wake-up');
 });
 
 it('renders only alarms created by the user with a trailing activation switch', function () {

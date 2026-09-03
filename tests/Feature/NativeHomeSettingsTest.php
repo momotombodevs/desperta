@@ -26,7 +26,7 @@ it('opens the compact settings sheet and persists its selections', function () {
         ->tap('language-english')
         ->assertSet('languagePreference', 'en')
         ->set('appearanceSelection', 2)
-        ->set('challengeThemeSelection', 1)
+        ->select('challenge-theme-selector', 'Math')
         ->assertAccessible();
 
     Native::visit('/')
@@ -40,10 +40,22 @@ it('opens the compact settings sheet and persists its selections', function () {
         ->toHaveKey('challenge_theme', 'math');
 });
 
-it('does not render radio groups in settings', function () {
+it('uses a full-width picker instead of tabs, radio groups, or chips for challenge themes', function () {
     Native::visit('/')
         ->tap('settings')
-        ->assertMissingElement('radio_group');
+        ->assertMissingElement('radio_group')
+        ->assertMissingElement('tab_row')
+        ->assertMissingElement('chip')
+        ->assertElement('select', fn (array $node): bool => ($node['ref'] ?? null) === 'challenge-theme-selector')
+        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'open-history');
+});
+
+it('opens history from the settings navigation row', function () {
+    Native::visit('/')
+        ->tap('settings')
+        ->tap('open-history')
+        ->assertSet('settingsOpen', false)
+        ->assertSet('historyOpen', true);
 });
 
 it('uses the floating action button to navigate to the alarm editor', function () {
