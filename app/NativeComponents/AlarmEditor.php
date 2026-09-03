@@ -2,7 +2,7 @@
 
 namespace App\NativeComponents;
 
-use App\Application\AlarmScheduling\AlarmSchedule;
+use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
@@ -128,6 +128,8 @@ class AlarmEditor extends NativeComponent
                 $scheduler->cancel($alarm->id);
             }
 
+            app(AlarmExecutionLifecycle::class)->cancelOpen($alarm);
+
             $this->replace('/')->transition(Transition::Fade);
 
             return;
@@ -222,17 +224,11 @@ class AlarmEditor extends NativeComponent
 
             if ($this->cancelExistingSchedule) {
                 $scheduler->cancel($alarm->id);
+                app(AlarmExecutionLifecycle::class)->cancelOpen($alarm);
             }
 
-            $scheduler->schedule(new AlarmSchedule(
-                id: $alarm->id,
-                time: $alarm->time,
-                label: $alarm->label,
-                weekdays: $alarm->weekdays,
-                vibration: $alarm->vibration,
-                snoozeEnabled: $alarm->snooze_enabled,
-                difficulty: $alarm->difficulty,
-            ));
+            $schedule = app(AlarmExecutionLifecycle::class)->scheduleFor($alarm);
+            $scheduler->schedule($schedule);
 
             $alarm->update(['scheduling_status' => 'scheduled']);
         } catch (AlarmException $exception) {
