@@ -62,6 +62,11 @@ class Alarm extends Model
         return $this->hasMany(AlarmChallengeAttempt::class);
     }
 
+    public function executions(): HasMany
+    {
+        return $this->hasMany(AlarmExecution::class);
+    }
+
     public function displayTime(): string
     {
         [$hour, $minute] = array_map('intval', explode(':', $this->time));

@@ -13,6 +13,8 @@ final readonly class AlarmSchedule
         public bool $vibration,
         public bool $snoozeEnabled,
         public string $difficulty,
+        public string $executionId,
+        public string $scheduledFor,
         public int $snoozeMinutes = 5,
     ) {}
 }
