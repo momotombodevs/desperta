@@ -30,14 +30,21 @@
             @endforeach
         </native:column>
 
-        <native:button ref="continue-challenge" variant="primary" @tap="continueChallenge"
-                       :disabled="$selectedAnswer === ''" :a11y-label="__('app.continue')">{{ __('app.continue') }}
-        </native:button>
+        <native:button ref="continue-challenge" variant="primary" class="w-full" size="lg" @tap="continueChallenge"
+                       :disabled="$selectedAnswer === ''" :a11y-label="__('app.continue')">{{ __('app.continue') }}</native:button>
+        @if ($snoozeAvailable)
+            <native:button ref="snooze-alarm" variant="secondary" class="w-full" size="lg" @tap="snoozeAlarm"
+                           :a11y-label="__('app.snooze_for_minutes', ['minutes' => 5])">{{ __('app.snooze_for_minutes', ['minutes' => 5]) }}</native:button>
+        @endif
     @elseif ($passed)
         <native:column class="w-full items-center gap-5 rounded-2xl bg-theme-success/15 p-6">
             <native:text font="accent" class="text-3xl text-center text-theme-on-background">{{ __('app.challenge_completed') }}</native:text>
             <native:text class="text-lg text-center text-theme-on-surface-variant">{{ __('app.complete_alarm') }}</native:text>
-            <native:button ref="return-home" variant="primary" @tap="returnHome" :a11y-label="__('app.return_home')">{{ __('app.return_home') }}</native:button>
+            @if (! $alarmStopped)
+                <native:button ref="turn-off-alarm" class="w-full" size="lg" variant="primary" @tap="turnOffAlarm" :a11y-label="__('app.finish_alarm')">{{ __('app.finish_alarm') }}</native:button>
+            @else
+                <native:button ref="return-home"  class="w-full" size="lg" variant="primary" @tap="returnHome" :a11y-label="__('app.return_home')">{{ __('app.return_home') }}</native:button>
+            @endif
         </native:column>
     @else
         <native:column class="w-full items-center gap-5 rounded-2xl bg-theme-warning/15 p-6">
@@ -46,7 +53,7 @@
             </native:text>
             <native:text
                 class="text-lg text-center text-theme-on-surface-variant">{{ __('app.retry_challenge') }}</native:text>
-            <native:button ref="retry-challenge" variant="primary"
+            <native:button ref="retry-challenge" variant="primary" class="w-full" size="lg" :a11y-label="__('app.try_again')"
                            @tap="retry">{{ __('app.try_again') }}</native:button>
         </native:column>
     @endif

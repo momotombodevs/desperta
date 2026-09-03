@@ -2,17 +2,23 @@
 
 namespace App\NativeComponents;
 
+use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Challenges\ChallengeCatalog;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use App\Models\AlarmChallengeAttempt;
+use App\Models\AlarmExecution;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
 
 class Challenge extends NativeComponent
 {
     public string $alarmId = '';
+
+    public string $executionId = '';
+
+    public bool $snoozeAvailable = false;
 
     /** @var list<array{id: string, question: string, options: list<string>, answer: string}> */
     public array $questions = [];
@@ -38,6 +44,7 @@ class Challenge extends NativeComponent
     {
         app(AppPreferences::class)->applyLanguage();
         $this->alarmId = $this->data('alarmId', request()->query('alarmId', ''));
+        $this->executionId = (string) $this->data('executionId', request()->query('executionId', ''));
         $this->questions = app(ChallengeCatalog::class)->questions();
         $this->usedQuestionIds = array_column($this->questions, 'id');
 
@@ -46,6 +53,19 @@ class Challenge extends NativeComponent
                 ->where('alarm_id', $this->alarmId)
                 ->max('attempt_number') + 1;
         }
+
+        $alarm = Alarm::query()->find($this->alarmId);
+        $this->snoozeAvailable = $this->executionId !== '' && $alarm?->snooze_enabled === true;
+
+        if ($this->executionId === '') {
+            return;
+        }
+
+        $scheduledFor = (string) $this->data('scheduledFor', request()->query('scheduledFor', ''));
+        if ($scheduledFor !== '') {
+            app(AlarmExecutionLifecycle::class)->begin($this->alarmId, $this->executionId, $scheduledFor);
+        }
+
     }
 
     public function continueChallenge(): void
@@ -66,7 +86,7 @@ class Challenge extends NativeComponent
             $this->recordAttempt();
 
             if ($this->passed) {
-                $this->stopAlarm();
+                $this->turnOffAlarm();
             }
 
             return;
@@ -97,7 +117,23 @@ class Challenge extends NativeComponent
         $this->usedQuestionIds = array_merge($this->usedQuestionIds, array_column($this->questions, 'id'));
     }
 
-    private function stopAlarm(): void
+    public function snoozeAlarm(): void
+    {
+        if (! $this->snoozeAvailable || $this->alarmStopped) {
+            return;
+        }
+
+        $execution = AlarmExecution::query()->find($this->executionId);
+        if ($execution === null) {
+            return;
+        }
+
+        app(NativeAlarmScheduler::class)->snooze($this->alarmId, 5);
+        app(AlarmExecutionLifecycle::class)->snooze($execution);
+        $this->replace('/');
+    }
+
+    public function turnOffAlarm(): void
     {
         if (! $this->completed || ! $this->passed || $this->alarmStopped) {
             return;
@@ -119,6 +155,13 @@ class Challenge extends NativeComponent
         } else {
             $scheduler->cancel($alarm->id);
             $alarm->update(['enabled' => false, 'scheduling_status' => 'not_scheduled']);
+        }
+
+        if ($this->executionId !== '') {
+            $execution = AlarmExecution::query()->find($this->executionId);
+            if ($execution !== null) {
+                app(AlarmExecutionLifecycle::class)->complete($execution);
+            }
         }
 
         $this->alarmStopped = true;

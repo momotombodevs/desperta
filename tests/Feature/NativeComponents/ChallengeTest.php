@@ -27,9 +27,7 @@ it('stops a one-time alarm after one successful challenge', function () {
     $challenge
         ->assertSet('completed', true)
         ->assertSet('passed', true)
-        ->assertSet('alarmStopped', true)
-        ->assertSee('La alarma ya está apagada.')
-        ->assertDontSee('Apagar alarma');
+        ->assertSet('alarmStopped', true);
 
     $this->assertDatabaseHas('alarms', [
         'id' => $alarm->id,
@@ -57,7 +55,8 @@ it('completes a repeating alarm without cancelling its future schedule', functio
 
     completeChallenge($challenge);
 
-    $challenge->assertSet('alarmStopped', true);
+    $challenge
+        ->assertSet('alarmStopped', true);
 
     $this->assertDatabaseHas('alarms', [
         'id' => $alarm->id,

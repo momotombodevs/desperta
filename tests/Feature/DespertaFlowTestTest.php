@@ -2,6 +2,7 @@
 
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Models\Alarm;
+use App\Models\AlarmExecution;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Momotombo\NativePHPAlarms\Events\NotificationAuthorizationChanged;
 use Native\Mobile\Testing\Native;
@@ -127,7 +128,7 @@ it('replaces a failed challenge with unused questions and records every attempt'
     $this->assertDatabaseCount('alarm_challenge_attempts', 1);
 });
 
-it('stops a completed weekly alarm only after the user taps turn off', function () {
+it('stops a completed weekly alarm immediately', function () {
     $alarm = Alarm::factory()->create();
     $scheduler = mock(NativeAlarmScheduler::class);
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
@@ -139,10 +140,6 @@ it('stops a completed weekly alarm only after the user taps turn off', function 
         ->set('selectedAnswer', 'Cocibolca')->tap('continue-challenge')
         ->set('selectedAnswer', 'León')->tap('continue-challenge')
         ->assertSee('Reto completado')
-        ->assertSee('Apagar alarma')
-        ->assertSet('alarmStopped', false);
-
-    $challenge->tap('turn-off-alarm')
         ->assertSet('alarmStopped', true)
         ->assertSee('Regresar');
 
@@ -151,7 +148,7 @@ it('stops a completed weekly alarm only after the user taps turn off', function 
         ->scheduling_status->toBe('scheduled');
 });
 
-it('cancels and deactivates a completed one-time alarm only after the user taps turn off', function () {
+it('cancels and deactivates a completed one-time alarm immediately', function () {
     $alarm = Alarm::factory()->create(['weekdays' => []]);
     $scheduler = mock(NativeAlarmScheduler::class);
     $scheduler->shouldReceive('cancel')->once()->with($alarm->id);
@@ -162,14 +159,60 @@ it('cancels and deactivates a completed one-time alarm only after the user taps 
         ->set('selectedAnswer', 'Managua')->tap('continue-challenge')
         ->set('selectedAnswer', 'Cocibolca')->tap('continue-challenge')
         ->set('selectedAnswer', 'León')->tap('continue-challenge')
-        ->assertSet('alarmStopped', false);
-
-    $challenge->tap('turn-off-alarm')
         ->assertSet('alarmStopped', true);
 
     expect($alarm->fresh())
         ->enabled->toBeFalse()
         ->scheduling_status->toBe('not_scheduled');
+});
+
+it('completes a real weekly execution without creating history for its next schedule', function () {
+    $alarm = Alarm::factory()->create();
+    $execution = AlarmExecution::factory()->for($alarm)->create([
+        'id' => '018f0b8d-1d3e-7f14-8caa-111111111111',
+        'status' => 'scheduled',
+        'finished_at' => null,
+    ]);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    Native::visit('/challenge', [
+        'alarmId' => $alarm->id,
+        'executionId' => $execution->id,
+        'scheduledFor' => '2026-09-03T07:00:00Z',
+    ])
+        ->set('selectedAnswer', 'Managua')->tap('continue-challenge')
+        ->set('selectedAnswer', 'Cocibolca')->tap('continue-challenge')
+        ->set('selectedAnswer', 'León')->tap('continue-challenge');
+
+    expect($execution->fresh()->status)->toBe('completed')
+        ->and($alarm->fresh()->enabled)->toBeTrue();
+    $this->assertDatabaseCount('alarm_executions', 1);
+});
+
+it('snoozes a real execution for five minutes without changing its weekly schedule', function () {
+    $alarm = Alarm::factory()->create(['snooze_enabled' => true]);
+    $execution = AlarmExecution::factory()->for($alarm)->create([
+        'id' => '018f0b8d-1d3e-7f14-8caa-111111111111',
+        'status' => 'scheduled',
+        'finished_at' => null,
+    ]);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('snooze')->once()->with($alarm->id, 5);
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    Native::visit('/challenge', [
+        'alarmId' => $alarm->id,
+        'executionId' => $execution->id,
+        'scheduledFor' => '2026-09-03T07:00:00Z',
+    ])
+        ->tap('snooze-alarm')
+        ->assertReplacedWith('/');
+
+    expect($execution->fresh()->status)->toBe('snoozed')
+        ->and($execution->fresh()->snooze_count)->toBe(1)
+        ->and($alarm->fresh()->scheduling_status)->toBe('scheduled');
 });
 
 it('stops a completed challenge when its alarm is no longer in the local database', function () {
@@ -184,7 +227,7 @@ it('stops a completed challenge when its alarm is no longer in the local databas
         ->assertSet('alarmStopped', true);
 });
 
-it('shows success after three correct answers, then returns home after the alarm is stopped', function () {
+it('shows success after three correct answers, then returns home after the alarm stops', function () {
     $alarm = Alarm::factory()->create();
     $scheduler = mock(NativeAlarmScheduler::class);
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
@@ -196,7 +239,6 @@ it('shows success after three correct answers, then returns home after the alarm
         ->set('selectedAnswer', 'León')->tap('continue-challenge')
         ->assertSee('Reto completado')
         ->assertNoNavigation()
-        ->tap('turn-off-alarm')
         ->assertSee('Regresar')
         ->tap('return-home')
         ->assertReplacedWith('/');
