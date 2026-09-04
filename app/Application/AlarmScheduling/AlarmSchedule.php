@@ -16,5 +16,7 @@ final readonly class AlarmSchedule
         public string $executionId,
         public string $scheduledFor,
         public int $snoozeMinutes = 5,
+        public string $notificationTitle = '',
+        public string $notificationBody = '',
     ) {}
 }

@@ -7,15 +7,17 @@ use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 
 uses(LazilyRefreshDatabase::class);
 
-it('prepares a native occurrence without persisting history', function () {
+it('records the scheduled native occurrence before it reaches the device', function () {
     $this->travelTo('2026-09-03 06:00:00');
     $alarm = Alarm::factory()->create(['time' => '07:15', 'weekdays' => [4]]);
 
     $lifecycle = app(AlarmExecutionLifecycle::class);
     $schedule = $lifecycle->scheduleFor($alarm);
 
-    expect($schedule->scheduledFor)->toBe('2026-09-03T07:15:00+00:00')
-        ->and(AlarmExecution::query()->count())->toBe(0);
+    expect($schedule->scheduledFor)->toBe('2026-09-03T13:15:00+00:00')
+        ->and(AlarmExecution::query()->whereKey($schedule->executionId)->firstOrFail())
+        ->alarm_id->toBe($alarm->id)
+        ->and(AlarmExecution::query()->whereKey($schedule->executionId)->value('status'))->toBe('scheduled');
 });
 
 it('marks an older open execution as missed when the next one begins', function () {

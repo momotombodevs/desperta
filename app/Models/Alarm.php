@@ -37,19 +37,17 @@ class Alarm extends Model
 
     public function repeatLabel(): string
     {
-        $labels = [
-            1 => 'Lun',
-            2 => 'Mar',
-            3 => 'Mié',
-            4 => 'Jue',
-            5 => 'Vie',
-            6 => 'Sáb',
-            7 => 'Dom',
-        ];
-
         return collect($this->weekdays)
-            ->map(fn (int $weekday): string => $labels[$weekday])
+            ->map(fn (int $weekday): string => __('app.weekday_abbreviations.'.$weekday))
             ->implode(', ');
+    }
+
+    public function scheduleSummary(): string
+    {
+        return collect([
+            filled($this->label) ? $this->label : null,
+            $this->repeatLabel() ?: __('app.once'),
+        ])->filter()->implode(' · ');
     }
 
     public function repeatsWeekly(): bool

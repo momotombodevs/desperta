@@ -2,6 +2,8 @@
 
 namespace App\Infrastructure\NativeAlarm;
 
+use App\AlarmScheduling\ActiveAlarmOccurrence;
+use App\AlarmScheduling\NativeAlarmOccurrenceEvent;
 use App\Application\AlarmScheduling\AlarmSchedule;
 use App\Application\AlarmScheduling\NativeAlarmGateway;
 use Momotombo\NativePHPAlarms\AlarmScheduler;
@@ -42,13 +44,44 @@ final class NativePHPAlarmGateway implements NativeAlarmGateway
         $this->alarms->requestNotificationAuthorization($requestId);
     }
 
-    public function activeRingingAlarmId(): ?string
+    public function activeRingingOccurrence(): ?ActiveAlarmOccurrence
     {
         if (! function_exists('nativephp_call')) {
             return null;
         }
 
-        return $this->alarms->activeRingingAlarmId();
+        $occurrence = $this->alarms->activeRingingOccurrence();
+
+        if ($occurrence === null) {
+            return null;
+        }
+
+        return new ActiveAlarmOccurrence(
+            alarmId: $occurrence->alarmId,
+            executionId: $occurrence->executionId,
+            scheduledFor: $occurrence->scheduledFor,
+        );
+    }
+
+    /** @return list<NativeAlarmOccurrenceEvent> */
+    public function occurrenceEvents(): array
+    {
+        if (! function_exists('nativephp_call')) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            fn (array $event): ?NativeAlarmOccurrenceEvent => $this->occurrenceEvent($event),
+            $this->alarms->occurrenceEvents(),
+        )));
+    }
+
+    /** @param list<string> $executionIds */
+    public function acknowledgeOccurrenceEvents(array $executionIds): void
+    {
+        if (function_exists('nativephp_call') && $executionIds !== []) {
+            $this->alarms->acknowledgeOccurrenceEvents($executionIds);
+        }
     }
 
     public function schedule(AlarmSchedule $alarm): void
@@ -62,6 +95,8 @@ final class NativePHPAlarmGateway implements NativeAlarmGateway
                 'route' => "/challenge/{$alarm->id}/{$alarm->executionId}/{$alarm->scheduledFor}",
                 'execution_id' => $alarm->executionId,
                 'scheduled_for' => $alarm->scheduledFor,
+                'notification_title' => $alarm->notificationTitle,
+                'notification_body' => $alarm->notificationBody,
             ]);
 
         if ($alarm->snoozeEnabled) {
@@ -96,5 +131,21 @@ final class NativePHPAlarmGateway implements NativeAlarmGateway
         }
 
         return array_map(fn (int $weekday): Weekday => Weekday::cases()[$weekday - 1], $weekdays);
+    }
+
+    /** @param array<string, mixed> $event */
+    private function occurrenceEvent(array $event): ?NativeAlarmOccurrenceEvent
+    {
+        $alarmId = $event['alarm_id'] ?? null;
+        $executionId = $event['execution_id'] ?? null;
+        $scheduledFor = $event['scheduled_for'] ?? null;
+        $status = $event['status'] ?? null;
+        $occurredAt = $event['occurred_at'] ?? null;
+
+        if (! is_string($alarmId) || ! is_string($executionId) || ! is_string($scheduledFor) || ! is_string($status) || ! is_string($occurredAt)) {
+            return null;
+        }
+
+        return new NativeAlarmOccurrenceEvent($alarmId, $executionId, $scheduledFor, $status, $occurredAt, (int) ($event['snooze_count'] ?? 0));
     }
 }

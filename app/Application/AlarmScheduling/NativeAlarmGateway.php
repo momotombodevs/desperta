@@ -2,6 +2,9 @@
 
 namespace App\Application\AlarmScheduling;
 
+use App\AlarmScheduling\ActiveAlarmOccurrence;
+use App\AlarmScheduling\NativeAlarmOccurrenceEvent;
+
 interface NativeAlarmGateway
 {
     public function canScheduleExactly(): bool;
@@ -16,7 +19,13 @@ interface NativeAlarmGateway
 
     public function requestNotificationPermission(string $requestId): void;
 
-    public function activeRingingAlarmId(): ?string;
+    public function activeRingingOccurrence(): ?ActiveAlarmOccurrence;
+
+    /** @return list<NativeAlarmOccurrenceEvent> */
+    public function occurrenceEvents(): array;
+
+    /** @param list<string> $executionIds */
+    public function acknowledgeOccurrenceEvents(array $executionIds): void;
 
     public function schedule(AlarmSchedule $alarm): void;
 

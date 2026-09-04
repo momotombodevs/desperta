@@ -1,5 +1,6 @@
 <?php
 
+use App\AlarmScheduling\ActiveAlarmOccurrence;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Models\Alarm;
 use App\NativeComponents\Challenge;
@@ -12,16 +13,17 @@ use function Pest\Laravel\mock;
 
 uses(LazilyRefreshDatabase::class);
 
-it('reopens the challenge with the active alarm id when an alarm is still ringing', function () {
+it('reopens the challenge with the active alarm occurrence when an alarm is still ringing', function () {
     $scheduler = mock(NativeAlarmScheduler::class);
-    $scheduler->shouldReceive('activeRingingAlarmId')->once()->andReturn('wake-up');
+    $scheduler->shouldReceive('activeRingingOccurrence')->once()->andReturn(new ActiveAlarmOccurrence('wake-up', 'execution-1', '2026-09-03T06:30:00+00:00'));
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
     Native::test(Home::class)
         ->assertReplacedWith('/challenge')
         ->follow()
         ->assertScreen(Challenge::class)
-        ->assertSet('alarmId', 'wake-up');
+        ->assertSet('alarmId', 'wake-up')
+        ->assertSet('executionId', 'execution-1');
 });
 
 it('renders only alarms created by the user with a trailing activation switch', function () {
@@ -48,7 +50,7 @@ it('renders only alarms created by the user with a trailing activation switch', 
 it('cancels a scheduled alarm from its activation switch', function () {
     $alarm = Alarm::factory()->create(['scheduling_status' => 'scheduled']);
     $scheduler = mock(NativeAlarmScheduler::class);
-    $scheduler->shouldReceive('activeRingingAlarmId')->once()->andReturnNull();
+    $scheduler->shouldReceive('activeRingingOccurrence')->once()->andReturnNull();
     $scheduler->shouldReceive('cancel')->once()->with($alarm->id);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
@@ -68,7 +70,7 @@ it('schedules a disabled alarm from its activation switch', function () {
         'scheduling_status' => 'not_scheduled',
     ]);
     $scheduler = mock(NativeAlarmScheduler::class);
-    $scheduler->shouldReceive('activeRingingAlarmId')->once()->andReturnNull();
+    $scheduler->shouldReceive('activeRingingOccurrence')->once()->andReturnNull();
     $scheduler->shouldReceive('canScheduleExactly')->once()->andReturnTrue();
     $scheduler->shouldReceive('canPresentWhileLocked')->once()->andReturnTrue();
     $scheduler->shouldReceive('canPostNotifications')->once()->andReturnTrue();
@@ -102,7 +104,7 @@ it('deletes a scheduled alarm only after confirming its native swipe action', fu
         'scheduling_status' => 'scheduled',
     ]);
     $scheduler = mock(NativeAlarmScheduler::class);
-    $scheduler->shouldReceive('activeRingingAlarmId')->once()->andReturnNull();
+    $scheduler->shouldReceive('activeRingingOccurrence')->once()->andReturnNull();
     $scheduler->shouldReceive('cancel')->once()->with($alarm->id);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 

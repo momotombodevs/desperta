@@ -1,5 +1,6 @@
 <?php
 
+use App\AlarmScheduling\ActiveAlarmOccurrence;
 use App\Application\AlarmScheduling\AlarmSchedule;
 use App\Application\AlarmScheduling\NativeAlarmGateway;
 use App\Infrastructure\NativeAlarm\AndroidNativeAlarmScheduler;
@@ -42,9 +43,10 @@ it('passes snooze duration to the native gateway', function () {
     (new AndroidNativeAlarmScheduler($alarms))->snooze('wake-up', 5);
 });
 
-it('returns the active native ringing alarm id', function () {
+it('returns the active native ringing occurrence', function () {
     $alarms = mock(NativeAlarmGateway::class);
-    $alarms->shouldReceive('activeRingingAlarmId')->once()->andReturn('wake-up');
+    $occurrence = new ActiveAlarmOccurrence('wake-up', 'execution-1', '2026-09-03T06:30:00+00:00');
+    $alarms->shouldReceive('activeRingingOccurrence')->once()->andReturn($occurrence);
 
-    expect((new AndroidNativeAlarmScheduler($alarms))->activeRingingAlarmId())->toBe('wake-up');
+    expect((new AndroidNativeAlarmScheduler($alarms))->activeRingingOccurrence())->toBe($occurrence);
 });

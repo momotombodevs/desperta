@@ -2,6 +2,7 @@
 
 namespace App\NativeComponents;
 
+use App\AlarmScheduling\AlarmOccurrenceReconciler;
 use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Preferences\AppPreferences;
@@ -43,6 +44,7 @@ class Home extends NativeComponent
         $preferences->applyAppearance();
 
         $this->emptyStateVisible = Alarm::query()->doesntExist();
+        app(AlarmOccurrenceReconciler::class)->reconcile();
 
         $this->resumeActiveChallenge();
     }
@@ -50,18 +52,22 @@ class Home extends NativeComponent
     private function resumeActiveChallenge(): void
     {
         try {
-            $alarmId = app(NativeAlarmScheduler::class)->activeRingingAlarmId();
+            $occurrence = app(NativeAlarmScheduler::class)->activeRingingOccurrence();
         } catch (NativeAlarmSchedulingFailed $exception) {
             report($exception);
 
             return;
         }
 
-        if ($alarmId === null) {
+        if ($occurrence === null) {
             return;
         }
 
-        $this->replace('/challenge', ['alarmId' => $alarmId]);
+        $this->replace('/challenge', [
+            'alarmId' => $occurrence->alarmId,
+            'executionId' => $occurrence->executionId,
+            'scheduledFor' => $occurrence->scheduledFor,
+        ]);
     }
 
     public function createAlarm(): void
@@ -206,7 +212,10 @@ class Home extends NativeComponent
     #[Computed]
     public function nextAlarm(): ?Alarm
     {
-        return $this->alarms->firstWhere('enabled', true);
+        return $this->alarms
+            ->filter(fn (Alarm $alarm): bool => $alarm->enabled)
+            ->sortBy(fn (Alarm $alarm): int => app(AlarmExecutionLifecycle::class)->nextScheduledFor($alarm)->getTimestamp())
+            ->first();
     }
 
     public function render(): View

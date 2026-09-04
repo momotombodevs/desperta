@@ -2,6 +2,8 @@
 
 namespace App\Application\AlarmScheduling;
 
+use App\AlarmScheduling\ActiveAlarmOccurrence;
+
 interface NativeAlarmScheduler
 {
     public function canScheduleExactly(): bool;
@@ -16,7 +18,7 @@ interface NativeAlarmScheduler
 
     public function requestNotificationPermission(string $requestId): void;
 
-    public function activeRingingAlarmId(): ?string;
+    public function activeRingingOccurrence(): ?ActiveAlarmOccurrence;
 
     public function schedule(AlarmSchedule $alarm): void;
 

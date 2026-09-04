@@ -29,6 +29,8 @@ it('maps an application alarm schedule to the plugin configuration', function ()
         difficulty: 'Normal',
         executionId: '018f0b8d-1d3e-7f14-8caa-111111111111',
         scheduledFor: '2026-09-03T06:30:00+00:00',
+        notificationTitle: 'Trabajo',
+        notificationBody: 'Es hora de despertar.',
     ));
 
     expect($bridge->parameters)->toBe([
@@ -44,6 +46,8 @@ it('maps an application alarm schedule to the plugin configuration', function ()
             'route' => '/challenge/wake-up/018f0b8d-1d3e-7f14-8caa-111111111111/2026-09-03T06:30:00+00:00',
             'execution_id' => '018f0b8d-1d3e-7f14-8caa-111111111111',
             'scheduled_for' => '2026-09-03T06:30:00+00:00',
+            'notification_title' => 'Trabajo',
+            'notification_body' => 'Es hora de despertar.',
         ],
     ]);
 });
@@ -106,22 +110,24 @@ it('uses the plugin full-screen authorization bridge', function () {
     ]);
 });
 
-it('reads the active ringing alarm from the native bridge', function () {
+it('reads the active ringing occurrence from the native bridge', function () {
     $bridge = new class implements NativeAlarmBridge
     {
         public function call(string $method, array $parameters = []): array
         {
-            return ['id' => $method === 'Alarms.Active' ? 'wake-up' : null];
+            return $method === 'Alarms.Active'
+                ? ['id' => 'wake-up', 'execution_id' => 'execution-1', 'scheduled_for' => '2026-09-03T06:30:00+00:00']
+                : [];
         }
     };
 
     if (! function_exists('nativephp_call')) {
-        expect((new NativePHPAlarmGateway(new AlarmScheduler($bridge)))->activeRingingAlarmId())->toBeNull();
+        expect((new NativePHPAlarmGateway(new AlarmScheduler($bridge)))->activeRingingOccurrence())->toBeNull();
 
         return;
     }
 
-    expect((new NativePHPAlarmGateway(new AlarmScheduler($bridge)))->activeRingingAlarmId())->toBe('wake-up');
+    expect((new NativePHPAlarmGateway(new AlarmScheduler($bridge)))->activeRingingOccurrence()?->alarmId)->toBe('wake-up');
 });
 
 it('completes an active alarm without cancelling its schedule', function () {

@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\NativeAlarm;
 
+use App\AlarmScheduling\ActiveAlarmOccurrence;
 use App\Application\AlarmScheduling\AlarmSchedule;
 use App\Application\AlarmScheduling\NativeAlarmGateway;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
@@ -40,9 +41,9 @@ final class AndroidNativeAlarmScheduler implements NativeAlarmScheduler
         $this->alarms->requestNotificationPermission($requestId);
     }
 
-    public function activeRingingAlarmId(): ?string
+    public function activeRingingOccurrence(): ?ActiveAlarmOccurrence
     {
-        return $this->alarms->activeRingingAlarmId();
+        return $this->alarms->activeRingingOccurrence();
     }
 
     public function schedule(AlarmSchedule $alarm): void
