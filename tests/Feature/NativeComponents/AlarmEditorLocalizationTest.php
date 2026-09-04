@@ -35,7 +35,7 @@ it('adapts a historical Spanish difficulty to the active English locale', functi
 
     $this->assertDatabaseHas('alarms', [
         'id' => $alarm->id,
-        'difficulty' => 'Hard',
+        'difficulty' => 'hard',
     ]);
 });
 

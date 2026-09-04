@@ -4,6 +4,7 @@ namespace App\NativeComponents;
 
 use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
+use App\Application\Challenges\ChallengeDifficulty;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use Illuminate\Support\Str;
@@ -17,9 +18,6 @@ use Victorycodedev\ToastKit\Facades\Toast;
 
 class AlarmEditor extends NativeComponent
 {
-    /** @var list<string> */
-    private const array DifficultyKeys = ['easy', 'normal', 'hard'];
-
     public string $alarmId = '';
 
     public bool $isEditing = false;
@@ -56,9 +54,11 @@ class AlarmEditor extends NativeComponent
 
     public bool $snoozeEnabled = true;
 
+    public int $snoozeMinutes = 5;
+
     public bool $enabled = true;
 
-    public string $difficulty = 'Normal';
+    public string $difficulty = 'normal';
 
     public string $difficultyDisplay = 'Normal';
 
@@ -88,6 +88,7 @@ class AlarmEditor extends NativeComponent
         $this->sunday = in_array(7, $alarm->weekdays, true);
         $this->vibration = $alarm->vibration;
         $this->snoozeEnabled = $alarm->snooze_enabled;
+        $this->snoozeMinutes = $alarm->snoozeMinutes();
         $this->enabled = $alarm->enabled;
         $this->difficulty = $alarm->difficulty;
         $this->difficultyDisplay = $this->localizedDifficulty($this->difficulty);
@@ -114,6 +115,7 @@ class AlarmEditor extends NativeComponent
             'weekdays' => $this->selectedWeekdays(),
             'vibration' => $this->vibration,
             'snooze_enabled' => $this->snoozeEnabled,
+            'snooze_minutes' => $this->validSnoozeMinutes(),
             'difficulty' => $this->difficulty,
             'enabled' => $this->enabled,
             'scheduling_status' => $this->enabled ? 'pending' : 'not_scheduled',
@@ -275,27 +277,17 @@ class AlarmEditor extends NativeComponent
 
     private function localizedDifficulty(string $difficulty): string
     {
-        return __('app.'.self::difficultyKey($difficulty));
+        return __('app.'.ChallengeDifficulty::fromStored($difficulty)->value);
     }
 
     private function storedDifficulty(string $difficulty): string
     {
-        return __('app.'.self::difficultyKey($difficulty));
+        return ChallengeDifficulty::fromStored($difficulty)->value;
     }
 
-    private static function difficultyKey(string $difficulty): string
+    private function validSnoozeMinutes(): int
     {
-        foreach (self::DifficultyKeys as $key) {
-            if (in_array($difficulty, [
-                $key,
-                trans('app.'.$key, [], 'es_NI'),
-                trans('app.'.$key, [], 'en'),
-            ], true)) {
-                return $key;
-            }
-        }
-
-        return 'normal';
+        return in_array($this->snoozeMinutes, [5, 10, 15], true) ? $this->snoozeMinutes : 5;
     }
 
     public function render(): View

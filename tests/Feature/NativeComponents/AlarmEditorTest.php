@@ -29,6 +29,7 @@ it('persists every selected alarm setting without scheduling a disabled alarm', 
         ->assertSee('Alarma activada')
         ->toggle('enabled', false)
         ->select('difficultyDisplay', 'Difícil')
+        ->set('snoozeMinutes', 15)
         ->tap('save-alarm')
         ->assertReplacedWith('/');
 
@@ -36,8 +37,9 @@ it('persists every selected alarm setting without scheduling a disabled alarm', 
         'time' => '06:45',
         'label' => 'Salir a correr',
         'weekdays' => json_encode([2, 3, 4, 5, 6, 7]),
-        'difficulty' => 'Difícil',
+        'difficulty' => 'hard',
         'snooze_enabled' => true,
+        'snooze_minutes' => 15,
         'enabled' => false,
         'scheduling_status' => 'not_scheduled',
     ]);
@@ -51,13 +53,15 @@ it('sends enabled alarms through the scheduling boundary after persisting them',
     $scheduler->shouldReceive('schedule')->once()->withArgs(function (AlarmSchedule $schedule): bool {
         return $schedule->time === '07:15'
             && $schedule->weekdays === [1, 2, 3, 4, 5]
-            && $schedule->difficulty === 'Fácil';
+            && $schedule->difficulty === 'easy'
+            && $schedule->snoozeMinutes === 10;
     });
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
     Native::visit('/alarms/new')
         ->pickTime('time', '07:15')
-        ->set('difficulty', 'Fácil')
+        ->select('difficultyDisplay', 'Fácil')
+        ->set('snoozeMinutes', 10)
         ->tap('save-alarm')
         ->assertToastShownWithMessage('Alarma programada.')
         ->assertReplacedWith('/');
@@ -65,7 +69,8 @@ it('sends enabled alarms through the scheduling boundary after persisting them',
     $this->assertDatabaseHas('alarms', [
         'time' => '07:15',
         'weekdays' => json_encode([1, 2, 3, 4, 5]),
-        'difficulty' => 'Fácil',
+        'difficulty' => 'easy',
+        'snooze_minutes' => 10,
         'enabled' => true,
         'scheduling_status' => 'scheduled',
     ]);

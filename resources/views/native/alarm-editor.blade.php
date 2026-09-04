@@ -38,6 +38,10 @@
         <native:toggle :label="__('app.vibration')" native:model="vibration"/>
         @android
             <native:toggle :label="__('app.snooze')" native:model="snoozeEnabled"/>
+            @if ($snoozeEnabled)
+                <native:select ref="snooze-minutes" :label="__('app.snooze_duration')" :options="['5', '10', '15']"
+                               native:model="snoozeMinutes" :a11y-label="__('app.snooze_duration')"/>
+            @endif
         @endandroid
         <native:toggle :label="__('app.alarm_active')" native:model="enabled"/>
         <native:select :label="__('app.difficulty')" :options="[__('app.easy'), __('app.normal'), __('app.hard')]"
