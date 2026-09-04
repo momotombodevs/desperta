@@ -71,6 +71,7 @@ return [
     'delete_alarm' => 'Delete alarm?',
     'delete_alarm_confirmation' => 'This action cannot be undone.',
     'delete' => 'Delete',
+    'alarm_ringing_continue' => 'Ringing · Continue challenge',
     'alarm_active' => 'Alarm enabled',
     'challenge' => 'Challenge',
     'challenge_subtitle' => 'Get :required of :total right to turn it off',

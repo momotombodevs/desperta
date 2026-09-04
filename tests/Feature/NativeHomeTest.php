@@ -3,6 +3,7 @@
 use App\AlarmScheduling\ActiveAlarmOccurrence;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Models\Alarm;
+use App\Models\AlarmExecution;
 use App\NativeComponents\Challenge;
 use App\NativeComponents\Home;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -13,17 +14,94 @@ use function Pest\Laravel\mock;
 
 uses(LazilyRefreshDatabase::class);
 
-it('reopens the challenge with the active alarm occurrence when an alarm is still ringing', function () {
+it('automatically resumes the ringing occurrence when home opens', function () {
+    $alarm = Alarm::factory()->create();
+    $occurrence = new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T06:30:00+00:00');
     $scheduler = mock(NativeAlarmScheduler::class);
-    $scheduler->shouldReceive('activeRingingOccurrence')->once()->andReturn(new ActiveAlarmOccurrence('wake-up', 'execution-1', '2026-09-03T06:30:00+00:00'));
-    app()->instance(NativeAlarmScheduler::class, $scheduler);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn($occurrence);
 
     Native::test(Home::class)
+        ->assertSee('Sonando · Continuar reto')
+        ->assertElement('list_item', fn (array $node): bool => ($node['ref'] ?? null) === "edit-alarm-{$alarm->id}"
+            && ($node['props']['container_color'] ?? null) === '#B45309')
+        ->assertAccessible()
         ->assertReplacedWith('/challenge')
         ->follow()
         ->assertScreen(Challenge::class)
-        ->assertSet('alarmId', 'wake-up')
+        ->assertSet('alarmId', $alarm->id)
         ->assertSet('executionId', 'execution-1');
+});
+
+it('automatically opens a ringing challenge when home resumes', function () {
+    $alarm = Alarm::factory()->create();
+    $occurrence = new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T06:30:00+00:00');
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')->twice()->andReturn(null, $occurrence);
+
+    Native::test(Home::class)->assertNoNavigation()->call('onResume')->assertReplacedWith('/challenge');
+});
+
+it('rechecks an outdated ringing indicator before opening its row', function () {
+    $alarm = Alarm::factory()->create();
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->twice()->andReturnNull();
+
+    Native::test(Home::class)
+        ->set('activeAlarmId', $alarm->id)
+        ->tap("edit-alarm-{$alarm->id}")
+        ->assertNavigatedTo("/alarms/{$alarm->id}/edit")
+        ->assertDontSee('Sonando · Continuar reto');
+});
+
+it('does not resume a terminal execution reported by a stale native occurrence', function (string $status) {
+    $alarm = Alarm::factory()->create();
+    $execution = AlarmExecution::factory()->for($alarm)->create(['status' => $status]);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->twice()->andReturn(
+        new ActiveAlarmOccurrence($alarm->id, $execution->id, $execution->scheduled_for->toIso8601String()),
+    );
+
+    Native::test(Home::class)
+        ->assertDontSee('Sonando · Continuar reto')
+        ->tap("edit-alarm-{$alarm->id}")
+        ->assertNavigatedTo("/alarms/{$alarm->id}/edit");
+})->with(['completed', 'cancelled', 'missed']);
+
+it('does not highlight an execution belonging to a different alarm', function () {
+    $alarm = Alarm::factory()->create();
+    $execution = AlarmExecution::factory()->create(['status' => 'ringing']);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->once()->andReturn(
+        new ActiveAlarmOccurrence($alarm->id, $execution->id, $execution->scheduled_for->toIso8601String()),
+    );
+
+    Native::test(Home::class)
+        ->assertDontSee('Sonando · Continuar reto')
+        ->assertNoNavigation();
+});
+
+it('ignores native occurrences whose alarm no longer exists', function () {
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->once()->andReturn(
+        new ActiveAlarmOccurrence('deleted-alarm', 'execution-1', '2026-09-03T06:30:00+00:00'),
+    );
+
+    Native::test(Home::class)
+        ->assertSet('activeAlarmId', '')
+        ->assertNoNavigation();
+});
+
+it('removes the ringing indicator when its execution completes while home is away', function () {
+    $alarm = Alarm::factory()->create();
+    $execution = AlarmExecution::factory()->for($alarm)->create(['status' => 'ringing']);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->twice()->andReturn(
+        null,
+        new ActiveAlarmOccurrence($alarm->id, $execution->id, $execution->scheduled_for->toIso8601String()),
+    );
+    $home = Native::test(Home::class)->set('activeAlarmId', $alarm->id)->assertSee('Sonando · Continuar reto');
+    $execution->update(['status' => 'completed']);
+
+    $home->call('onResume')->assertDontSee('Sonando · Continuar reto');
 });
 
 it('renders only alarms created by the user with a trailing activation switch', function () {
