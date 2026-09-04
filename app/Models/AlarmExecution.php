@@ -40,6 +40,13 @@ class AlarmExecution extends Model
         return __('app.alarm_execution_status.'.$this->status);
     }
 
+    public function displayLabel(): string
+    {
+        $label = trim((string) $this->alarm_label);
+
+        return $label !== '' ? $label : __('app.untitled_alarm');
+    }
+
     public function displayTimestamp(): string
     {
         return $this->scheduled_for->locale(app()->getLocale())->isoFormat('D MMM, h:mm a');

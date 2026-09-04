@@ -29,6 +29,16 @@ it('keeps rendering execution rows when executions exist', function () {
         ->assertAccessible();
 });
 
+it('uses a clear fallback label when an execution has no alarm title', function () {
+    AlarmExecution::factory()->create([
+        'alarm_label' => '   ',
+    ]);
+
+    Native::visit('/settings/history')
+        ->assertSee('Alarma sin título')
+        ->assertAccessible();
+});
+
 it('renders the empty state in English when English is selected', function () {
     app(AppPreferences::class)->setLanguage('en');
 

@@ -12,10 +12,10 @@
             @foreach ($this->executions as $execution)
                 <native:row key="execution-{{ $execution->id }}"
                             class="w-full items-center gap-3 rounded-xl border border-theme-outline bg-theme-surface-variant p-4"
-                            :a11y-label="$execution->alarm_label.' · '.$execution->displayTimestamp().' · '.$execution->displayStatus()">
+                            :a11y-label="$execution->displayLabel().' · '.$execution->displayTimestamp().' · '.$execution->displayStatus()">
                     <native:icon name="history" class="text-theme-secondary" size="20" />
                     <native:column class="flex-1 gap-1">
-                        <native:text class="text-base text-theme-on-surface">{{ $execution->alarm_label }}</native:text>
+                        <native:text class="text-base text-theme-on-surface">{{ $execution->displayLabel() }}</native:text>
                         <native:text class="text-sm text-theme-on-surface-variant">
                             {{ $execution->displayTimestamp() }} · {{ $execution->displayStatus() }}
                         </native:text>

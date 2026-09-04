@@ -69,8 +69,6 @@ return [
 
     'alarm_timezone' => 'America/Managua',
 
-    'habits_demo_data' => (bool) env('HABITS_DEMO_DATA', env('APP_ENV', 'production') === 'local'),
-
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
