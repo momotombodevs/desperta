@@ -33,11 +33,18 @@ import com.nativephp.mobile.bridge.BridgeFunction
 import com.nativephp.mobile.bridge.BridgeResponse
 import com.nativephp.mobile.lifecycle.NativePHPLifecycle
 import com.nativephp.mobile.ui.MainActivity
+import com.nativephp.mobile.ui.nativerender.NativeElementBridge
+import com.nativephp.mobile.ui.nativerender.NativeUIBridge
 import com.nativephp.mobile.utils.NativeActionCoordinator
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Calendar
 import java.util.UUID
+
+@Suppress("UNUSED_PARAMETER")
+fun initializeAlarms(context: Context) {
+    AlarmsFunctions.observeAppResume()
+}
 
 /**
  * Android implementation of the `Alarms.*` NativePHP bridge contract.
@@ -48,6 +55,23 @@ import java.util.UUID
  */
 object AlarmsFunctions {
     private const val NOTIFICATION_AUTHORIZATION_CHANGED = "Momotombo\\NativePHPAlarms\\Events\\NotificationAuthorizationChanged"
+
+    private const val APP_RESUMED = "Momotombo\\NativePHPAlarms\\Events\\AppResumed"
+    private var appResumeObserverRegistered = false
+
+    @Synchronized
+    internal fun observeAppResume() {
+        if (appResumeObserverRegistered) {
+            return
+        }
+
+        NativePHPLifecycle.on(NativePHPLifecycle.Events.ON_RESUME) {
+            if (NativeUIBridge.isActive.value) {
+                NativeElementBridge.sendNativeEvent(APP_RESUMED, "{}")
+            }
+        }
+        appResumeObserverRegistered = true
+    }
 
     private var pendingNotificationPermissionRequest: PendingNotificationPermissionRequest? = null
     private var notificationPermissionResultObserverRegistered = false
