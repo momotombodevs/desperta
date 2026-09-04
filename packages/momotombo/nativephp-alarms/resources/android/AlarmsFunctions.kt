@@ -17,7 +17,10 @@ import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -56,7 +59,7 @@ object AlarmsFunctions {
                 "snooze" to true,
                 "repeating" to true,
                 "system_alarm_ui" to true,
-                "volume_control" to false,
+                "volume_control" to true,
             ),
         )
     }
@@ -475,6 +478,8 @@ class AlarmActivity : FragmentActivity() {
 class AlarmPlaybackService : Service() {
     private var player: MediaPlayer? = null
     private var activeAlarmId: String? = null
+    private val volumeRampHandler = Handler(Looper.getMainLooper())
+    private var volumeRamp: Runnable? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -527,6 +532,9 @@ class AlarmPlaybackService : Service() {
                 setDataSource(this@AlarmPlaybackService, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
                 isLooping = true
                 prepare()
+                if (alarm.values["progressive_volume"] as? Boolean == true) {
+                    startVolumeRamp(this)
+                }
                 start()
             }
 
@@ -540,6 +548,7 @@ class AlarmPlaybackService : Service() {
     }
 
     private fun stopPlayback() {
+        stopVolumeRamp()
         player?.run {
             if (isPlaying) {
                 stop()
@@ -554,6 +563,37 @@ class AlarmPlaybackService : Service() {
     }
 
     private fun activeAlarmId(): String? = activeAlarmId ?: playbackPreferences().getString(ACTIVE_ALARM_ID, null)
+
+    private fun startVolumeRamp(mediaPlayer: MediaPlayer) {
+        stopVolumeRamp()
+
+        val startedAt = SystemClock.elapsedRealtime()
+        val ramp = object : Runnable {
+            override fun run() {
+                if (player !== mediaPlayer) {
+                    return
+                }
+
+                val progress = ((SystemClock.elapsedRealtime() - startedAt).toFloat() / VOLUME_RAMP_DURATION_MILLIS).coerceIn(0f, 1f)
+                val volume = VOLUME_RAMP_START + ((1f - VOLUME_RAMP_START) * progress)
+                mediaPlayer.setVolume(volume, volume)
+
+                if (progress < 1f) {
+                    volumeRampHandler.postDelayed(this, VOLUME_RAMP_INTERVAL_MILLIS)
+                } else {
+                    volumeRamp = null
+                }
+            }
+        }
+
+        volumeRamp = ramp
+        ramp.run()
+    }
+
+    private fun stopVolumeRamp() {
+        volumeRamp?.let(volumeRampHandler::removeCallbacks)
+        volumeRamp = null
+    }
 
     private fun playbackPreferences() = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
 
@@ -612,6 +652,9 @@ class AlarmPlaybackService : Service() {
         private const val CHANNEL_ID = "momotombo.nativephp.alarms.ringing.v1"
         private const val PREFERENCES_NAME = "momotombo.nativephp.alarms.playback"
         private const val ACTIVE_ALARM_ID = "active_alarm_id"
+        private const val VOLUME_RAMP_DURATION_MILLIS = 30_000L
+        private const val VOLUME_RAMP_INTERVAL_MILLIS = 250L
+        private const val VOLUME_RAMP_START = 0.2f
         private const val TAG = "NativePHPAlarms"
 
         fun start(context: Context, alarmId: String) {

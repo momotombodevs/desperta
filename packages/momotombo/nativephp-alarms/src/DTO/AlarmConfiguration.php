@@ -21,6 +21,7 @@ final readonly class AlarmConfiguration
         public array $weekdays = [],
         public ?string $label = null,
         public bool $vibration = false,
+        public bool $progressiveVolume = false,
         public ?int $snoozeMinutes = null,
         public ?string $launchPath = null,
         public ?string $notificationTitle = null,
@@ -97,6 +98,12 @@ final readonly class AlarmConfiguration
         return $this->with(vibration: $enabled);
     }
 
+    /** Increase playback from 20% to 100% over the native default duration. */
+    public function progressiveVolume(bool $enabled = true): self
+    {
+        return $this->with(progressiveVolume: $enabled);
+    }
+
     /** Set the application-selected default snooze duration in minutes. */
     public function snooze(int $minutes): self
     {
@@ -137,7 +144,7 @@ final readonly class AlarmConfiguration
     /**
      * Serialize this configuration into the stable Android bridge payload.
      *
-     * @return array{id: string, hour: int, minute: int, weekdays: list<string>, label: ?string, vibration: bool, snooze_minutes: ?int, launch_path: ?string, notification_title: ?string, notification_body: ?string, occurrence_id: ?string, scheduled_for: ?string}
+     * @return array{id: string, hour: int, minute: int, weekdays: list<string>, label: ?string, vibration: bool, progressive_volume: bool, snooze_minutes: ?int, launch_path: ?string, notification_title: ?string, notification_body: ?string, occurrence_id: ?string, scheduled_for: ?string}
      */
     public function toPayload(): array
     {
@@ -148,6 +155,7 @@ final readonly class AlarmConfiguration
             'weekdays' => array_map(fn (Weekday $weekday): string => $weekday->value, $this->weekdays),
             'label' => $this->label,
             'vibration' => $this->vibration,
+            'progressive_volume' => $this->progressiveVolume,
             'snooze_minutes' => $this->snoozeMinutes,
             'launch_path' => $this->launchPath,
             'notification_title' => $this->notificationTitle,
@@ -174,6 +182,7 @@ final readonly class AlarmConfiguration
             ),
             label: isset($payload['label']) ? (string) $payload['label'] : null,
             vibration: (bool) ($payload['vibration'] ?? false),
+            progressiveVolume: (bool) ($payload['progressive_volume'] ?? false),
             snoozeMinutes: isset($payload['snooze_minutes']) ? (int) $payload['snooze_minutes'] : null,
             launchPath: isset($payload['launch_path']) ? (string) $payload['launch_path'] : null,
             notificationTitle: isset($payload['notification_title']) ? (string) $payload['notification_title'] : null,
@@ -190,6 +199,7 @@ final readonly class AlarmConfiguration
         ?array $weekdays = null,
         ?string $label = null,
         ?bool $vibration = null,
+        ?bool $progressiveVolume = null,
         ?int $snoozeMinutes = null,
         ?string $launchPath = null,
         ?string $notificationTitle = null,
@@ -204,6 +214,7 @@ final readonly class AlarmConfiguration
             weekdays: $weekdays ?? $this->weekdays,
             label: $label ?? $this->label,
             vibration: $vibration ?? $this->vibration,
+            progressiveVolume: $progressiveVolume ?? $this->progressiveVolume,
             snoozeMinutes: $snoozeMinutes ?? $this->snoozeMinutes,
             launchPath: $launchPath ?? $this->launchPath,
             notificationTitle: $notificationTitle ?? $this->notificationTitle,

@@ -179,6 +179,17 @@ describe('Native Code', function () {
             ->and($kotlin)->toContain('remove(ACTIVE_ALARM_ID)');
     });
 
+    it('ramps opted-in alarm playback from twenty to one hundred percent and cancels the ramp on stop', function () {
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+
+        expect($kotlin)->toContain('"volume_control" to true')
+            ->and($kotlin)->toContain('alarm.values["progressive_volume"] as? Boolean == true')
+            ->and($kotlin)->toContain('private const val VOLUME_RAMP_START = 0.2f')
+            ->and($kotlin)->toContain('private const val VOLUME_RAMP_DURATION_MILLIS = 30_000L')
+            ->and($kotlin)->toContain('mediaPlayer.setVolume(volume, volume)')
+            ->and($kotlin)->toContain('stopVolumeRamp()');
+    });
+
     it('opens the configured launch path when an unlocked alarm rings', function () {
         $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
 

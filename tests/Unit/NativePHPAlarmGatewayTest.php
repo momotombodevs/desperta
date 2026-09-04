@@ -40,6 +40,7 @@ it('maps an application alarm schedule to the plugin configuration', function ()
         'weekdays' => ['monday', 'friday'],
         'label' => 'Trabajo',
         'vibration' => true,
+        'progressive_volume' => true,
         'snooze_minutes' => 5,
         'launch_path' => '/challenge',
         'notification_title' => 'Trabajo',

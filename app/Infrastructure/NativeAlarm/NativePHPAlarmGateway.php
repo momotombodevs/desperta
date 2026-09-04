@@ -91,6 +91,7 @@ final class NativePHPAlarmGateway implements NativeAlarmGateway
             ->label($alarm->label)
             ->repeatOn($this->weekdays($alarm->weekdays))
             ->vibration($alarm->vibration)
+            ->progressiveVolume()
             ->launchPath('/challenge')
             ->notification($alarm->notificationTitle, $alarm->notificationBody)
             ->occurrence($alarm->executionId, $alarm->scheduledFor);

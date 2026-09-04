@@ -73,8 +73,8 @@ The `occurrence()` values are supplied by the application domain. They make reco
 
 | Type | Public fields or methods | Contract |
 | --- | --- | --- |
-| `AlarmConfiguration` | `make`, `at`, `repeatOn`, `label`, `vibration`, `snooze`, `launchPath`, `notification`, `occurrence`, `toPayload`, `fromPayload` | Immutable alarm payload. `at()` requires `HH:MM`; weekdays must be unique `Weekday` enum cases; snooze is at least one minute; a launch path begins with `/`; occurrence ID and scheduled time cannot be blank. |
-| `AlarmCapabilities` | `exact`, `snooze`, `repeating`, `systemAlarmUi`, `volumeControl` | Read-only feature matrix. `volumeControl` is currently `false`. |
+| `AlarmConfiguration` | `make`, `at`, `repeatOn`, `label`, `vibration`, `progressiveVolume`, `snooze`, `launchPath`, `notification`, `occurrence`, `toPayload`, `fromPayload` | Immutable alarm payload. `at()` requires `HH:MM`; weekdays must be unique `Weekday` enum cases; snooze is at least one minute; a launch path begins with `/`; occurrence ID and scheduled time cannot be blank. |
+| `AlarmCapabilities` | `exact`, `snooze`, `repeating`, `systemAlarmUi`, `volumeControl` | Read-only feature matrix. `volumeControl` is available through the opt-in progressive-volume ramp. |
 | `ActiveAlarmOccurrence` | `alarmId`, `occurrenceId`, `scheduledFor`, `fromPayload` | Returns `null` from `fromPayload()` unless all three values are present and non-empty. |
 | `AuthorizationStatus` | `NotDetermined`, `Authorized`, `Denied`, `Unsupported` | Exact-alarm and notification authorization values. |
 | `Weekday` | `Monday` through `Sunday` | The only accepted values for repeating schedules. |
@@ -90,12 +90,13 @@ The `occurrence()` values are supplied by the application domain. They make reco
 | `weekdays` | list of strings | Empty for one-shot; otherwise lowercase `Weekday` values. |
 | `label` | nullable string | Human-readable fallback notification title. |
 | `vibration` | boolean | Whether playback should vibrate. |
+| `progressive_volume` | boolean | Whether Android ramps playback from 20% to 100% over 30 seconds without changing the device volume. |
 | `snooze_minutes` | nullable integer | Application-selected default snooze duration; the actual snooze call also takes minutes. |
 | `launch_path` | nullable string | NativePHP route path to open when the alarm rings. |
 | `notification_title`, `notification_body` | nullable strings | Notification copy; title falls back to `label`, then `Alarm`. |
 | `occurrence_id`, `scheduled_for` | nullable strings | Application correlation data used for lifecycle reconciliation. |
 
-The plugin uses the device's default alarm tone. It does not accept a custom sound payload or expose a browser/JavaScript bridge.
+The plugin uses the device's default alarm tone. `progressiveVolume()` opts a configuration into the native 20%-to-100% ramp. It does not accept a custom sound payload or expose a browser/JavaScript bridge.
 
 ## Lifecycle and reconciliation
 

@@ -15,6 +15,7 @@ it('serializes a reusable weekly alarm configuration with an occurrence and laun
         ->at('06:30')
         ->repeatOn([Weekday::Monday, Weekday::Friday])
         ->vibration()
+        ->progressiveVolume()
         ->snooze(5)
         ->launchPath('/wake-up')
         ->notification('Wake up', 'Your alarm is ringing.')
@@ -27,6 +28,7 @@ it('serializes a reusable weekly alarm configuration with an occurrence and laun
         'weekdays' => ['monday', 'friday'],
         'label' => null,
         'vibration' => true,
+        'progressive_volume' => true,
         'snooze_minutes' => 5,
         'launch_path' => '/wake-up',
         'notification_title' => 'Wake up',
@@ -52,7 +54,7 @@ it('maps native capabilities and authorization without assuming platform parity'
         public function call(string $method, array $parameters = []): array
         {
             return match ($method) {
-                'Alarms.Capabilities' => ['exact' => true, 'snooze' => true, 'repeating' => true, 'system_alarm_ui' => true, 'volume_control' => false],
+                'Alarms.Capabilities' => ['exact' => true, 'snooze' => true, 'repeating' => true, 'system_alarm_ui' => true, 'volume_control' => true],
                 'Alarms.AuthorizationStatus' => ['status' => 'authorized'],
             };
         }
@@ -63,7 +65,7 @@ it('maps native capabilities and authorization without assuming platform parity'
         'snooze' => true,
         'repeating' => true,
         'system_alarm_ui' => true,
-        'volume_control' => false,
+        'volume_control' => true,
     ]);
     expect($scheduler->authorizationStatus())->toBe(AuthorizationStatus::Authorized);
     expect($scheduler->canSchedule())->toBeTrue();
