@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Application\Challenges\ChallengeDifficulty;
 use Database\Factories\AlarmFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,6 +21,7 @@ class Alarm extends Model
         'weekdays',
         'vibration',
         'snooze_enabled',
+        'snooze_minutes',
         'difficulty',
         'enabled',
         'scheduling_status',
@@ -31,6 +33,7 @@ class Alarm extends Model
             'weekdays' => 'array',
             'vibration' => 'boolean',
             'snooze_enabled' => 'boolean',
+            'snooze_minutes' => 'integer',
             'enabled' => 'boolean',
         ];
     }
@@ -53,6 +56,16 @@ class Alarm extends Model
     public function repeatsWeekly(): bool
     {
         return $this->weekdays !== [];
+    }
+
+    public function challengeDifficulty(): ChallengeDifficulty
+    {
+        return ChallengeDifficulty::fromStored($this->difficulty);
+    }
+
+    public function snoozeMinutes(): int
+    {
+        return in_array($this->snooze_minutes, [5, 10, 15], true) ? $this->snooze_minutes : 5;
     }
 
     public function challengeAttempts(): HasMany

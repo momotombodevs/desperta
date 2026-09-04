@@ -176,15 +176,15 @@ it('completes a real weekly execution without creating history for its next sche
     $this->assertDatabaseCount('alarm_executions', 1);
 });
 
-it('snoozes a real execution for five minutes without changing its weekly schedule', function () {
-    $alarm = Alarm::factory()->create(['snooze_enabled' => true]);
+it('snoozes a real execution for the alarm-selected duration without changing its weekly schedule', function (int $minutes) {
+    $alarm = Alarm::factory()->create(['snooze_enabled' => true, 'snooze_minutes' => $minutes]);
     $execution = AlarmExecution::factory()->for($alarm)->create([
         'id' => '018f0b8d-1d3e-7f14-8caa-111111111111',
         'status' => 'scheduled',
         'finished_at' => null,
     ]);
     $scheduler = mock(NativeAlarmScheduler::class);
-    $scheduler->shouldReceive('snooze')->once()->with($alarm->id, 5);
+    $scheduler->shouldReceive('snooze')->once()->with($alarm->id, $minutes);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
     Native::visit('/challenge', [
@@ -198,7 +198,11 @@ it('snoozes a real execution for five minutes without changing its weekly schedu
     expect($execution->fresh()->status)->toBe('snoozed')
         ->and($execution->fresh()->snooze_count)->toBe(1)
         ->and($alarm->fresh()->scheduling_status)->toBe('scheduled');
-});
+})->with([
+    'five minutes' => 5,
+    'ten minutes' => 10,
+    'fifteen minutes' => 15,
+]);
 
 it('stops a completed challenge when its alarm is no longer in the local database', function () {
     $scheduler = mock(NativeAlarmScheduler::class);

@@ -31,9 +31,10 @@ final class AlarmExecutionLifecycle
             weekdays: $alarm->weekdays,
             vibration: $alarm->vibration,
             snoozeEnabled: $alarm->snooze_enabled,
-            difficulty: $alarm->difficulty,
+            difficulty: $alarm->challengeDifficulty()->value,
             executionId: $executionId,
             scheduledFor: $scheduledFor->toIso8601String(),
+            snoozeMinutes: $alarm->snoozeMinutes(),
             notificationTitle: filled($alarm->label) ? $alarm->label : __('app.alarm_notification_title'),
             notificationBody: __('app.alarm_notification_body'),
         );

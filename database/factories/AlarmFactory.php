@@ -23,7 +23,8 @@ class AlarmFactory extends Factory
             'weekdays' => [1, 2, 3, 4, 5],
             'vibration' => true,
             'snooze_enabled' => true,
-            'difficulty' => 'Normal',
+            'difficulty' => 'normal',
+            'snooze_minutes' => 5,
             'enabled' => true,
             'scheduling_status' => 'scheduled',
         ];
