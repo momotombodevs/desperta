@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "69a4e28ccd7973f68e2ebbcf4e15e36e",
+    "content-hash": "c0bbd9c032cb82edd474e7563d93ece4",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2324,7 +2324,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "../nativephp-alarms",
+                "url": "packages/momotombo/nativephp-alarms",
                 "reference": "68bd6530b775ae61f1921834baa4cdbfe83145bd"
             },
             "require": {

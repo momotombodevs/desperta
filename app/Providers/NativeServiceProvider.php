@@ -8,6 +8,8 @@ use Momotombo\NativePHPAlarms\AlarmServiceProvider;
 use Momotombo\NativephpAppearance\AppearanceServiceProvider;
 use Native\Mobile\Providers\BrowserServiceProvider;
 use Native\Mobile\UI\NativeUIServiceProvider;
+use Unloc\NativephpEnhancedSplash\NativephpEnhancedSplashServiceProvider;
+use Unloc\NativephpSvgComponent\SvgServiceProvider;
 use Victorycodedev\ToastKit\ToastKitServiceProvider;
 
 class NativeServiceProvider extends ServiceProvider
@@ -46,9 +48,9 @@ class NativeServiceProvider extends ServiceProvider
             AppearanceServiceProvider::class,
             ToastKitServiceProvider::class,
             NativePHPChartsServiceProvider::class,
-            \Unloc\NativephpSvgComponent\SvgServiceProvider::class,
-            
-            
+            SvgServiceProvider::class,
+            NativephpEnhancedSplashServiceProvider::class,
+
         ];
     }
 }

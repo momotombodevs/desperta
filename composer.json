@@ -13,7 +13,7 @@
     "repositories": [
         {
             "type": "path",
-            "url": "../nativephp-alarms"
+            "url": "packages/momotombo/nativephp-alarms"
         },
         {
             "name": "nativephp-plugins",

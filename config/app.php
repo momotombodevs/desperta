@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'Despertá'),
 
     /*
     |--------------------------------------------------------------------------
@@ -66,6 +66,10 @@ return [
     */
 
     'timezone' => 'UTC',
+
+    'alarm_timezone' => 'America/Managua',
+
+    'habits_demo_data' => (bool) env('HABITS_DEMO_DATA', env('APP_ENV', 'production') === 'local'),
 
     /*
     |--------------------------------------------------------------------------
