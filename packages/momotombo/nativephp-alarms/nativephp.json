@@ -1,0 +1,109 @@
+{
+    "name": "momotombo/nativephp-alarms",
+    "version": "0.1.0",
+    "description": "Android alarm contract for NativePHP Mobile.",
+    "namespace": "Alarms",
+    "keywords": [
+        "nativephp",
+        "plugin",
+        "alarms",
+        "utilities",
+        "mobile",
+        "android",
+        "notifications",
+        "background",
+        "tasks"
+    ],
+    "category": "utilities",
+    "license": "MIT",
+    "pricing": {
+        "type": "free"
+    },
+    "author": {
+        "name": "Momotombo Devs",
+        "email": "hello@momotombo.dev",
+        "url": "https://momotombo.dev"
+    },
+    "homepage": "https://momotombo.dev",
+    "repository": "https://github.com/momotombodevs/nativephp-alarms",
+    "funding": [],
+    "platforms": ["android"],
+    "screenshots": [],
+    "bridge_functions": [
+        {"name": "Alarms.Capabilities", "description": "Return native alarm capabilities.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Capabilities"},
+        {"name": "Alarms.AuthorizationStatus", "description": "Return alarm authorization status.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.AuthorizationStatus"},
+        {"name": "Alarms.RequestAuthorization", "description": "Request alarm authorization.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.RequestAuthorization"},
+        {"name": "Alarms.FullScreenIntentAuthorizationStatus", "description": "Return full-screen alarm authorization.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.FullScreenIntentAuthorizationStatus"},
+        {"name": "Alarms.RequestFullScreenIntentAuthorization", "description": "Open full-screen alarm authorization settings.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.RequestFullScreenIntentAuthorization"},
+        {"name": "Alarms.NotificationAuthorizationStatus", "description": "Return notification authorization status.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.NotificationAuthorizationStatus"},
+        {"name": "Alarms.RequestNotificationAuthorization", "description": "Request notification authorization.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.RequestNotificationAuthorization"},
+        {"name": "Alarms.Active", "description": "Return the active alarm occurrence currently ringing on this device.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Active"},
+        {"name": "Alarms.Schedule", "description": "Schedule an alarm configuration.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Schedule"},
+        {"name": "Alarms.Update", "description": "Update an existing alarm configuration.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Update"},
+        {"name": "Alarms.Occurrences", "description": "Return unacknowledged alarm occurrence events.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Occurrences"},
+        {"name": "Alarms.AcknowledgeOccurrences", "description": "Acknowledge reconciled alarm occurrence events.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.AcknowledgeOccurrences"},
+        {"name": "Alarms.Complete", "description": "Stop an active ringing session without cancelling its schedule.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Complete"},
+        {"name": "Alarms.Cancel", "description": "Cancel one alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Cancel"},
+        {"name": "Alarms.CancelAll", "description": "Cancel every alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.CancelAll"},
+        {"name": "Alarms.Snooze", "description": "Snooze one active alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Snooze"},
+        {"name": "Alarms.Next", "description": "Return the next scheduled alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Next"},
+        {"name": "Alarms.All", "description": "Return all scheduled alarms.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.All"},
+        {"name": "Alarms.Exists", "description": "Check whether an alarm exists.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Exists"}
+    ],
+    "android": {
+        "min_version": 26,
+        "permissions": [
+            "android.permission.SCHEDULE_EXACT_ALARM",
+            "android.permission.USE_FULL_SCREEN_INTENT",
+            "android.permission.POST_NOTIFICATIONS",
+            "android.permission.RECEIVE_BOOT_COMPLETED",
+            "android.permission.VIBRATE",
+            "android.permission.FOREGROUND_SERVICE",
+            "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        ],
+        "repositories": [],
+        "dependencies": {
+            "implementation": []
+        },
+        "activities": [
+            {
+                "name": "com.momotombo.plugins.nativephp_alarms.AlarmActivity",
+                "exported": false
+            }
+        ],
+        "services": [
+            {
+                "name": "com.momotombo.plugins.nativephp_alarms.AlarmPlaybackService",
+                "exported": false,
+                "foregroundServiceType": "mediaPlayback"
+            }
+        ],
+        "receivers": [
+            {
+                "name": "com.momotombo.plugins.nativephp_alarms.AlarmReceiver",
+                "exported": false
+            },
+            {
+                "name": "com.momotombo.plugins.nativephp_alarms.BootReceiver",
+                "exported": true,
+                "intent-filters": [
+                    {
+                        "action": "android.intent.action.BOOT_COMPLETED"
+                    }
+                ]
+            }
+        ],
+        "providers": []
+    },
+    "ios": {
+        "min_version": "15.0"
+    },
+    "assets": {
+        "android": {
+            "android/drawable/ic_stat_desperta.xml": "res/drawable/ic_stat_desperta.xml"
+        }
+    },
+    "secrets": [],
+    "events": ["Momotombo\\NativePHPAlarms\\Events\\AlarmAuthorizationChanged", "Momotombo\\NativePHPAlarms\\Events\\NotificationAuthorizationChanged", "Momotombo\\NativePHPAlarms\\Events\\AlarmScheduled", "Momotombo\\NativePHPAlarms\\Events\\AlarmTriggered", "Momotombo\\NativePHPAlarms\\Events\\AlarmSnoozed", "Momotombo\\NativePHPAlarms\\Events\\AlarmCancelled", "Momotombo\\NativePHPAlarms\\Events\\AlarmCompleted", "Momotombo\\NativePHPAlarms\\Events\\AlarmError"],
+    "service_provider": "Momotombo\\NativePHPAlarms\\AlarmServiceProvider"
+}
