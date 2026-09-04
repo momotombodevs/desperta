@@ -79,20 +79,17 @@
                            @change="selectChallengeTheme" :a11y-label="__('app.challenge_theme')"/>
         </native:column>
 
-        <native:pressable ref="privacy-policy" class="w-full rounded-xl border border-theme-outline bg-theme-surface-variant p-4"
+        <native:pressable ref="privacy-policy" class="w-full p-4 pt-8"
                           @tap="openPrivacyPolicy" :a11y-label="__('app.privacy_policy_a11y')" :a11y-hint="__('app.privacy_policy_hint')">
             <native:row class="w-full items-center gap-3">
-                <native:icon :android="Android::PrivacyTip" class="text-theme-primary" size="24"/>
                 <native:column class="flex-1 gap-1">
                     <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.privacy_policy') }}</native:text>
-                    <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.privacy_policy_summary') }}</native:text>
                 </native:column>
                 <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
             </native:row>
         </native:pressable>
 
-        <native:divider class="w-full" />
-        <native:pressable ref="momotombo-devs" class="w-full p-3" @tap="openMomotomboDevs"
+        <native:pressable ref="momotombo-devs" class="w-full" @tap="openMomotomboDevs"
                           :a11y-label="__('app.momotombo_devs_a11y')" :a11y-hint="__('app.momotombo_devs_hint')">
             <native:row class="w-full justify-center">
                 <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.crafted_with_passion') }}</native:text>

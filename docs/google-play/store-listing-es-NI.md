@@ -4,7 +4,8 @@
 
 - Ícono de Play: `assets/desperta-play-icon-512.png` — PNG 512 × 512, 32 bits y 280 KB.
 - Gráfica promocional: `assets/desperta-feature-graphic-1024x500.jpg` — JPEG 1024 × 500 y 53 KB.
-- Capturas: guardarlas en `screenshots/` después de capturarlas desde una compilación Android real. No se incluyeron imágenes simuladas: deben representar exactamente la versión que se envía a revisión.
+- Banner con el collage de las seis capturas más representativas, recortadas al contenido de la app: `assets/desperta-screenshots-collage-1024x500.jpg` — JPEG 1024 × 500.
+- Capturas: ocho capturas de Android físico, ya listas en `screenshots/`. No se incluyeron imágenes simuladas: representan la versión ejecutada en el dispositivo.
 
 ## Texto para la ficha principal
 
@@ -26,16 +27,20 @@ También podés activar la vibración, elegir si querés posponer y revisar un h
 
 Tus alarmas, preferencias e historial se guardan únicamente en tu dispositivo. Despertá no requiere crear una cuenta ni incorpora publicidad o analítica en la versión publicada.
 
-## Capturas obligatorias
+## Capturas de teléfono listas para cargar
 
-Subir al menos dos capturas PNG o JPEG de la app real, sin marcos de teléfono ni texto promocional agregado. Para esta ficha, capturar en vertical y en este orden:
+Subir estos archivos en este orden. Son JPEG sin transparencia, de 1440 × 3088 px (9:19.3), por lo que cumplen el rango de 320 a 3840 px de Play.
 
-1. Inicio con al menos dos alarmas programadas y activas.
-2. Editor de alarma mostrando hora, repetición, vibración y reto.
-3. Reto de alarma activo, antes de completarlo.
-4. Historial con ejecuciones reales de ejemplo.
+1. `screenshots/01-home-light.jpg` — alarmas programadas.
+2. `screenshots/02-alarm-editor.jpg` — configuración de una alarma.
+3. `screenshots/03-settings-es.jpg` — idioma, apariencia y tema de reto.
+4. `screenshots/04-challenge-question.jpg` — pregunta del reto de alarma.
+5. `screenshots/05-challenge-answer.jpg` — respuesta y validación del reto.
+6. `screenshots/06-alarm-completed.jpg` — alarma completada.
+7. `screenshots/07-habits.jpg` — progreso y resultados diarios.
+8. `screenshots/08-history.jpg` — historial de ejecuciones.
 
-Mantener cada captura entre 320 y 3840 px por lado y sin transparencia. Para una presentación óptima en teléfonos, exportarlas a 1080 × 1920 px (relación 9:16).
+Las capturas muestran tanto la interfaz en inglés como la pantalla de configuración en español, coherente con los idiomas que ofrece la app. Para la ficha es-NI, preferir una futura tanda completamente en español si la localización completa está disponible en la versión que se publicará.
 
 ## Datos para Play Console
 
