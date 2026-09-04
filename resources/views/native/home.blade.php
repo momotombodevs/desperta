@@ -1,11 +1,9 @@
 @use('App\Icons\Android')
-@use('App\Icons\Ios')
 
 <native:top-bar :title="__('app.app_name')" :subtitle="__('app.tagline')" display-mode="large">
     <native:top-bar-action
         id="settings"
         ref="settings"
-        :ios-icon="Ios::Gearshape"
         :android-icon="Android::Settings"
         :label="__('app.settings')"
         @navigate="'/settings'"
@@ -21,16 +19,15 @@
                 {{ $this->nextAlarm->displayTime() }}
             </native:text>
             <native:text class="text-base text-theme-on-sunrise">
-                {{ $this->nextAlarm->label }} · {{ $this->nextAlarm->repeatLabel() }}
+                {{ $this->nextAlarm->scheduleSummary() }}
             </native:text>
         </native:column>
         <native:spacer :height="24"/>
     @endif
 
     @if ($this->alarms->isEmpty())
-        <native:column ref="home-screen" class="w-full h-full items-center justify-center">
+            <native:column ref="home-screen" class="w-full h-full items-center justify-center gap-3 px-8">
             <native:icon
-                :ios="Ios::BellSlash"
                 :android="Android::AlarmOff"
                 :opacity="$emptyStateVisible ? 1 : 0"
                 :scale="$emptyStateVisible ? 1 : 0.92"
@@ -40,6 +37,8 @@
                 size="96"
                 :a11y-label="__('app.no_alarms_a11y')"
             />
+            <native:text font="accent" class="text-xl text-center text-theme-on-background">{{ __('app.empty_alarms_title') }}</native:text>
+            <native:text class="text-base text-center text-theme-on-surface-variant">{{ __('app.empty_alarms_body') }}</native:text>
         </native:column>
     @else
         <native:column ref="home-screen" class="w-full gap-3">
@@ -51,7 +50,7 @@
         @foreach ($this->alarms as $alarm)
             <native:list-item ref="edit-alarm-{{ $alarm->id }}" key="alarm-{{ $alarm->id }}"
                               class="w-full rounded-xl border border-theme-outline bg-theme-surface"
-                              :headline="$alarm->displayTime()" :supporting="$alarm->label.' · '.$alarm->repeatLabel()"
+                              :headline="$alarm->displayTime()" :supporting="$alarm->scheduleSummary()"
                               leadingIcon="alarm" :leadingIconColor="theme('primary')"
                               :containerColor="theme('surface')"
                               :trailingSwitch="$alarm->enabled"
@@ -69,5 +68,9 @@
 
 </native:list>
 
-<native:fab ref="create-alarm" :ios-icon="Ios::Plus" :android-icon="Android::Add" :label="__('app.create_alarm')"
-            @tap="createAlarm" :a11y-label="__('app.create_alarm')"/>
+<native:bottom-bar>
+    <native:column class="w-full bg-theme-background p-4">
+        <native:button ref="create-alarm" variant="primary" size="lg" class="w-full" @tap="createAlarm"
+                       :a11y-label="__('app.create_alarm')">{{ __('app.create_alarm') }}</native:button>
+    </native:column>
+</native:bottom-bar>

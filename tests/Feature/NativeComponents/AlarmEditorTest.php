@@ -37,6 +37,7 @@ it('persists every selected alarm setting without scheduling a disabled alarm', 
         'label' => 'Salir a correr',
         'weekdays' => json_encode([2, 3, 4, 5, 6, 7]),
         'difficulty' => 'Difícil',
+        'snooze_enabled' => true,
         'enabled' => false,
         'scheduling_status' => 'not_scheduled',
     ]);

@@ -36,7 +36,9 @@
         </native:column>
 
         <native:toggle :label="__('app.vibration')" native:model="vibration"/>
-        <native:toggle :label="__('app.snooze')" native:model="snoozeEnabled"/>
+        @android
+            <native:toggle :label="__('app.snooze')" native:model="snoozeEnabled"/>
+        @endandroid
         <native:toggle :label="__('app.alarm_active')" native:model="enabled"/>
         <native:select :label="__('app.difficulty')" :options="[__('app.easy'), __('app.normal'), __('app.hard')]"
                        native:model="difficultyDisplay"/>
