@@ -14,7 +14,7 @@ it('returns the selected localized challenge questions', function () {
     $preferences->setChallengeTheme('general_knowledge');
 
     $catalog = new ChallengeCatalog($preferences, new Randomizer(new Mt19937(7)));
-    $questions = $catalog->questions();
+    $questions = $catalog->questions(3);
 
     expect($catalog->themeName())->toBe('General knowledge')
         ->and($questions)->toHaveCount(3)
@@ -25,13 +25,19 @@ it('materializes shuffled questions and answers without losing the correct answe
     $preferences = app(AppPreferences::class);
     $catalog = new ChallengeCatalog($preferences, new Randomizer(new Mt19937(12)));
 
-    $questions = $catalog->questions();
+    $questions = $catalog->questions(3);
 
     expect(array_unique(array_column($questions, 'id')))->toHaveCount(3);
 
     foreach ($questions as $question) {
         expect($question['options'])->toContain($question['answer']);
     }
+});
+
+it('returns five questions for a hard challenge', function () {
+    $catalog = new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937(19)));
+
+    expect($catalog->questions(5))->toHaveCount(5);
 });
 
 it('keeps localized question identifiers aligned across Spanish and English', function () {

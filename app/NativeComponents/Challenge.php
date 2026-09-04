@@ -6,6 +6,7 @@ use App\AlarmScheduling\AlarmOccurrenceReconciler;
 use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Challenges\ChallengeCatalog;
+use App\Application\Challenges\ChallengeDifficulty;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use App\Models\AlarmChallengeAttempt;
@@ -22,6 +23,8 @@ class Challenge extends NativeComponent
 
     public bool $snoozeAvailable = false;
 
+    public int $snoozeMinutes = 5;
+
     /** @var list<array{id: string, question: string, options: list<string>, answer: string}> */
     public array $questions = [];
 
@@ -33,6 +36,10 @@ class Challenge extends NativeComponent
     public ?int $selectedAnswerIndex = null;
 
     public int $correctAnswers = 0;
+
+    public int $questionCount = 3;
+
+    public int $requiredCorrectAnswers = 3;
 
     public int $attemptNumber = 1;
 
@@ -50,6 +57,10 @@ class Challenge extends NativeComponent
         $this->executionId = (string) $this->param('executionId', $this->data('executionId', request()->query('executionId', '')));
         $scheduledFor = (string) $this->param('scheduledFor', $this->data('scheduledFor', request()->query('scheduledFor', '')));
         $this->recoverActiveOccurrence($scheduledFor);
+        $alarm = Alarm::query()->find($this->alarmId);
+        $difficulty = $alarm?->challengeDifficulty() ?? ChallengeDifficulty::Normal;
+        $this->questionCount = $difficulty->questionCount();
+        $this->requiredCorrectAnswers = $difficulty->requiredCorrectAnswers();
         $this->materializeQuestions();
         $this->usedQuestionIds = array_column($this->questions, 'id');
 
@@ -59,8 +70,8 @@ class Challenge extends NativeComponent
                 ->max('attempt_number') + 1;
         }
 
-        $alarm = Alarm::query()->find($this->alarmId);
         $this->snoozeAvailable = $this->executionId !== '' && $alarm?->snooze_enabled === true;
+        $this->snoozeMinutes = $alarm?->snoozeMinutes() ?? 5;
 
         if ($this->executionId === '') {
             return;
@@ -85,7 +96,7 @@ class Challenge extends NativeComponent
 
         if ($this->questionIndex === count($this->questions) - 1) {
             $this->completed = true;
-            $this->passed = $this->correctAnswers === count($this->questions);
+            $this->passed = $this->correctAnswers >= $this->requiredCorrectAnswers;
             $this->recordAttempt();
 
             if ($this->passed) {
@@ -131,7 +142,9 @@ class Challenge extends NativeComponent
             return;
         }
 
-        app(NativeAlarmScheduler::class)->snooze($this->alarmId, 5);
+        $alarm = Alarm::query()->find($this->alarmId);
+
+        app(NativeAlarmScheduler::class)->snooze($this->alarmId, $alarm?->snoozeMinutes() ?? 5);
         app(AlarmExecutionLifecycle::class)->snooze($execution);
         $this->replace('/');
     }
@@ -188,7 +201,7 @@ class Challenge extends NativeComponent
             'attempt_number' => $this->attemptNumber,
             'correct_answers' => $this->correctAnswers,
             'question_count' => count($this->questions),
-            'required_correct_answers' => count($this->questions),
+            'required_correct_answers' => $this->requiredCorrectAnswers,
             'passed' => $this->passed,
         ]);
     }
@@ -199,7 +212,7 @@ class Challenge extends NativeComponent
         $preferences = app(AppPreferences::class);
         $catalog = app(ChallengeCatalog::class);
         $theme = $preferences->challengeTheme();
-        $this->questions = $catalog->questions($excludedQuestionIds, $preferences->lastChallengeOrder($theme));
+        $this->questions = $catalog->questions($this->questionCount, $excludedQuestionIds, $preferences->lastChallengeOrder($theme));
         $preferences->rememberChallengeOrder($theme, $catalog->fingerprint($this->questions));
     }
 

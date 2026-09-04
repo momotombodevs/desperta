@@ -1,6 +1,6 @@
 @use('App\Icons\Android')
 
-<native:top-bar :title="__('app.challenge')" :subtitle="__('app.challenge_subtitle')" display-mode="inline"/>
+<native:top-bar :title="__('app.challenge')" :subtitle="__('app.challenge_subtitle', ['required' => $requiredCorrectAnswers, 'total' => count($questions)])" display-mode="inline"/>
 
 <native:column ref="challenge-screen" class="w-full h-full gap-5 bg-theme-background p-6">
     @if (! $completed)
@@ -34,7 +34,7 @@
                        :disabled="$selectedAnswerIndex === null" :a11y-label="$questionIndex === count($questions) - 1 ? __('app.check_answers') : __('app.continue')">{{ $questionIndex === count($questions) - 1 ? __('app.check_answers') : __('app.continue') }}</native:button>
         @if ($snoozeAvailable)
             <native:button ref="snooze-alarm" variant="secondary" class="w-full" size="lg" @tap="snoozeAlarm"
-                           :a11y-label="__('app.snooze_for_minutes', ['minutes' => 5])">{{ __('app.snooze_for_minutes', ['minutes' => 5]) }}</native:button>
+                           :a11y-label="__('app.snooze_for_minutes', ['minutes' => $this->snoozeMinutes])">{{ __('app.snooze_for_minutes', ['minutes' => $this->snoozeMinutes]) }}</native:button>
         @endif
     @elseif ($passed)
         <native:column class="w-full items-center gap-5 rounded-2xl bg-theme-success/15 p-6">
@@ -52,7 +52,7 @@
                 {{ __('app.correct') }}
             </native:text>
             <native:text
-                class="text-lg text-center text-theme-on-surface-variant">{{ __('app.retry_challenge') }}</native:text>
+                class="text-lg text-center text-theme-on-surface-variant">{{ __('app.retry_challenge', ['required' => $requiredCorrectAnswers, 'total' => count($questions)]) }}</native:text>
             <native:button ref="retry-challenge" variant="primary" class="w-full" size="lg" :a11y-label="__('app.try_again')"
                            @tap="retry">{{ __('app.try_again') }}</native:button>
         </native:column>

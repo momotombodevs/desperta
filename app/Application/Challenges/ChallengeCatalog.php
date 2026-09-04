@@ -13,7 +13,7 @@ class ChallengeCatalog
     ) {}
 
     /** @param list<string> $excludedQuestionIds @return list<array{id: string, question: string, options: list<string>, answer: string}> */
-    public function questions(array $excludedQuestionIds = [], ?string $previousFingerprint = null): array
+    public function questions(int $count, array $excludedQuestionIds = [], ?string $previousFingerprint = null): array
     {
         /** @var array{questions: list<array{id: string, question: string, options: list<string>, answer: string}>} $theme */
         $theme = trans('challenges.'.$this->preferences->challengeTheme());
@@ -22,7 +22,7 @@ class ChallengeCatalog
             ->reject(fn (array $question): bool => in_array($question['id'], $excludedQuestionIds, true))
             ->values();
 
-        if ($questions->count() < 3) {
+        if ($questions->count() < $count) {
             $questions = collect($theme['questions']);
         }
 
@@ -33,7 +33,7 @@ class ChallengeCatalog
                 ...$question,
                 'options' => $this->shuffle($question['options']),
             ],
-            array_slice($questions, 0, 3),
+            array_slice($questions, 0, $count),
         );
 
         if ($previousFingerprint !== null && $previousFingerprint !== '' && $this->fingerprint($questions) === $previousFingerprint) {

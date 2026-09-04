@@ -127,6 +127,53 @@ it('keeps a failed challenge ringing until the user retries', function () {
     ]);
 });
 
+it('allows an easy challenge to stop after two correct answers', function () {
+    $alarm = Alarm::factory()->create(['difficulty' => 'easy']);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    $challenge = Native::test(Challenge::class, data: ['alarmId' => $alarm->id]);
+    answerQuestions($challenge, [true, true, false]);
+
+    $challenge
+        ->assertSet('questionCount', 3)
+        ->assertSet('requiredCorrectAnswers', 2)
+        ->assertSet('passed', true)
+        ->assertSet('alarmStopped', true);
+
+    $this->assertDatabaseHas('alarm_challenge_attempts', [
+        'alarm_id' => $alarm->id,
+        'question_count' => 3,
+        'required_correct_answers' => 2,
+        'correct_answers' => 2,
+        'passed' => true,
+    ]);
+});
+
+it('requires five correct answers for a hard challenge', function () {
+    $alarm = Alarm::factory()->create(['difficulty' => 'hard']);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    $challenge = Native::test(Challenge::class, data: ['alarmId' => $alarm->id]);
+    completeChallenge($challenge);
+
+    $challenge
+        ->assertSet('questionCount', 5)
+        ->assertSet('requiredCorrectAnswers', 5)
+        ->assertSet('passed', true);
+
+    $this->assertDatabaseHas('alarm_challenge_attempts', [
+        'alarm_id' => $alarm->id,
+        'question_count' => 5,
+        'required_correct_answers' => 5,
+        'correct_answers' => 5,
+        'passed' => true,
+    ]);
+});
+
 it('renders selected answer cards accessibly', function () {
     $challenge = Native::test(Challenge::class);
     $answerIndex = 0;
@@ -144,6 +191,16 @@ function completeChallenge($challenge): void
 {
     foreach ($challenge->get('questions') as $question) {
         $answerIndex = array_find_key($question['options'], fn (string $option): bool => $option === $question['answer']);
+        $challenge->call('selectAnswer', $answerIndex)->call('continueChallenge');
+    }
+}
+
+function answerQuestions($challenge, array $answers): void
+{
+    foreach ($challenge->get('questions') as $index => $question) {
+        $answerIndex = array_find_key($question['options'], fn (string $option): bool => $answers[$index]
+            ? $option === $question['answer']
+            : $option !== $question['answer']);
         $challenge->call('selectAnswer', $answerIndex)->call('continueChallenge');
     }
 }
