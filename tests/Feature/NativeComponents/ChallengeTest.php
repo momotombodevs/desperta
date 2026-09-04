@@ -18,6 +18,7 @@ it('stops a one-time alarm after one successful challenge', function () {
         'scheduling_status' => 'scheduled',
     ]);
     $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
     $scheduler->shouldReceive('cancel')->once()->with($alarm->id);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
@@ -47,7 +48,7 @@ it('stops the active native alarm when a notification opens the challenge withou
         'scheduling_status' => 'scheduled',
     ]);
     $scheduler = mock(NativeAlarmScheduler::class);
-    $scheduler->shouldReceive('activeRingingOccurrence')->once()->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
@@ -63,6 +64,8 @@ it('stops the active native alarm when a notification opens the challenge withou
 it('starts the scheduled execution passed through the native challenge route', function () {
     $alarm = Alarm::factory()->create();
     $executionId = '018f0b8d-1d3e-7f14-8caa-111111111111';
+
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, $executionId, '2026-09-03T07:00:00+00:00'));
 
     Native::visit("/challenge/{$alarm->id}/{$executionId}/2026-09-03T07:00:00+00:00")
         ->assertSet('alarmId', $alarm->id)
@@ -81,6 +84,7 @@ it('completes a repeating alarm without cancelling its future schedule', functio
         'scheduling_status' => 'scheduled',
     ]);
     $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
     $scheduler->shouldNotReceive('cancel');
     app()->instance(NativeAlarmScheduler::class, $scheduler);
@@ -102,6 +106,7 @@ it('completes a repeating alarm without cancelling its future schedule', functio
 it('keeps a failed challenge ringing until the user retries', function () {
     $alarm = Alarm::factory()->create(['scheduling_status' => 'scheduled']);
     $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
     $scheduler->shouldNotReceive('completeRinging');
     $scheduler->shouldNotReceive('cancel');
     app()->instance(NativeAlarmScheduler::class, $scheduler);
@@ -130,6 +135,7 @@ it('keeps a failed challenge ringing until the user retries', function () {
 it('allows an easy challenge to stop after two correct answers', function () {
     $alarm = Alarm::factory()->create(['difficulty' => 'easy']);
     $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
@@ -154,6 +160,7 @@ it('allows an easy challenge to stop after two correct answers', function () {
 it('requires five correct answers for a hard challenge', function () {
     $alarm = Alarm::factory()->create(['difficulty' => 'hard']);
     $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
@@ -175,6 +182,8 @@ it('requires five correct answers for a hard challenge', function () {
 });
 
 it('renders selected answer cards accessibly', function () {
+    $alarm = Alarm::factory()->create();
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
     $challenge = Native::test(Challenge::class);
     $answerIndex = 0;
 

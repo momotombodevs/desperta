@@ -13,10 +13,10 @@ class ChallengeCatalog
     ) {}
 
     /** @param list<string> $excludedQuestionIds @return list<array{id: string, question: string, options: list<string>, answer: string}> */
-    public function questions(int $count, array $excludedQuestionIds = [], ?string $previousFingerprint = null): array
+    public function questions(int $count, array $excludedQuestionIds = [], ?string $previousFingerprint = null, ?string $themeName = null): array
     {
         /** @var array{questions: list<array{id: string, question: string, options: list<string>, answer: string}>} $theme */
-        $theme = trans('challenges.'.$this->preferences->challengeTheme());
+        $theme = trans('challenges.'.($themeName ?? $this->preferences->challengeTheme()));
 
         $questions = collect($theme['questions'])
             ->reject(fn (array $question): bool => in_array($question['id'], $excludedQuestionIds, true))
