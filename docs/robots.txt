@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://donmanueldev.github.io/desperta/sitemap.xml
