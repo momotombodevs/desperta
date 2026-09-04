@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'desperta' => [
+        'privacy_policy_url' => env('DESPERTA_PRIVACY_POLICY_URL', 'https://donmanueldev.github.io/desperta/privacy.html'),
+    ],
+
 ];

@@ -1,9 +1,8 @@
 @use('App\Icons\Android')
-@use('App\Icons\Ios')
 
 <native:top-bar :title="__('app.settings')" show-navigation-icon />
 
-<native:scroll-view class="w-full h-full bg-theme-surface">
+<native:scroll-view class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-4 p-6">
         <native:row class="w-full justify-center">
             <native:svg :src="public_path('images/brand/desperta-mark.svg')" :width="92" :height="92" :fit="1"
@@ -13,24 +12,22 @@
         <native:pressable ref="open-habits" class="w-full rounded-xl border border-theme-outline bg-theme-surface-variant p-4"
                           @navigate="'/settings/habits'" :a11y-label="__('app.habits')">
             <native:row class="w-full items-center gap-3">
-                <native:icon :ios="Ios::ChartBar" :android="Android::BarChart" class="text-theme-primary" size="24"/>
+                <native:icon :android="Android::BarChart" class="text-theme-primary" size="24"/>
                 <native:column class="flex-1 gap-1">
                     <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.habits') }}</native:text>
-                    <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.habits_empty') }}</native:text>
                 </native:column>
-                <native:icon :ios="Ios::ChevronForward" :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
+                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
             </native:row>
         </native:pressable>
 
         <native:pressable ref="open-history" class="w-full rounded-xl border border-theme-outline bg-theme-surface-variant p-4"
                           @navigate="'/settings/history'" :a11y-label="__('app.view_history')">
             <native:row class="w-full items-center gap-3">
-                <native:icon :ios="Ios::ClockArrowCirclepath" :android="Android::History" class="text-theme-primary" size="24"/>
+                <native:icon :android="Android::History" class="text-theme-primary" size="24"/>
                 <native:column class="flex-1 gap-1">
                     <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.alarm_history') }}</native:text>
-                    <native:text class="text-sm text-theme-on-surface">{{ __('app.alarm_history_subtitle') }}</native:text>
                 </native:column>
-                <native:icon :ios="Ios::ChevronForward" :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
+                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
             </native:row>
         </native:pressable>
 
@@ -81,5 +78,25 @@
                            :options="array_values($challengeThemes)" :value="$challengeThemes[$challengeThemePreference]"
                            @change="selectChallengeTheme" :a11y-label="__('app.challenge_theme')"/>
         </native:column>
+
+        <native:pressable ref="privacy-policy" class="w-full rounded-xl border border-theme-outline bg-theme-surface-variant p-4"
+                          @tap="openPrivacyPolicy" :a11y-label="__('app.privacy_policy_a11y')" :a11y-hint="__('app.privacy_policy_hint')">
+            <native:row class="w-full items-center gap-3">
+                <native:icon :android="Android::PrivacyTip" class="text-theme-primary" size="24"/>
+                <native:column class="flex-1 gap-1">
+                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.privacy_policy') }}</native:text>
+                    <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.privacy_policy_summary') }}</native:text>
+                </native:column>
+                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
+            </native:row>
+        </native:pressable>
+
+        <native:divider class="w-full" />
+        <native:pressable ref="momotombo-devs" class="w-full p-3" @tap="openMomotomboDevs"
+                          :a11y-label="__('app.momotombo_devs_a11y')" :a11y-hint="__('app.momotombo_devs_hint')">
+            <native:row class="w-full justify-center">
+                <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.crafted_with_passion') }}</native:text>
+            </native:row>
+        </native:pressable>
     </native:column>
 </native:scroll-view>

@@ -5,6 +5,7 @@ namespace App\NativeComponents;
 use App\Application\Preferences\AppPreferences;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Facades\Browser;
 
 final class Settings extends NativeComponent
 {
@@ -55,6 +56,16 @@ final class Settings extends NativeComponent
         $this->challengeThemePreference = $theme;
 
         app(AppPreferences::class)->setChallengeTheme($theme);
+    }
+
+    public function openMomotomboDevs(): void
+    {
+        Browser::inApp('https://momotombo.dev/');
+    }
+
+    public function openPrivacyPolicy(): void
+    {
+        Browser::inApp((string) config('services.desperta.privacy_policy_url'));
     }
 
     public function render(): View

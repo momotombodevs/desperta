@@ -52,8 +52,35 @@ it('opens history from the settings page', function () {
         ->assertNavigatedTo('/settings/history');
 });
 
-it('uses the floating action button to navigate to the alarm editor', function () {
+it('opens Momotombo Devs in the in-app browser from settings', function () {
+    Native::visit('/settings')
+        ->tap('momotombo-devs')
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $parameters): bool => $parameters === ['url' => 'https://momotombo.dev/']);
+});
+
+it('configures the public GitHub Pages privacy policy URL by default', function () {
+    expect(config('services.desperta.privacy_policy_url'))
+        ->toBe('https://donmanueldev.github.io/desperta/privacy.html');
+});
+
+it('opens the configured privacy policy in the in-app browser from settings', function () {
+    config()->set('services.desperta.privacy_policy_url', 'https://example.test/privacy');
+
+    Native::visit('/settings')
+        ->tap('privacy-policy')
+        ->assertNativeCalled('Browser.OpenInApp', fn (array $parameters): bool => $parameters === ['url' => 'https://example.test/privacy']);
+});
+
+it('translates the privacy policy entry when the language changes', function () {
+    Native::visit('/settings')
+        ->assertSee('Política de privacidad')
+        ->tap('language-english')
+        ->assertSee('Privacy policy');
+});
+
+it('uses the bottom action bar to navigate to the alarm editor', function () {
     Native::visit('/')
+        ->assertElement('bottom_bar')
         ->tap('create-alarm')
         ->assertNavigatedTo('/alarms/new')
         ->assertTransition(Transition::SlideFromBottom);
