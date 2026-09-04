@@ -2,6 +2,7 @@
 
 namespace App\NativeComponents;
 
+use App\AlarmScheduling\AlarmOccurrenceReconciler;
 use App\Application\AlarmAnalytics\AlarmHabitsAnalytics;
 use Carbon\CarbonImmutable;
 use Illuminate\View\View;
@@ -10,6 +11,11 @@ use Native\Mobile\Edge\NativeComponent;
 
 final class Habits extends NativeComponent
 {
+    public function mount(): void
+    {
+        app(AlarmOccurrenceReconciler::class)->reconcile();
+    }
+
     public function navTitle(): string
     {
         return __('app.habits');
@@ -17,11 +23,14 @@ final class Habits extends NativeComponent
 
     /**
      * @return array{
-     *     completed: int,
-     *     missed: int,
-     *     total: int,
-     *     completion_rate: int,
-     *     days: list<array{date: string, completed: int, missed: int}>
+     *     current_streak: int,
+     *     best_streak: int,
+     *     on_time_count: int,
+     *     resolved_count: int,
+     *     on_time_rate: int,
+     *     without_snooze_count: int,
+     *     without_snooze_rate: int,
+     *     days: list<array{date: string, status: string, on_time: int, late: int, missed: int, pending: int}>
      * }
      */
     #[Computed]
@@ -35,7 +44,8 @@ final class Habits extends NativeComponent
     public function dailySeries(): array
     {
         return [
-            $this->series('completed', __('app.completed'), theme('success')),
+            $this->series('on_time', __('app.on_time'), theme('success')),
+            $this->series('late', __('app.late'), theme('warning')),
             $this->series('missed', __('app.missed'), theme('destructive')),
         ];
     }
@@ -45,18 +55,9 @@ final class Habits extends NativeComponent
     public function outcomeSegments(): array
     {
         return [
-            [
-                'id' => 'completed',
-                'label' => __('app.completed'),
-                'value' => $this->habits['completed'],
-                'color' => theme('success'),
-            ],
-            [
-                'id' => 'missed',
-                'label' => __('app.missed'),
-                'value' => $this->habits['missed'],
-                'color' => theme('destructive'),
-            ],
+            $this->segment('on_time', __('app.on_time'), theme('success')),
+            $this->segment('late', __('app.late'), theme('warning')),
+            $this->segment('missed', __('app.missed'), theme('destructive')),
         ];
     }
 
@@ -80,6 +81,17 @@ final class Habits extends NativeComponent
                 ],
                 $this->habits['days'],
             ),
+        ];
+    }
+
+    /** @return array{id: string, label: string, value: int, color: string} */
+    private function segment(string $status, string $label, string $color): array
+    {
+        return [
+            'id' => $status,
+            'label' => $label,
+            'value' => array_sum(array_column($this->habits['days'], $status)),
+            'color' => $color,
         ];
     }
 }
