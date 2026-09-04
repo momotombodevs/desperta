@@ -42,7 +42,9 @@ describe('Plugin Manifest', function () {
     it('declares notification authorization completion as a native event', function () {
         $manifest = json_decode(file_get_contents($this->manifestPath), true);
 
-        expect($manifest['events'])->toContain('Momotombo\\NativePHPAlarms\\Events\\NotificationAuthorizationChanged');
+        expect($manifest['events'])->toBe([
+            'Momotombo\\NativePHPAlarms\\Events\\NotificationAuthorizationChanged',
+        ]);
     });
 
     it('has valid marketplace metadata', function () {
@@ -177,34 +179,26 @@ describe('Native Code', function () {
             ->and($kotlin)->toContain('remove(ACTIVE_ALARM_ID)');
     });
 
-    it('opens the configured challenge route when an unlocked alarm rings', function () {
+    it('opens the configured launch path when an unlocked alarm rings', function () {
         $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
 
         expect($kotlin)->toContain('class AlarmActivity : FragmentActivity()')
             ->and($kotlin)->toContain('setShowWhenLocked(true)')
             ->and($kotlin)->toContain('setTurnScreenOn(true)')
             ->and($kotlin)->toContain('.setFullScreenIntent(AlarmsFunctions.fullScreenIntent(this, alarm.id), true)')
-            ->and($kotlin)->toContain('fun challengeRoute(): String?')
-            ->and($kotlin)->toContain('putExtra("notification_url", route)')
+            ->and($kotlin)->toContain('fun launchPath(): String?')
+            ->and($kotlin)->toContain('putExtra("notification_url", path)')
             ->and($kotlin)->toContain('if (! context.getSystemService(KeyguardManager::class.java).isKeyguardLocked)')
-            ->and($kotlin)->toContain('AlarmsFunctions.challengeIntent(context, alarm)')
-            ->and($kotlin)->not->toContain('desperta://challenge');
+            ->and($kotlin)->toContain('AlarmsFunctions.navigationIntent(context, alarm)')
+            ->and($kotlin)->not->toContain('/challenge/$id');
     });
 
-    it('passes the next repeating occurrence through native route parameters', function () {
+    it('creates a new neutral occurrence for repeating alarms', function () {
         $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
 
         expect($kotlin)
-            ->toContain('"/challenge/$id/${metadata["execution_id"]}/${metadata["scheduled_for"]}"');
-    });
-
-    it('normalizes legacy challenge query routes into native route parameters', function () {
-        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
-
-        expect($kotlin)
-            ->toContain('?.let(::normalizeChallengeRoute)')
-            ->toContain('legacy.getQueryParameter("alarmId")')
-            ->toContain('return "/challenge/$alarmId/$executionId/$scheduledFor"');
+            ->toContain('fun withNextOccurrence(): AlarmPayload')
+            ->toContain('"occurrence_id" to UUID.randomUUID().toString()');
     });
 
     it('stops a completed ringing session without removing its scheduled alarm', function () {
@@ -213,6 +207,14 @@ describe('Native Code', function () {
         expect($kotlin)->toContain('class Complete(private val activity: FragmentActivity)')
             ->and($kotlin)->toContain('internal fun complete(context: Context, alarmId: String)')
             ->and($kotlin)->toContain('AlarmPlaybackService.stop(context, alarmId)');
+    });
+
+    it('rejects snooze requests without an active ringing alarm', function () {
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+
+        expect($kotlin)
+            ->toContain('return BridgeResponse.error("alarm_not_found", "No active alarm was found.")')
+            ->toContain('TriggeredAlarmStore.get(context, alarmId)?.first ?: return false');
     });
 
     it('exposes the persisted active ringing alarm id to the PHP bridge', function () {
@@ -225,14 +227,15 @@ describe('Native Code', function () {
 
     it('ships the monochrome Android notification icon', function () {
         $manifest = json_decode(file_get_contents($this->manifestPath), true);
-        $source = 'android/drawable/ic_stat_desperta.xml';
+        $source = 'android/drawable/ic_stat_alarm.xml';
 
-        expect($manifest['assets']['android'][$source])->toBe('res/drawable/ic_stat_desperta.xml');
+        expect($manifest['assets']['android'][$source])->toBe('res/drawable/ic_stat_alarm.xml');
         expect(file_exists($this->pluginPath.'/resources/'.$source))->toBeTrue();
 
         $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
         expect($kotlin)->toContain('NotificationCompat.Builder');
-        expect($kotlin)->toContain('ic_stat_desperta');
+        expect($kotlin)->toContain('ic_stat_alarm');
+        expect($kotlin)->toContain('NotificationIds.forAlarm');
         expect($kotlin)->toContain('CATEGORY_ALARM');
     });
 });
@@ -292,13 +295,4 @@ describe('Lifecycle Hooks', function () {
             }
         }
     });
-});
-
-it('keeps the JavaScript bridge aligned with the native manifest', function () {
-    $manifest = json_decode(file_get_contents($this->manifestPath), true);
-    $javascript = file_get_contents($this->pluginPath.'/resources/js/alarms.js');
-
-    foreach ($manifest['bridge_functions'] as $function) {
-        expect($javascript)->toContain("'{$function['name']}'");
-    }
 });

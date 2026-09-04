@@ -58,7 +58,7 @@ final class NativePHPAlarmGateway implements NativeAlarmGateway
 
         return new ActiveAlarmOccurrence(
             alarmId: $occurrence->alarmId,
-            executionId: $occurrence->executionId,
+            executionId: $occurrence->occurrenceId,
             scheduledFor: $occurrence->scheduledFor,
         );
     }
@@ -80,7 +80,7 @@ final class NativePHPAlarmGateway implements NativeAlarmGateway
     public function acknowledgeOccurrenceEvents(array $executionIds): void
     {
         if (function_exists('nativephp_call') && $executionIds !== []) {
-            $this->alarms->acknowledgeOccurrenceEvents($executionIds);
+            $this->alarms->acknowledgeOccurrences($executionIds);
         }
     }
 
@@ -91,13 +91,9 @@ final class NativePHPAlarmGateway implements NativeAlarmGateway
             ->label($alarm->label)
             ->repeatOn($this->weekdays($alarm->weekdays))
             ->vibration($alarm->vibration)
-            ->metadata([
-                'route' => "/challenge/{$alarm->id}/{$alarm->executionId}/{$alarm->scheduledFor}",
-                'execution_id' => $alarm->executionId,
-                'scheduled_for' => $alarm->scheduledFor,
-                'notification_title' => $alarm->notificationTitle,
-                'notification_body' => $alarm->notificationBody,
-            ]);
+            ->launchPath('/challenge')
+            ->notification($alarm->notificationTitle, $alarm->notificationBody)
+            ->occurrence($alarm->executionId, $alarm->scheduledFor);
 
         if ($alarm->snoozeEnabled) {
             $configuration = $configuration->snooze($alarm->snoozeMinutes);
@@ -137,7 +133,7 @@ final class NativePHPAlarmGateway implements NativeAlarmGateway
     private function occurrenceEvent(array $event): ?NativeAlarmOccurrenceEvent
     {
         $alarmId = $event['alarm_id'] ?? null;
-        $executionId = $event['execution_id'] ?? null;
+        $executionId = $event['occurrence_id'] ?? null;
         $scheduledFor = $event['scheduled_for'] ?? null;
         $status = $event['status'] ?? null;
         $occurredAt = $event['occurred_at'] ?? null;

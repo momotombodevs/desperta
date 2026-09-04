@@ -2,11 +2,11 @@
 
 namespace Momotombo\NativePHPAlarms\DTO;
 
+/** Native feature flags; callers must not infer one capability from another. */
 final readonly class AlarmCapabilities
 {
     public function __construct(
         public bool $exact,
-        public bool $customSound,
         public bool $snooze,
         public bool $repeating,
         public bool $systemAlarmUi,
@@ -18,7 +18,6 @@ final readonly class AlarmCapabilities
     {
         return new self(
             exact: (bool) ($payload['exact'] ?? false),
-            customSound: (bool) ($payload['custom_sound'] ?? false),
             snooze: (bool) ($payload['snooze'] ?? false),
             repeating: (bool) ($payload['repeating'] ?? false),
             systemAlarmUi: (bool) ($payload['system_alarm_ui'] ?? false),
@@ -31,7 +30,6 @@ final readonly class AlarmCapabilities
     {
         return [
             'exact' => $this->exact,
-            'custom_sound' => $this->customSound,
             'snooze' => $this->snooze,
             'repeating' => $this->repeating,
             'system_alarm_ui' => $this->systemAlarmUi,

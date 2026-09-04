@@ -39,16 +39,13 @@ it('maps an application alarm schedule to the plugin configuration', function ()
         'minute' => 30,
         'weekdays' => ['monday', 'friday'],
         'label' => 'Trabajo',
-        'sound' => null,
         'vibration' => true,
         'snooze_minutes' => 5,
-        'metadata' => [
-            'route' => '/challenge/wake-up/018f0b8d-1d3e-7f14-8caa-111111111111/2026-09-03T06:30:00+00:00',
-            'execution_id' => '018f0b8d-1d3e-7f14-8caa-111111111111',
-            'scheduled_for' => '2026-09-03T06:30:00+00:00',
-            'notification_title' => 'Trabajo',
-            'notification_body' => 'Es hora de despertar.',
-        ],
+        'launch_path' => '/challenge',
+        'notification_title' => 'Trabajo',
+        'notification_body' => 'Es hora de despertar.',
+        'occurrence_id' => '018f0b8d-1d3e-7f14-8caa-111111111111',
+        'scheduled_for' => '2026-09-03T06:30:00+00:00',
     ]);
 });
 
@@ -116,7 +113,7 @@ it('reads the active ringing occurrence from the native bridge', function () {
         public function call(string $method, array $parameters = []): array
         {
             return $method === 'Alarms.Active'
-                ? ['id' => 'wake-up', 'execution_id' => 'execution-1', 'scheduled_for' => '2026-09-03T06:30:00+00:00']
+                ? ['id' => 'wake-up', 'occurrence_id' => 'execution-1', 'scheduled_for' => '2026-09-03T06:30:00+00:00']
                 : [];
         }
     };

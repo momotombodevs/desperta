@@ -4,6 +4,7 @@ namespace Momotombo\NativePHPAlarms\Bridge;
 
 use Momotombo\NativePHPAlarms\Exceptions\NativeAlarmSchedulingFailed;
 
+/** Production bridge implementation backed by NativePHP's `nativephp_call()`. */
 final class NativePHPAlarmBridge implements NativeAlarmBridge
 {
     public function call(string $method, array $parameters = []): array

@@ -22,11 +22,7 @@ use Momotombo\NativePHPAlarms\Enums\AuthorizationStatus;
  * @method static void update(AlarmConfiguration $configuration)
  * @method static void complete(string $alarmId)
  * @method static void cancel(string $alarmId)
- * @method static void cancelAll()
  * @method static void snooze(string $alarmId, int $minutes)
- * @method static ?AlarmConfiguration next()
- * @method static list<AlarmConfiguration> all()
- * @method static bool exists(string $alarmId)
  */
 final class Alarm extends Facade
 {

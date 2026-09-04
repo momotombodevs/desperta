@@ -5,19 +5,28 @@ namespace Momotombo\NativePHPAlarms\DTO;
 use Momotombo\NativePHPAlarms\Enums\Weekday;
 use Momotombo\NativePHPAlarms\Exceptions\InvalidAlarmConfiguration;
 
+/**
+ * Immutable transport contract from application alarm state to Android.
+ *
+ * The configuration carries neutral presentation and occurrence data only;
+ * application-specific challenge or habit rules must remain outside the plugin.
+ */
 final readonly class AlarmConfiguration
 {
-    /** @param list<Weekday> $weekdays @param array<string, mixed> $metadata */
+    /** @param list<Weekday> $weekdays */
     public function __construct(
         public string $id,
         public int $hour = 0,
         public int $minute = 0,
         public array $weekdays = [],
         public ?string $label = null,
-        public ?string $sound = null,
         public bool $vibration = false,
         public ?int $snoozeMinutes = null,
-        public array $metadata = [],
+        public ?string $launchPath = null,
+        public ?string $notificationTitle = null,
+        public ?string $notificationBody = null,
+        public ?string $occurrenceId = null,
+        public ?string $scheduledFor = null,
     ) {
         if (trim($id) === '') {
             throw new InvalidAlarmConfiguration('An alarm id is required.');
@@ -46,11 +55,17 @@ final readonly class AlarmConfiguration
         }
     }
 
+    /** Create a configuration with a stable application alarm ID. */
     public static function make(string $id): self
     {
         return new self(id: $id);
     }
 
+    /**
+     * Set local wall-clock time in strict 24-hour format.
+     *
+     * @param  string  $time  `HH:MM`
+     */
     public function at(string $time): self
     {
         if (preg_match('/^(?<hour>[01][0-9]|2[0-3]):(?<minute>[0-5][0-9])$/', $time, $matches) !== 1) {
@@ -60,39 +75,70 @@ final readonly class AlarmConfiguration
         return $this->with(hour: (int) $matches['hour'], minute: (int) $matches['minute']);
     }
 
-    /** @param list<Weekday> $weekdays */
+    /**
+     * Configure weekly repetition. An empty list means one-shot.
+     *
+     * @param  list<Weekday>  $weekdays
+     */
     public function repeatOn(array $weekdays): self
     {
         return $this->with(weekdays: $weekdays);
     }
 
+    /** Set the human-readable fallback title for a ringing notification. */
     public function label(?string $label): self
     {
         return $this->with(label: $label);
     }
 
-    public function sound(?string $sound): self
-    {
-        return $this->with(sound: $sound);
-    }
-
+    /** Enable or disable vibration while the system alarm tone plays. */
     public function vibration(bool $enabled = true): self
     {
         return $this->with(vibration: $enabled);
     }
 
+    /** Set the application-selected default snooze duration in minutes. */
     public function snooze(int $minutes): self
     {
         return $this->with(snoozeMinutes: $minutes);
     }
 
-    /** @param array<string, mixed> $metadata */
-    public function metadata(array $metadata): self
+    /** Set the optional absolute NativePHP path to open when the alarm rings. */
+    public function launchPath(?string $launchPath): self
     {
-        return $this->with(metadata: $metadata);
+        if ($launchPath !== null && ! str_starts_with($launchPath, '/')) {
+            throw new InvalidAlarmConfiguration('Launch paths must begin with a slash.');
+        }
+
+        return $this->with(launchPath: $launchPath);
     }
 
-    /** @return array<string, mixed> */
+    /** Set optional notification copy for the foreground ringing notification. */
+    public function notification(?string $title, ?string $body): self
+    {
+        return $this->with(notificationTitle: $title, notificationBody: $body);
+    }
+
+    /**
+     * Attach the application-generated occurrence identity used for idempotent reconciliation.
+     *
+     * @param  non-empty-string  $occurrenceId
+     * @param  non-empty-string  $scheduledFor  Intended scheduled time in the application's serialized format.
+     */
+    public function occurrence(string $occurrenceId, string $scheduledFor): self
+    {
+        if (trim($occurrenceId) === '' || trim($scheduledFor) === '') {
+            throw new InvalidAlarmConfiguration('An occurrence id and scheduled time are required.');
+        }
+
+        return $this->with(occurrenceId: $occurrenceId, scheduledFor: $scheduledFor);
+    }
+
+    /**
+     * Serialize this configuration into the stable Android bridge payload.
+     *
+     * @return array{id: string, hour: int, minute: int, weekdays: list<string>, label: ?string, vibration: bool, snooze_minutes: ?int, launch_path: ?string, notification_title: ?string, notification_body: ?string, occurrence_id: ?string, scheduled_for: ?string}
+     */
     public function toPayload(): array
     {
         return [
@@ -101,14 +147,21 @@ final readonly class AlarmConfiguration
             'minute' => $this->minute,
             'weekdays' => array_map(fn (Weekday $weekday): string => $weekday->value, $this->weekdays),
             'label' => $this->label,
-            'sound' => $this->sound,
             'vibration' => $this->vibration,
             'snooze_minutes' => $this->snoozeMinutes,
-            'metadata' => $this->metadata,
+            'launch_path' => $this->launchPath,
+            'notification_title' => $this->notificationTitle,
+            'notification_body' => $this->notificationBody,
+            'occurrence_id' => $this->occurrenceId,
+            'scheduled_for' => $this->scheduledFor,
         ];
     }
 
-    /** @param array<string, mixed> $payload */
+    /**
+     * Rehydrate a configuration received from a trusted bridge payload.
+     *
+     * @param  array<string, mixed>  $payload
+     */
     public static function fromPayload(array $payload): self
     {
         return new self(
@@ -120,23 +173,29 @@ final readonly class AlarmConfiguration
                 $payload['weekdays'] ?? [],
             ),
             label: isset($payload['label']) ? (string) $payload['label'] : null,
-            sound: isset($payload['sound']) ? (string) $payload['sound'] : null,
             vibration: (bool) ($payload['vibration'] ?? false),
             snoozeMinutes: isset($payload['snooze_minutes']) ? (int) $payload['snooze_minutes'] : null,
-            metadata: is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [],
+            launchPath: isset($payload['launch_path']) ? (string) $payload['launch_path'] : null,
+            notificationTitle: isset($payload['notification_title']) ? (string) $payload['notification_title'] : null,
+            notificationBody: isset($payload['notification_body']) ? (string) $payload['notification_body'] : null,
+            occurrenceId: isset($payload['occurrence_id']) ? (string) $payload['occurrence_id'] : null,
+            scheduledFor: isset($payload['scheduled_for']) ? (string) $payload['scheduled_for'] : null,
         );
     }
 
-    /** @param list<Weekday>|null $weekdays @param array<string, mixed>|null $metadata */
+    /** @param list<Weekday>|null $weekdays */
     private function with(
         ?int $hour = null,
         ?int $minute = null,
         ?array $weekdays = null,
         ?string $label = null,
-        ?string $sound = null,
         ?bool $vibration = null,
         ?int $snoozeMinutes = null,
-        ?array $metadata = null,
+        ?string $launchPath = null,
+        ?string $notificationTitle = null,
+        ?string $notificationBody = null,
+        ?string $occurrenceId = null,
+        ?string $scheduledFor = null,
     ): self {
         return new self(
             id: $this->id,
@@ -144,10 +203,13 @@ final readonly class AlarmConfiguration
             minute: $minute ?? $this->minute,
             weekdays: $weekdays ?? $this->weekdays,
             label: $label ?? $this->label,
-            sound: $sound ?? $this->sound,
             vibration: $vibration ?? $this->vibration,
             snoozeMinutes: $snoozeMinutes ?? $this->snoozeMinutes,
-            metadata: $metadata ?? $this->metadata,
+            launchPath: $launchPath ?? $this->launchPath,
+            notificationTitle: $notificationTitle ?? $this->notificationTitle,
+            notificationBody: $notificationBody ?? $this->notificationBody,
+            occurrenceId: $occurrenceId ?? $this->occurrenceId,
+            scheduledFor: $scheduledFor ?? $this->scheduledFor,
         );
     }
 }

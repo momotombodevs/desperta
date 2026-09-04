@@ -36,6 +36,13 @@ import org.json.JSONObject
 import java.util.Calendar
 import java.util.UUID
 
+/**
+ * Android implementation of the `Alarms.*` NativePHP bridge contract.
+ *
+ * The bridge handles device concerns only. Application-domain state is
+ * represented by caller-supplied occurrence IDs and reconciled through
+ * [OccurrenceJournal].
+ */
 object AlarmsFunctions {
     private const val NOTIFICATION_AUTHORIZATION_CHANGED = "Momotombo\\NativePHPAlarms\\Events\\NotificationAuthorizationChanged"
 
@@ -46,7 +53,6 @@ object AlarmsFunctions {
         override fun execute(parameters: Map<String, Any>): Map<String, Any> = BridgeResponse.success(
             mapOf(
                 "exact" to true,
-                "custom_sound" to false,
                 "snooze" to true,
                 "repeating" to true,
                 "system_alarm_ui" to true,
@@ -142,10 +148,9 @@ object AlarmsFunctions {
             val alarmId = AlarmPlaybackService.activeAlarmId(context) ?: return BridgeResponse.success(emptyMap())
             val alarm = TriggeredAlarmStore.get(context, alarmId)?.first ?: return BridgeResponse.success(emptyMap())
             val response = mutableMapOf<String, Any>("id" to alarm.id)
-            val metadata = alarm.metadata()
 
-            (metadata["execution_id"] as? String)?.let { response["execution_id"] = it }
-            (metadata["scheduled_for"] as? String)?.let { response["scheduled_for"] = it }
+            alarm.occurrenceId()?.let { response["occurrence_id"] = it }
+            alarm.scheduledFor()?.let { response["scheduled_for"] = it }
 
             return BridgeResponse.success(response)
         }
@@ -163,10 +168,10 @@ object AlarmsFunctions {
 
     class AcknowledgeOccurrences(private val context: Context) : BridgeFunction {
         override fun execute(parameters: Map<String, Any>): Map<String, Any> {
-            val executionIds = parameters["execution_ids"] as? List<*> ?: emptyList<Any>()
-            OccurrenceJournal.remove(context, executionIds.filterIsInstance<String>())
+            val occurrenceIds = parameters["occurrence_ids"] as? List<*> ?: emptyList<Any>()
+            OccurrenceJournal.remove(context, occurrenceIds.filterIsInstance<String>())
 
-            return BridgeResponse.success(mapOf("acknowledged" to executionIds.size))
+            return BridgeResponse.success(mapOf("acknowledged" to occurrenceIds.size))
         }
     }
 
@@ -194,14 +199,6 @@ object AlarmsFunctions {
         }
     }
 
-    class CancelAll(private val activity: FragmentActivity) : BridgeFunction {
-        override fun execute(parameters: Map<String, Any>): Map<String, Any> {
-            AlarmStore.all(activity).keys.forEach { cancel(activity, it) }
-
-            return BridgeResponse.success(mapOf("cancelled" to true))
-        }
-    }
-
     class Snooze(private val activity: FragmentActivity) : BridgeFunction {
         override fun execute(parameters: Map<String, Any>): Map<String, Any> {
             val alarmId = parameters["id"] as? String ?: return invalidId()
@@ -213,32 +210,11 @@ object AlarmsFunctions {
                 return BridgeResponse.error("invalid_snooze", "Snooze duration must be at least one minute.")
             }
 
-            snooze(activity, alarmId, minutes)
+            if (! snooze(activity, alarmId, minutes)) {
+                return BridgeResponse.error("alarm_not_found", "No active alarm was found.")
+            }
 
             return BridgeResponse.success(mapOf("snoozed" to true, "id" to alarmId, "minutes" to minutes))
-        }
-    }
-
-    class Next(private val context: Context) : BridgeFunction {
-        override fun execute(parameters: Map<String, Any>): Map<String, Any> = AlarmStore.all(context)
-            .values
-            .minByOrNull { nextTriggerAt(it) }
-            ?.toMap()
-            ?.let(BridgeResponse::success)
-            ?: BridgeResponse.success(emptyMap())
-    }
-
-    class All(private val context: Context) : BridgeFunction {
-        override fun execute(parameters: Map<String, Any>): Map<String, Any> = BridgeResponse.success(
-            mapOf("alarms" to AlarmStore.all(context).values.map(AlarmPayload::toMap)),
-        )
-    }
-
-    class Exists(private val context: Context) : BridgeFunction {
-        override fun execute(parameters: Map<String, Any>): Map<String, Any> {
-            val alarmId = parameters["id"] as? String ?: return invalidId()
-
-            return BridgeResponse.success(mapOf("exists" to (AlarmStore.get(context, alarmId) != null)))
         }
     }
 
@@ -275,19 +251,19 @@ object AlarmsFunctions {
         AlarmStore.remove(context, alarmId)
         SnoozeStore.remove(context, alarmId)
         TriggeredAlarmStore.remove(context, alarmId)
-        context.getSystemService(NotificationManager::class.java).cancel(alarmId.hashCode())
+        context.getSystemService(NotificationManager::class.java).cancel(NotificationIds.forAlarm(context, alarmId))
     }
 
     internal fun complete(context: Context, alarmId: String) {
         TriggeredAlarmStore.get(context, alarmId)?.first?.let { OccurrenceJournal.record(context, it, "completed") }
         AlarmPlaybackService.stop(context, alarmId)
-        context.getSystemService(NotificationManager::class.java).cancel(alarmId.hashCode())
+        context.getSystemService(NotificationManager::class.java).cancel(NotificationIds.forAlarm(context, alarmId))
         SnoozeStore.remove(context, alarmId)
         TriggeredAlarmStore.remove(context, alarmId)
     }
 
-    internal fun snooze(context: Context, alarmId: String, minutes: Int) {
-        val alarm = TriggeredAlarmStore.get(context, alarmId)?.first ?: AlarmStore.get(context, alarmId) ?: return
+    internal fun snooze(context: Context, alarmId: String, minutes: Int): Boolean {
+        val alarm = TriggeredAlarmStore.get(context, alarmId)?.first ?: return false
         val snoozeAt = System.currentTimeMillis() + minutes * 60_000L
 
         AlarmPlaybackService.stop(context, alarmId)
@@ -297,6 +273,8 @@ object AlarmsFunctions {
             AlarmManager.AlarmClockInfo(snoozeAt, launchIntent(context, alarm)),
             snoozeIntent(context, alarmId),
         )
+
+        return true
     }
 
     internal fun nextTriggerAt(payload: AlarmPayload): Long {
@@ -382,7 +360,7 @@ object AlarmsFunctions {
         context,
         alarmId.hashCode(),
         Intent(context, AlarmReceiver::class.java)
-            .setData(Uri.parse("desperta-alarm://$alarmId"))
+            .setData(Uri.parse("nativephp-alarm://$alarmId"))
             .putExtra(AlarmReceiver.ALARM_ID, alarmId),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
@@ -391,7 +369,7 @@ object AlarmsFunctions {
         context,
         ("$alarmId-snooze").hashCode(),
         Intent(context, AlarmReceiver::class.java)
-            .setData(Uri.parse("desperta-snooze://$alarmId"))
+            .setData(Uri.parse("nativephp-alarm-snooze://$alarmId"))
             .putExtra(AlarmReceiver.ALARM_ID, alarmId)
             .putExtra(AlarmReceiver.IS_SNOOZE, true),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -400,14 +378,14 @@ object AlarmsFunctions {
     internal fun launchIntent(context: Context, alarm: AlarmPayload): PendingIntent = PendingIntent.getActivity(
         context,
         alarm.id.hashCode(),
-        challengeIntent(context, alarm) ?: Intent(context, MainActivity::class.java),
+        navigationIntent(context, alarm) ?: Intent(context, MainActivity::class.java),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-    internal fun challengeIntent(context: Context, alarm: AlarmPayload): Intent? = alarm.challengeRoute()
-        ?.let { route ->
+    internal fun navigationIntent(context: Context, alarm: AlarmPayload): Intent? = alarm.launchPath()
+        ?.let { path ->
             Intent(context, MainActivity::class.java)
-                .putExtra("notification_url", route)
+                .putExtra("notification_url", path)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
 
@@ -415,7 +393,7 @@ object AlarmsFunctions {
         context,
         alarmId.hashCode(),
         Intent(context, AlarmActivity::class.java)
-            .setData(Uri.parse("desperta-alarm://$alarmId"))
+            .setData(Uri.parse("nativephp-alarm://$alarmId"))
             .putExtra(AlarmReceiver.ALARM_ID, alarmId)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -428,6 +406,7 @@ object AlarmsFunctions {
     private const val NOTIFICATION_REQUEST_CODE = 7001
 }
 
+/** Receives scheduled and snoozed alarms, advances repetition, and starts foreground playback. */
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val alarmId = intent.getStringExtra(ALARM_ID) ?: return
@@ -435,7 +414,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val alarm = (if (snoozed) SnoozeStore.remove(context, alarmId) else AlarmStore.get(context, alarmId))
             ?: return
 
-        val nextAlarm = if (!snoozed && alarm.weekdays.isNotEmpty()) alarm.withNextExecution() else null
+        val nextAlarm = if (!snoozed && alarm.weekdays.isNotEmpty()) alarm.withNextOccurrence() else null
 
         if (!snoozed && alarm.weekdays.isEmpty()) {
             AlarmStore.remove(context, alarmId)
@@ -451,7 +430,7 @@ class AlarmReceiver : BroadcastReceiver() {
         AlarmPlaybackService.start(context, alarm.id)
 
         if (! context.getSystemService(KeyguardManager::class.java).isKeyguardLocked) {
-            AlarmsFunctions.challengeIntent(context, alarm)
+            AlarmsFunctions.navigationIntent(context, alarm)
                 ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 ?.let(context::startActivity)
         }
@@ -463,6 +442,7 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 }
 
+/** Locked-screen handoff that opens the neutral launch path carried by an alarm payload. */
 class AlarmActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
@@ -486,11 +466,12 @@ class AlarmActivity : FragmentActivity() {
             return
         }
 
-        AlarmsFunctions.challengeIntent(this, alarm)?.let(::startActivity)
+        AlarmsFunctions.navigationIntent(this, alarm)?.let(::startActivity)
         finish()
     }
 }
 
+/** Foreground media-playback service for the device's default looping alarm tone. */
 class AlarmPlaybackService : Service() {
     private var player: MediaPlayer? = null
     private var activeAlarmId: String? = null
@@ -523,7 +504,7 @@ class AlarmPlaybackService : Service() {
         stopPlayback()
         activeAlarmId = alarmId
         playbackPreferences().edit().putString(ACTIVE_ALARM_ID, alarmId).apply()
-        startForeground(alarm.id.hashCode(), notificationFor(alarm), foregroundServiceType())
+        startForeground(NotificationIds.forAlarm(this, alarm.id), notificationFor(alarm), foregroundServiceType())
         startPlayback(alarm)
 
         return START_NOT_STICKY
@@ -589,8 +570,8 @@ class AlarmPlaybackService : Service() {
 
     private fun notificationFor(alarm: AlarmPayload) = NotificationCompat.Builder(this, CHANNEL_ID)
         .setSmallIcon(smallIcon())
-        .setContentTitle(alarm.metadata()["notification_title"] as? String ?: (alarm.values["label"] as? String)?.takeIf(String::isNotBlank) ?: "Alarm")
-        .setContentText(alarm.metadata()["notification_body"] as? String ?: "It's time to wake up.")
+        .setContentTitle(alarm.values["notification_title"] as? String ?: (alarm.values["label"] as? String)?.takeIf(String::isNotBlank) ?: "Alarm")
+        .setContentText(alarm.values["notification_body"] as? String ?: "Alarm is ringing.")
         .setCategory(NotificationCompat.CATEGORY_ALARM)
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setOngoing(true)
@@ -602,7 +583,7 @@ class AlarmPlaybackService : Service() {
     private fun smallIcon(): Int {
         ensureNotificationChannel()
 
-        return resources.getIdentifier("ic_stat_desperta", "drawable", packageName)
+        return resources.getIdentifier("ic_stat_alarm", "drawable", packageName)
     }
 
     private fun ensureNotificationChannel() {
@@ -655,6 +636,7 @@ class AlarmPlaybackService : Service() {
     }
 }
 
+/** Restores stored exact alarms after Android finishes booting. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED || !canScheduleExactly(context)) {
@@ -678,45 +660,20 @@ internal data class AlarmPayload(
 ) {
     fun toMap(): Map<String, Any> = values.filterValues { it != null }.mapValues { it.value!! }
 
-    fun challengeRoute(): String? = when (val metadata = values["metadata"]) {
-        is JSONObject -> metadata.optString("route").takeIf { it.startsWith('/') }
-        is Map<*, *> -> (metadata["route"] as? String)?.takeIf { it.startsWith('/') }
-        else -> null
-    }?.let(::normalizeChallengeRoute)
+    fun launchPath(): String? = (values["launch_path"] as? String)?.takeIf { it.startsWith('/') }
 
-    fun withNextExecution(): AlarmPayload {
-        val metadata = metadata().apply {
-            put("execution_id", UUID.randomUUID().toString())
-            put("scheduled_for", nextTriggerAtIso())
-            put("route", routeFor(this))
-        }
+    fun occurrenceId(): String? = values["occurrence_id"] as? String
 
-        return copy(values = values + ("metadata" to metadata))
-    }
+    fun scheduledFor(): String? = values["scheduled_for"] as? String
 
-    internal fun metadata(): MutableMap<String, Any?> = when (val metadata = values["metadata"]) {
-        is JSONObject -> metadata.keys().asSequence().associateWith(metadata::get).toMutableMap()
-        is Map<*, *> -> metadata.entries.associate { (key, value) -> key.toString() to value }.toMutableMap()
-        else -> mutableMapOf()
-    }
-
-    private fun routeFor(metadata: Map<String, Any?>): String = "/challenge/$id/${metadata["execution_id"]}/${metadata["scheduled_for"]}"
+    fun withNextOccurrence(): AlarmPayload = copy(
+        values = values + mapOf(
+            "occurrence_id" to UUID.randomUUID().toString(),
+            "scheduled_for" to nextTriggerAtIso(),
+        ),
+    )
 
     private fun nextTriggerAtIso(): String = java.time.Instant.ofEpochMilli(AlarmsFunctions.nextTriggerAt(this)).toString()
-
-    private fun normalizeChallengeRoute(route: String): String {
-        val legacy = Uri.parse(route)
-
-        if (legacy.path != "/challenge" || legacy.query == null) {
-            return route
-        }
-
-        val alarmId = legacy.getQueryParameter("alarmId") ?: return route
-        val executionId = legacy.getQueryParameter("executionId") ?: return route
-        val scheduledFor = legacy.getQueryParameter("scheduledFor") ?: return route
-
-        return "/challenge/$alarmId/$executionId/$scheduledFor"
-    }
 
     companion object {
         fun from(parameters: Map<String, Any>): AlarmPayload? {
@@ -806,21 +763,22 @@ private object TriggeredAlarmStore {
     }
 }
 
+/** Device-local lifecycle journal retained until the application acknowledges occurrence IDs. */
 private object OccurrenceJournal {
     private const val PREFERENCES = "nativephp_alarm_occurrences"
 
     fun record(context: Context, alarm: AlarmPayload, status: String) {
-        val executionId = alarm.metadata()["execution_id"] as? String ?: return
-        val scheduledFor = alarm.metadata()["scheduled_for"] as? String ?: return
+        val occurrenceId = alarm.occurrenceId() ?: return
+        val scheduledFor = alarm.scheduledFor() ?: return
         val entry = JSONObject()
             .put("alarm_id", alarm.id)
-            .put("execution_id", executionId)
+            .put("occurrence_id", occurrenceId)
             .put("scheduled_for", scheduledFor)
             .put("status", status)
             .put("occurred_at", java.time.Instant.now().toString())
 
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit()
-            .putString(executionId, entry.toString())
+            .putString(occurrenceId, entry.toString())
             .apply()
     }
 
@@ -831,7 +789,7 @@ private object OccurrenceJournal {
         .map { entry ->
             mapOf(
                 "alarm_id" to entry.getString("alarm_id"),
-                "execution_id" to entry.getString("execution_id"),
+                "occurrence_id" to entry.getString("occurrence_id"),
                 "scheduled_for" to entry.getString("scheduled_for"),
                 "status" to entry.getString("status"),
                 "occurred_at" to entry.getString("occurred_at"),
@@ -842,6 +800,30 @@ private object OccurrenceJournal {
         val editor = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit()
         executionIds.forEach { executionId -> editor.remove(executionId) }
         editor.apply()
+    }
+}
+
+/** Allocates stable, app-private notification IDs without using alarm ID hashes. */
+private object NotificationIds {
+    private const val PREFERENCES = "nativephp_alarm_notification_ids"
+    private const val NEXT_ID = "next_id"
+
+    fun forAlarm(context: Context, alarmId: String): Int {
+        val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        val key = "alarm:$alarmId"
+
+        if (preferences.contains(key)) {
+            return preferences.getInt(key, 0)
+        }
+
+        val notificationId = preferences.getInt(NEXT_ID, 10_000)
+
+        preferences.edit()
+            .putInt(key, notificationId)
+            .putInt(NEXT_ID, notificationId + 1)
+            .apply()
+
+        return notificationId
     }
 }
 

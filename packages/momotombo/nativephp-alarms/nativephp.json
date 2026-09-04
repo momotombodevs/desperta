@@ -44,11 +44,7 @@
         {"name": "Alarms.AcknowledgeOccurrences", "description": "Acknowledge reconciled alarm occurrence events.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.AcknowledgeOccurrences"},
         {"name": "Alarms.Complete", "description": "Stop an active ringing session without cancelling its schedule.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Complete"},
         {"name": "Alarms.Cancel", "description": "Cancel one alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Cancel"},
-        {"name": "Alarms.CancelAll", "description": "Cancel every alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.CancelAll"},
-        {"name": "Alarms.Snooze", "description": "Snooze one active alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Snooze"},
-        {"name": "Alarms.Next", "description": "Return the next scheduled alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Next"},
-        {"name": "Alarms.All", "description": "Return all scheduled alarms.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.All"},
-        {"name": "Alarms.Exists", "description": "Check whether an alarm exists.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Exists"}
+        {"name": "Alarms.Snooze", "description": "Snooze one active alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Snooze"}
     ],
     "android": {
         "min_version": 26,
@@ -100,10 +96,10 @@
     },
     "assets": {
         "android": {
-            "android/drawable/ic_stat_desperta.xml": "res/drawable/ic_stat_desperta.xml"
+            "android/drawable/ic_stat_alarm.xml": "res/drawable/ic_stat_alarm.xml"
         }
     },
     "secrets": [],
-    "events": ["Momotombo\\NativePHPAlarms\\Events\\AlarmAuthorizationChanged", "Momotombo\\NativePHPAlarms\\Events\\NotificationAuthorizationChanged", "Momotombo\\NativePHPAlarms\\Events\\AlarmScheduled", "Momotombo\\NativePHPAlarms\\Events\\AlarmTriggered", "Momotombo\\NativePHPAlarms\\Events\\AlarmSnoozed", "Momotombo\\NativePHPAlarms\\Events\\AlarmCancelled", "Momotombo\\NativePHPAlarms\\Events\\AlarmCompleted", "Momotombo\\NativePHPAlarms\\Events\\AlarmError"],
+    "events": ["Momotombo\\NativePHPAlarms\\Events\\NotificationAuthorizationChanged"],
     "service_provider": "Momotombo\\NativePHPAlarms\\AlarmServiceProvider"
 }

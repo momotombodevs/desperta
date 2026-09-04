@@ -1,6 +1,6 @@
 {
     "name": "momotombo/nativephp-alarms",
-    "description": "Cross-platform native alarm contract for NativePHP Mobile.",
+    "description": "Android native alarm contract for NativePHP Mobile.",
     "type": "nativephp-plugin",
     "license": "MIT",
     "authors": [

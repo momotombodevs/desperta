@@ -10,14 +10,15 @@ use Momotombo\NativePHPAlarms\Exceptions\AlarmNotFound;
 use Momotombo\NativePHPAlarms\Exceptions\InvalidAlarmConfiguration;
 use Momotombo\NativePHPAlarms\Exceptions\UnsupportedFeature;
 
-it('serializes a reusable weekly alarm configuration without application metadata', function () {
+it('serializes a reusable weekly alarm configuration with an occurrence and launch path', function () {
     $alarm = AlarmConfiguration::make('weekday-wake-up')
         ->at('06:30')
         ->repeatOn([Weekday::Monday, Weekday::Friday])
-        ->sound('morning-soft')
         ->vibration()
         ->snooze(5)
-        ->metadata(['route' => '/wake-up']);
+        ->launchPath('/wake-up')
+        ->notification('Wake up', 'Your alarm is ringing.')
+        ->occurrence('occurrence-1', '2026-09-03T06:30:00+00:00');
 
     expect($alarm->toPayload())->toBe([
         'id' => 'weekday-wake-up',
@@ -25,10 +26,13 @@ it('serializes a reusable weekly alarm configuration without application metadat
         'minute' => 30,
         'weekdays' => ['monday', 'friday'],
         'label' => null,
-        'sound' => 'morning-soft',
         'vibration' => true,
         'snooze_minutes' => 5,
-        'metadata' => ['route' => '/wake-up'],
+        'launch_path' => '/wake-up',
+        'notification_title' => 'Wake up',
+        'notification_body' => 'Your alarm is ringing.',
+        'occurrence_id' => 'occurrence-1',
+        'scheduled_for' => '2026-09-03T06:30:00+00:00',
     ]);
 });
 
@@ -39,6 +43,7 @@ it('rejects invalid alarm configuration values', function (callable $configure, 
     'invalid minute' => [fn (): AlarmConfiguration => new AlarmConfiguration(id: 'wake-up', minute: 60), 'between 0 and 59'],
     'duplicate weekday' => [fn (): AlarmConfiguration => new AlarmConfiguration(id: 'wake-up', weekdays: [Weekday::Monday, Weekday::Monday]), 'duplicates'],
     'invalid snooze' => [fn (): AlarmConfiguration => new AlarmConfiguration(id: 'wake-up', snoozeMinutes: 0), 'at least one minute'],
+    'invalid launch path' => [fn (): AlarmConfiguration => AlarmConfiguration::make('wake-up')->launchPath('wake-up'), 'begin with a slash'],
 ]);
 
 it('maps native capabilities and authorization without assuming platform parity', function () {
@@ -47,7 +52,7 @@ it('maps native capabilities and authorization without assuming platform parity'
         public function call(string $method, array $parameters = []): array
         {
             return match ($method) {
-                'Alarms.Capabilities' => ['exact' => true, 'custom_sound' => false, 'snooze' => true, 'repeating' => true, 'system_alarm_ui' => true, 'volume_control' => false],
+                'Alarms.Capabilities' => ['exact' => true, 'snooze' => true, 'repeating' => true, 'system_alarm_ui' => true, 'volume_control' => false],
                 'Alarms.AuthorizationStatus' => ['status' => 'authorized'],
             };
         }
@@ -55,7 +60,6 @@ it('maps native capabilities and authorization without assuming platform parity'
 
     expect($scheduler->capabilities()->toPayload())->toBe([
         'exact' => true,
-        'custom_sound' => false,
         'snooze' => true,
         'repeating' => true,
         'system_alarm_ui' => true,
@@ -114,12 +118,12 @@ it('returns the active ringing alarm id without exposing a schedule', function (
         public function call(string $method, array $parameters = []): array
         {
             return $method === 'Alarms.Active'
-                ? ['id' => 'weekday-wake-up', 'execution_id' => 'execution-1', 'scheduled_for' => '2026-09-03T06:30:00+00:00']
+                ? ['id' => 'weekday-wake-up', 'occurrence_id' => 'occurrence-1', 'scheduled_for' => '2026-09-03T06:30:00+00:00']
                 : [];
         }
     });
 
-    expect($scheduler->activeRingingOccurrence()?->alarmId)->toBe('weekday-wake-up');
+    expect($scheduler->activeRingingOccurrence()?->occurrenceId)->toBe('occurrence-1');
 });
 
 it('translates native error cases into typed exceptions', function (array $response, string $exception) {
