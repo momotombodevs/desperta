@@ -2,6 +2,7 @@
 
 namespace App\NativeComponents;
 
+use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Challenges\ChallengeDifficulty;
@@ -18,6 +19,8 @@ use Victorycodedev\ToastKit\Facades\Toast;
 
 class AlarmEditor extends NativeComponent
 {
+    use ResumesActiveAlarm;
+
     public string $alarmId = '';
 
     public bool $isEditing = false;

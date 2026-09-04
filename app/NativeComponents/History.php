@@ -2,6 +2,7 @@
 
 namespace App\NativeComponents;
 
+use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Models\AlarmExecution;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
@@ -10,6 +11,8 @@ use Native\Mobile\Edge\NativeComponent;
 
 final class History extends NativeComponent
 {
+    use ResumesActiveAlarm;
+
     /** @return Collection<int, AlarmExecution> */
     #[Computed]
     public function executions(): Collection

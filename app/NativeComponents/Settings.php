@@ -2,6 +2,7 @@
 
 namespace App\NativeComponents;
 
+use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\Preferences\AppPreferences;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -9,6 +10,8 @@ use Native\Mobile\Facades\Browser;
 
 final class Settings extends NativeComponent
 {
+    use ResumesActiveAlarm;
+
     /** @var list<string> */
     private const array AppearancePreferences = ['system', 'light', 'dark'];
 
