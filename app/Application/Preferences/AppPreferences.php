@@ -15,6 +15,8 @@ class AppPreferences
 
     private const string ChallengeThemeKey = 'challenge_theme';
 
+    private const string ChallengeOrderKeyPrefix = 'challenge_order_';
+
     /** @var list<string> */
     private const array Appearances = ['system', 'light', 'dark'];
 
@@ -56,6 +58,19 @@ class AppPreferences
     public function setChallengeTheme(string $challengeTheme): void
     {
         $this->store(self::ChallengeThemeKey, $challengeTheme, self::ChallengeThemes);
+    }
+
+    public function lastChallengeOrder(string $theme): ?string
+    {
+        return AppPreference::query()->where('key', self::ChallengeOrderKeyPrefix.$theme)->value('value');
+    }
+
+    public function rememberChallengeOrder(string $theme, string $fingerprint): void
+    {
+        AppPreference::query()->updateOrCreate(
+            ['key' => self::ChallengeOrderKeyPrefix.$theme],
+            ['value' => $fingerprint],
+        );
     }
 
     public function applyLanguage(): void

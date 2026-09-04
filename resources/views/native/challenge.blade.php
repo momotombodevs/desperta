@@ -1,15 +1,11 @@
 @use('App\Icons\Android')
-@use('App\Icons\Ios')
 
 <native:top-bar :title="__('app.challenge')" :subtitle="__('app.challenge_subtitle')" display-mode="inline"/>
 
 <native:column ref="challenge-screen" class="w-full h-full gap-5 bg-theme-background p-6">
     @if (! $completed)
         <native:column class="w-full gap-4 rounded-2xl border border-theme-outline bg-theme-surface p-5">
-            <native:row class="w-full items-center justify-between gap-3">
-                <native:text font="accent" class="text-sm text-theme-primary">{{ __('app.question_of', ['current' => $questionIndex + 1, 'total' => count($questions)]) }}</native:text>
-                <native:text class="text-sm text-theme-on-surface-variant">{{ $correctAnswers }} / {{ count($questions) }}</native:text>
-            </native:row>
+            <native:text font="accent" class="text-sm text-theme-primary">{{ __('app.question_of', ['current' => $questionIndex + 1, 'total' => count($questions)]) }}</native:text>
             <native:progress-bar :value="($questionIndex + 1) / count($questions)"/>
             <native:text font="accent"
                          class="text-3xl leading-tight text-theme-on-surface">{{ $questions[$questionIndex]['question'] }}</native:text>
@@ -20,18 +16,22 @@
                 <native:pressable
                     ref="answer-{{ $loop->index }}"
                     key="question-{{ $questions[$questionIndex]['id'] }}-answer-{{ $loop->index }}"
-                    class="w-full flex-row items-center gap-3 rounded-xl border p-4 {{ $selectedAnswer === $option ? 'border-theme-primary bg-theme-primary/15' : 'border-theme-outline bg-theme-surface' }}"
-                    @tap="selectAnswer('{{ $option }}')"
+                    class="w-full flex-row items-center gap-3 rounded-xl border p-4 {{ $selectedAnswerIndex === $loop->index ? 'border-theme-primary bg-theme-primary/15' : 'border-theme-outline bg-theme-surface' }}"
+                    @tap="selectAnswer({{ $loop->index }})"
                     :a11y-label="$option"
                 >
-                    <native:icon name="check" class="{{ $selectedAnswer === $option ? 'text-theme-primary' : 'text-theme-on-surface-variant' }}" size="20"/>
+                    @if ($selectedAnswerIndex === $loop->index)
+                        <native:icon name="check" class="text-theme-primary" size="20" a11y-label="{{ __('app.selected_answer') }}"/>
+                    @else
+                        <native:icon name="circle" class="text-theme-on-surface-variant" size="20"/>
+                    @endif
                     <native:text class="flex-1 text-lg text-theme-on-surface">{{ $option }}</native:text>
                 </native:pressable>
             @endforeach
         </native:column>
 
         <native:button ref="continue-challenge" variant="primary" class="w-full" size="lg" @tap="continueChallenge"
-                       :disabled="$selectedAnswer === ''" :a11y-label="__('app.continue')">{{ __('app.continue') }}</native:button>
+                       :disabled="$selectedAnswerIndex === null" :a11y-label="$questionIndex === count($questions) - 1 ? __('app.check_answers') : __('app.continue')">{{ $questionIndex === count($questions) - 1 ? __('app.check_answers') : __('app.continue') }}</native:button>
         @if ($snoozeAvailable)
             <native:button ref="snooze-alarm" variant="secondary" class="w-full" size="lg" @tap="snoozeAlarm"
                            :a11y-label="__('app.snooze_for_minutes', ['minutes' => 5])">{{ __('app.snooze_for_minutes', ['minutes' => 5]) }}</native:button>

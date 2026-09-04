@@ -98,14 +98,11 @@ it('waits for notification authorization before scheduling a locked-screen alarm
 });
 
 it('requires every answer to be correct before the alarm can be turned off', function () {
-    Native::visit('/challenge')
-        ->set('selectedAnswer', 'Managua')->tap('continue-challenge')
-        ->set('selectedAnswer', 'Cocibolca')->tap('continue-challenge')
-        ->set('selectedAnswer', 'Estelí')->tap('continue-challenge')
-        ->assertSee('Todavía no.');
+    answerChallenge(Native::visit('/challenge'), false)
+        ->assertSee('Necesitás 3 de 3.');
 
     $this->assertDatabaseHas('alarm_challenge_attempts', [
-        'correct_answers' => 2,
+        'correct_answers' => 0,
         'question_count' => 3,
         'required_correct_answers' => 3,
         'passed' => false,
@@ -113,11 +110,8 @@ it('requires every answer to be correct before the alarm can be turned off', fun
 });
 
 it('replaces a failed challenge with unused questions and records every attempt', function () {
-    $challenge = Native::visit('/challenge')
-        ->set('selectedAnswer', 'León')->tap('continue-challenge')
-        ->set('selectedAnswer', 'Apanás')->tap('continue-challenge')
-        ->set('selectedAnswer', 'Estelí')->tap('continue-challenge')
-        ->assertSee('Todavía no.');
+    $challenge = answerChallenge(Native::visit('/challenge'), false)
+        ->assertSee('Necesitás 3 de 3.');
 
     $firstQuestionIds = array_column($challenge->get('questions'), 'id');
 
@@ -135,13 +129,10 @@ it('stops a completed weekly alarm immediately', function () {
     $scheduler->shouldNotReceive('cancel');
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
-    $challenge = Native::visit('/challenge', ['alarmId' => $alarm->id])
-        ->set('selectedAnswer', 'Managua')->tap('continue-challenge')
-        ->set('selectedAnswer', 'Cocibolca')->tap('continue-challenge')
-        ->set('selectedAnswer', 'León')->tap('continue-challenge')
-        ->assertSee('Reto completado')
+    $challenge = answerChallenge(Native::visit('/challenge', ['alarmId' => $alarm->id]))
+        ->assertSee('Alarma apagada')
         ->assertSet('alarmStopped', true)
-        ->assertSee('Regresar');
+        ->assertSee('Volver al inicio');
 
     expect($alarm->fresh())
         ->enabled->toBeTrue()
@@ -155,10 +146,7 @@ it('cancels and deactivates a completed one-time alarm immediately', function ()
     $scheduler->shouldNotReceive('completeRinging');
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
-    $challenge = Native::visit('/challenge', ['alarmId' => $alarm->id])
-        ->set('selectedAnswer', 'Managua')->tap('continue-challenge')
-        ->set('selectedAnswer', 'Cocibolca')->tap('continue-challenge')
-        ->set('selectedAnswer', 'León')->tap('continue-challenge')
+    $challenge = answerChallenge(Native::visit('/challenge', ['alarmId' => $alarm->id]))
         ->assertSet('alarmStopped', true);
 
     expect($alarm->fresh())
@@ -177,14 +165,11 @@ it('completes a real weekly execution without creating history for its next sche
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
-    Native::visit('/challenge', [
+    answerChallenge(Native::visit('/challenge', [
         'alarmId' => $alarm->id,
         'executionId' => $execution->id,
         'scheduledFor' => '2026-09-03T07:00:00Z',
-    ])
-        ->set('selectedAnswer', 'Managua')->tap('continue-challenge')
-        ->set('selectedAnswer', 'Cocibolca')->tap('continue-challenge')
-        ->set('selectedAnswer', 'León')->tap('continue-challenge');
+    ]));
 
     expect($execution->fresh()->status)->toBe('completed')
         ->and($alarm->fresh()->enabled)->toBeTrue();
@@ -233,13 +218,10 @@ it('shows success after three correct answers, then returns home after the alarm
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
-    Native::visit('/challenge', ['alarmId' => $alarm->id])
-        ->set('selectedAnswer', 'Managua')->tap('continue-challenge')
-        ->set('selectedAnswer', 'Cocibolca')->tap('continue-challenge')
-        ->set('selectedAnswer', 'León')->tap('continue-challenge')
-        ->assertSee('Reto completado')
+    answerChallenge(Native::visit('/challenge', ['alarmId' => $alarm->id]))
+        ->assertSee('Alarma apagada')
         ->assertNoNavigation()
-        ->assertSee('Regresar')
+        ->assertSee('Volver al inicio')
         ->tap('return-home')
         ->assertReplacedWith('/');
 
@@ -249,3 +231,15 @@ it('shows success after three correct answers, then returns home after the alarm
         'passed' => true,
     ]);
 });
+
+function answerChallenge($challenge, bool $correct = true)
+{
+    foreach ($challenge->get('questions') as $question) {
+        $answerIndex = array_find_key($question['options'], fn (string $option): bool => $correct
+            ? $option === $question['answer']
+            : $option !== $question['answer']);
+        $challenge->set('selectedAnswerIndex', $answerIndex)->tap('continue-challenge');
+    }
+
+    return $challenge;
+}

@@ -1,5 +1,6 @@
 <?php
 
+use App\AlarmScheduling\ActiveAlarmOccurrence;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Models\Alarm;
 use App\NativeComponents\Challenge;
@@ -46,7 +47,7 @@ it('stops the active native alarm when a notification opens the challenge withou
         'scheduling_status' => 'scheduled',
     ]);
     $scheduler = mock(NativeAlarmScheduler::class);
-    $scheduler->shouldReceive('activeRingingAlarmId')->once()->andReturn($alarm->id);
+    $scheduler->shouldReceive('activeRingingOccurrence')->once()->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
@@ -109,15 +110,15 @@ it('keeps a failed challenge ringing until the user retries', function () {
     $answers = $challenge->get('questions');
 
     foreach ($answers as $index => $question) {
-        $wrongAnswer = collect($question['options'])->first(fn (string $option): bool => $option !== $question['answer']);
-        $challenge->call('selectAnswer', $wrongAnswer)->call('continueChallenge');
+        $wrongAnswerIndex = array_find_key($question['options'], fn (string $option): bool => $option !== $question['answer']);
+        $challenge->call('selectAnswer', $wrongAnswerIndex)->call('continueChallenge');
     }
 
     $challenge
         ->assertSet('completed', true)
         ->assertSet('passed', false)
         ->assertSet('alarmStopped', false)
-        ->assertSee('Todavía no. Intentá de nuevo.');
+        ->assertSee('Necesitás 3 de 3. Probá con otras preguntas.');
 
     $this->assertDatabaseHas('alarm_challenge_attempts', [
         'alarm_id' => $alarm->id,
@@ -128,11 +129,11 @@ it('keeps a failed challenge ringing until the user retries', function () {
 
 it('renders selected answer cards accessibly', function () {
     $challenge = Native::test(Challenge::class);
-    $answer = $challenge->get('questions')[0]['options'][0];
+    $answerIndex = 0;
 
     $challenge
-        ->call('selectAnswer', $answer)
-        ->assertSet('selectedAnswer', $answer)
+        ->call('selectAnswer', $answerIndex)
+        ->assertSet('selectedAnswerIndex', $answerIndex)
         ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'answer-0'
             && ($node['style']['border_width'] ?? null) === 1.0)
         ->assertAccessible();
@@ -142,6 +143,7 @@ it('renders selected answer cards accessibly', function () {
 function completeChallenge($challenge): void
 {
     foreach ($challenge->get('questions') as $question) {
-        $challenge->call('selectAnswer', $question['answer'])->call('continueChallenge');
+        $answerIndex = array_find_key($question['options'], fn (string $option): bool => $option === $question['answer']);
+        $challenge->call('selectAnswer', $answerIndex)->call('continueChallenge');
     }
 }

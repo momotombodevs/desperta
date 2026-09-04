@@ -15,6 +15,7 @@ class AlarmChallengeAttempt extends Model
     /** @var list<string> */
     protected $fillable = [
         'alarm_id',
+        'alarm_execution_id',
         'challenge_theme',
         'attempt_number',
         'correct_answers',
@@ -37,5 +38,10 @@ class AlarmChallengeAttempt extends Model
     public function alarm(): BelongsTo
     {
         return $this->belongsTo(Alarm::class);
+    }
+
+    public function execution(): BelongsTo
+    {
+        return $this->belongsTo(AlarmExecution::class, 'alarm_execution_id');
     }
 }

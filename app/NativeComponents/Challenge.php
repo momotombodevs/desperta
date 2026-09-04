@@ -2,6 +2,7 @@
 
 namespace App\NativeComponents;
 
+use App\AlarmScheduling\AlarmOccurrenceReconciler;
 use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Challenges\ChallengeCatalog;
@@ -29,7 +30,7 @@ class Challenge extends NativeComponent
 
     public int $questionIndex = 0;
 
-    public string $selectedAnswer = '';
+    public ?int $selectedAnswerIndex = null;
 
     public int $correctAnswers = 0;
 
@@ -44,10 +45,12 @@ class Challenge extends NativeComponent
     public function mount(): void
     {
         app(AppPreferences::class)->applyLanguage();
+        app(AlarmOccurrenceReconciler::class)->reconcile();
         $this->alarmId = (string) $this->param('alarmId', $this->data('alarmId', request()->query('alarmId', '')));
-        $this->recoverActiveAlarmId();
         $this->executionId = (string) $this->param('executionId', $this->data('executionId', request()->query('executionId', '')));
-        $this->questions = app(ChallengeCatalog::class)->questions();
+        $scheduledFor = (string) $this->param('scheduledFor', $this->data('scheduledFor', request()->query('scheduledFor', '')));
+        $this->recoverActiveOccurrence($scheduledFor);
+        $this->materializeQuestions();
         $this->usedQuestionIds = array_column($this->questions, 'id');
 
         if ($this->alarmId !== '') {
@@ -63,7 +66,6 @@ class Challenge extends NativeComponent
             return;
         }
 
-        $scheduledFor = (string) $this->param('scheduledFor', $this->data('scheduledFor', request()->query('scheduledFor', '')));
         if ($scheduledFor !== '') {
             app(AlarmExecutionLifecycle::class)->begin($this->alarmId, $this->executionId, $scheduledFor);
         }
@@ -71,15 +73,15 @@ class Challenge extends NativeComponent
 
     public function continueChallenge(): void
     {
-        if ($this->selectedAnswer === '') {
+        if ($this->selectedAnswerIndex === null) {
             return;
         }
 
-        if ($this->selectedAnswer === $this->questions[$this->questionIndex]['answer']) {
+        if ($this->questions[$this->questionIndex]['options'][$this->selectedAnswerIndex] === $this->questions[$this->questionIndex]['answer']) {
             $this->correctAnswers++;
         }
 
-        $this->selectedAnswer = '';
+        $this->selectedAnswerIndex = null;
 
         if ($this->questionIndex === count($this->questions) - 1) {
             $this->completed = true;
@@ -96,25 +98,25 @@ class Challenge extends NativeComponent
         $this->questionIndex++;
     }
 
-    public function selectAnswer(string $answer): void
+    public function selectAnswer(int $answerIndex): void
     {
-        if (! in_array($answer, $this->questions[$this->questionIndex]['options'], true)) {
+        if (! array_key_exists($answerIndex, $this->questions[$this->questionIndex]['options'])) {
             return;
         }
 
-        $this->selectedAnswer = $answer;
+        $this->selectedAnswerIndex = $answerIndex;
     }
 
     public function retry(): void
     {
         $this->attemptNumber++;
         $this->questionIndex = 0;
-        $this->selectedAnswer = '';
+        $this->selectedAnswerIndex = null;
         $this->correctAnswers = 0;
         $this->completed = false;
         $this->passed = false;
         $this->alarmStopped = false;
-        $this->questions = app(ChallengeCatalog::class)->questions($this->usedQuestionIds);
+        $this->materializeQuestions($this->usedQuestionIds);
         $this->usedQuestionIds = array_merge($this->usedQuestionIds, array_column($this->questions, 'id'));
     }
 
@@ -181,6 +183,7 @@ class Challenge extends NativeComponent
     {
         AlarmChallengeAttempt::query()->create([
             'alarm_id' => $this->alarmId === '' ? null : $this->alarmId,
+            'alarm_execution_id' => $this->executionId === '' ? null : $this->executionId,
             'challenge_theme' => app(AppPreferences::class)->challengeTheme(),
             'attempt_number' => $this->attemptNumber,
             'correct_answers' => $this->correctAnswers,
@@ -190,14 +193,32 @@ class Challenge extends NativeComponent
         ]);
     }
 
-    private function recoverActiveAlarmId(): void
+    /** @param list<string> $excludedQuestionIds */
+    private function materializeQuestions(array $excludedQuestionIds = []): void
+    {
+        $preferences = app(AppPreferences::class);
+        $catalog = app(ChallengeCatalog::class);
+        $theme = $preferences->challengeTheme();
+        $this->questions = $catalog->questions($excludedQuestionIds, $preferences->lastChallengeOrder($theme));
+        $preferences->rememberChallengeOrder($theme, $catalog->fingerprint($this->questions));
+    }
+
+    private function recoverActiveOccurrence(string &$scheduledFor): void
     {
         if ($this->alarmId !== '') {
             return;
         }
 
         try {
-            $this->alarmId = app(NativeAlarmScheduler::class)->activeRingingAlarmId() ?? '';
+            $occurrence = app(NativeAlarmScheduler::class)->activeRingingOccurrence();
+
+            if ($occurrence === null) {
+                return;
+            }
+
+            $this->alarmId = $occurrence->alarmId;
+            $this->executionId = $occurrence->executionId;
+            $scheduledFor = $occurrence->scheduledFor;
         } catch (NativeAlarmSchedulingFailed $exception) {
             report($exception);
         }
