@@ -46,5 +46,5 @@ The current screenshot set includes both English UI and the Spanish settings scr
 
 - Suggested category: Tools.
 - Support email: `hello@momotombo.dev`.
-- Privacy policy: `https://donmanueldev.github.io/desperta/privacy.html`.
+- Privacy policy: `https://desperta.momotombo.dev/privacy.html`.
 - Data safety declaration: no data collected or shared, according to the audited version. Reconfirm this against the final AAB and every included SDK before submission.

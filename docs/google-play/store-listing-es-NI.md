@@ -46,7 +46,7 @@ Las capturas muestran tanto la interfaz en inglés como la pantalla de configura
 
 - Categoría sugerida: Herramientas.
 - Correo de asistencia: `hello@momotombo.dev`.
-- Política de privacidad: `https://donmanueldev.github.io/desperta/privacy.html`.
+- Política de privacidad: `https://desperta.momotombo.dev/privacy.html`.
 - Declaración de seguridad de datos: sin datos recopilados ni compartidos, según la versión auditada; confirmar este dato contra el AAB final y cualquier SDK incluido antes de enviarla.
 
 ## Antes de enviar a revisión
