@@ -1,162 +1,420 @@
 <!doctype html>
 <html lang="es-NI">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Despertá es una alarma con reto para empezar el día con atención: configurá tu hora, respondé 3 de 3 y seguí tus hábitos de forma local.">
-  <meta name="robots" content="index,follow">
-  <meta name="theme-color" content="#ffffff">
-  <link rel="canonical" href="https://desperta.momotombo.dev/">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="favicon-96x96.png" type="image/png" sizes="96x96">
-  <link rel="shortcut icon" href="favicon.ico">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
-  <link rel="manifest" href="site.webmanifest">
-  <meta name="apple-mobile-web-app-title" content="Despertá">
-  <meta property="og:type" content="website">
-  <meta property="og:locale" content="es_NI">
-  <meta property="og:title" content="Despertá · Una alarma con reto">
-  <meta property="og:description" content="Una alarma con propósito para empezar la mañana con atención y construir hábitos.">
-  <meta property="og:url" content="https://desperta.momotombo.dev/">
-  <meta property="og:image" content="https://desperta.momotombo.dev/assets/desperta-social.png">
-  <meta property="og:image:type" content="image/png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Despertá · Una alarma con reto. Logo de la app y desperta.momotombo.dev.">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Despertá · Una alarma con reto">
-  <meta name="twitter:description" content="Empezá el día con atención: una alarma, tres respuestas y hábitos locales.">
-  <meta name="twitter:image" content="https://desperta.momotombo.dev/assets/desperta-social.png">
-  <meta name="twitter:image:alt" content="Despertá · Una alarma con reto. Logo de la app y desperta.momotombo.dev.">
-  <title>Despertá · Alarma con reto y hábitos locales</title>
-  <script>document.documentElement.classList.add('has-js');</script>
-  <link rel="stylesheet" href="styles.css">
-  <script type="application/ld+json">
-  {
-    "@context":"https://schema.org",
-    "@graph":[
-      {"@type":"Organization","@id":"https://desperta.momotombo.dev/#organization","name":"Momotombo Devs","url":"https://momotombo.dev/","email":"hello@momotombo.dev"},
-      {"@type":"WebPage","@id":"https://desperta.momotombo.dev/#webpage","url":"https://desperta.momotombo.dev/","name":"Despertá · Alarma con reto y hábitos locales","description":"Despertá es una alarma con reto para empezar el día con atención y seguir hábitos de forma local.","inLanguage":"es-NI","publisher":{"@id":"https://desperta.momotombo.dev/#organization"}},
-      {"@type":"SoftwareApplication","@id":"https://desperta.momotombo.dev/#application","name":"Despertá","description":"Una alarma con reto para empezar el día con atención y seguir hábitos de forma local.","applicationCategory":"UtilitiesApplication","applicationSubCategory":"Alarm Clock","featureList":["Configuración de alarmas por hora y días específicos","Reto de tres preguntas para terminar la alarma","Posponer vuelve a programar la alarma","Historial local de ejecuciones recientes"],"inLanguage":"es-NI","publisher":{"@id":"https://desperta.momotombo.dev/#organization"},"url":"https://desperta.momotombo.dev/"},
-      {"@type":"FAQPage","@id":"https://desperta.momotombo.dev/#faq","url":"https://desperta.momotombo.dev/#faq","inLanguage":"es-NI","mainEntity":[
-        {"@type":"Question","name":"¿Cómo funciona la alarma?","acceptedAnswer":{"@type":"Answer","text":"Elegís una hora y los días en que querés activarla. Cuando suena, Despertá abre un reto de tres preguntas para terminar la alarma."}},
-        {"@type":"Question","name":"¿Qué pasa si respondo mal una pregunta?","acceptedAnswer":{"@type":"Answer","text":"La alarma sigue activa. Podés intentar una nueva serie hasta completar correctamente las tres respuestas."}},
-        {"@type":"Question","name":"¿Qué es posponer?","acceptedAnswer":{"@type":"Answer","text":"Posponer vuelve a programar la alarma para más tarde. Esa ejecución se registra de forma distinta en tu progreso local."}},
-        {"@type":"Question","name":"¿Puedo elegir qué días se activa?","acceptedAnswer":{"@type":"Answer","text":"Sí. Podés configurar una alarma para días específicos o usarla una sola vez."}},
-        {"@type":"Question","name":"¿Cómo funciona el historial de 7 días?","acceptedAnswer":{"@type":"Answer","text":"El historial muestra tus ejecuciones recientes para ayudarte a identificar cómo van tus mañanas y tu racha."}}
-      ]}
-    ]
-  }
-  </script>
-</head>
-<body>
-  <a class="skip-link" href="#contenido">Saltar al contenido</a>
-  <header class="site-header">
-    <div class="shell header-content">
-      <a class="brand" href="#inicio" aria-label="Despertá, inicio">
-        <img src="assets/desperta-mark.svg" width="46" height="46" alt="" aria-hidden="true">
-        <span>Despertá</span>
-      </a>
-      <button class="menu-button" type="button" aria-expanded="false" aria-controls="site-navigation">Menú</button>
-      <nav id="site-navigation" aria-label="Principal">
-        <a href="#como-funciona">Cómo funciona</a>
-        <a href="#habitos">Hábitos</a>
-        <a href="#nativephp">NativePHP</a>
-      </nav>
-    </div>
-  </header>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+            name="description"
+            content="Despertá es una alarma con reto para empezar el día con atención: configurá tu hora, respondé 3 de 3 y seguí tus hábitos de forma local."
+        />
+        <meta name="robots" content="index,follow" />
+        <meta name="theme-color" content="#ffffff" />
+        <link rel="canonical" href="https://desperta.momotombo.dev/" />
+        <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+        <link
+            rel="icon"
+            href="favicon-96x96.png"
+            type="image/png"
+            sizes="96x96"
+        />
+        <link rel="shortcut icon" href="favicon.ico" />
+        <link
+            rel="apple-touch-icon"
+            href="apple-touch-icon.png"
+            sizes="180x180"
+        />
+        <link rel="manifest" href="site.webmanifest" />
+        <meta name="apple-mobile-web-app-title" content="Despertá" />
+        <meta property="og:type" content="website" />
+        <meta property="og:locale" content="es_NI" />
+        <meta property="og:title" content="Despertá · Una alarma con reto" />
+        <meta
+            property="og:description"
+            content="Una alarma con propósito para empezar la mañana con atención y construir hábitos."
+        />
+        <meta property="og:url" content="https://desperta.momotombo.dev/" />
+        <meta
+            property="og:image"
+            content="https://desperta.momotombo.dev/assets/desperta-social.png"
+        />
+        <meta property="og:image:type" content="image/png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta
+            property="og:image:alt"
+            content="Despertá · Una alarma con reto. Logo de la app y desperta.momotombo.dev."
+        />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Despertá · Una alarma con reto" />
+        <meta
+            name="twitter:description"
+            content="Empezá el día con atención: una alarma, tres respuestas y hábitos locales."
+        />
+        <meta
+            name="twitter:image"
+            content="https://desperta.momotombo.dev/assets/desperta-social.png"
+        />
+        <meta
+            name="twitter:image:alt"
+            content="Despertá · Una alarma con reto. Logo de la app y desperta.momotombo.dev."
+        />
+        <title>Despertá · Alarma con reto y hábitos locales</title>
+        <script>
+            document.documentElement.classList.add("has-js");
+        </script>
+        <link rel="stylesheet" href="styles.css" />
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@graph": [
+                    {
+                        "@type": "Organization",
+                        "@id": "https://desperta.momotombo.dev/#organization",
+                        "name": "Momotombo Devs",
+                        "url": "https://momotombo.dev/",
+                        "email": "hello@momotombo.dev"
+                    },
+                    {
+                        "@type": "WebPage",
+                        "@id": "https://desperta.momotombo.dev/#webpage",
+                        "url": "https://desperta.momotombo.dev/",
+                        "name": "Despertá · Alarma con reto y hábitos locales",
+                        "description": "Despertá es una alarma con reto para empezar el día con atención y seguir hábitos de forma local.",
+                        "inLanguage": "es-NI",
+                        "publisher": {
+                            "@id": "https://desperta.momotombo.dev/#organization"
+                        }
+                    },
+                    {
+                        "@type": "SoftwareApplication",
+                        "@id": "https://desperta.momotombo.dev/#application",
+                        "name": "Despertá",
+                        "description": "Una alarma con reto para empezar el día con atención y seguir hábitos de forma local.",
+                        "downloadUrl": "https://play.google.com/store/apps/details?id=dev.momotombo.desperta",
+                        "operatingSystem": "Android",
+                        "applicationCategory": "UtilitiesApplication",
+                        "applicationSubCategory": "Alarm Clock",
+                        "featureList": [
+                            "Configuración de alarmas por hora y días específicos",
+                            "Reto de tres preguntas para terminar la alarma",
+                            "Posponer vuelve a programar la alarma",
+                            "Historial local de ejecuciones recientes"
+                        ],
+                        "inLanguage": "es-NI",
+                        "publisher": {
+                            "@id": "https://desperta.momotombo.dev/#organization"
+                        },
+                        "url": "https://desperta.momotombo.dev/"
+                    },
+                    {
+                        "@type": "FAQPage",
+                        "@id": "https://desperta.momotombo.dev/#faq",
+                        "url": "https://desperta.momotombo.dev/#faq",
+                        "inLanguage": "es-NI",
+                        "mainEntity": [
+                            {
+                                "@type": "Question",
+                                "name": "¿Cómo funciona la alarma?",
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": "Elegís una hora y los días en que querés activarla. Cuando suena, Despertá abre un reto de tres preguntas para terminar la alarma."
+                                }
+                            },
+                            {
+                                "@type": "Question",
+                                "name": "¿Qué pasa si respondo mal una pregunta?",
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": "La alarma sigue activa. Podés intentar una nueva serie hasta completar correctamente las tres respuestas."
+                                }
+                            },
+                            {
+                                "@type": "Question",
+                                "name": "¿Qué es posponer?",
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": "Posponer vuelve a programar la alarma para más tarde. Esa ejecución se registra de forma distinta en tu progreso local."
+                                }
+                            },
+                            {
+                                "@type": "Question",
+                                "name": "¿Puedo elegir qué días se activa?",
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": "Sí. Podés configurar una alarma para días específicos o usarla una sola vez."
+                                }
+                            },
+                            {
+                                "@type": "Question",
+                                "name": "¿Cómo funciona el historial de 7 días?",
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": "El historial muestra tus ejecuciones recientes para ayudarte a identificar cómo van tus mañanas y tu racha."
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        </script>
+    </head>
+    <body>
+        <a class="skip-link" href="#contenido">Saltar al contenido</a>
+        <header class="site-header">
+            <div class="shell header-content">
+                <a class="brand" href="#inicio" aria-label="Despertá, inicio">
+                    <img
+                        src="assets/desperta-mark.svg"
+                        width="46"
+                        height="46"
+                        alt=""
+                        aria-hidden="true"
+                    />
+                    <span>Despertá</span>
+                </a>
+                <button
+                    class="menu-button"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="site-navigation"
+                >
+                    Menú
+                </button>
+                <nav id="site-navigation" aria-label="Principal">
+                    <a href="#como-funciona">Cómo funciona</a>
+                    <a href="#habitos">Hábitos</a>
+                    <a href="#nativephp">NativePHP</a>
+                </nav>
+            </div>
+        </header>
 
-  <main id="contenido">
-    <section id="inicio" class="hero shell" aria-labelledby="hero-title">
-      <div class="hero-copy reveal">
-        <h1 id="hero-title">No es solo<br>una alarma.</h1>
-        <p class="hero-lede">Es tu primer momento<br>de atención.</p>
-        <p class="hero-body">Despertá es una alarma con propósito. Te ayuda a empezar el día con presencia, no con prisa.</p>
-        <a class="text-cta" href="https://momotombo.dev/">Próximamente en Android <span aria-hidden="true">→</span></a>
-      </div>
-      <div class="hero-mark reveal" aria-hidden="true">
-        <img src="assets/desperta-mark.svg" width="360" height="360" alt="">
-      </div>
-    </section>
+        <main id="contenido">
+            <section
+                id="inicio"
+                class="hero shell"
+                aria-labelledby="hero-title"
+            >
+                <div class="hero-copy reveal">
+                    <h1 id="hero-title">No es solo<br />una alarma.</h1>
+                    <p class="hero-lede">
+                        Es tu primer momento<br />de atención.
+                    </p>
+                    <p class="hero-body">
+                        Despertá es una alarma con propósito. Te ayuda a empezar
+                        el día con presencia, no con prisa.
+                    </p>
+                    <a
+                        class="play-store-link"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        href="https://play.google.com/store/apps/details?id=dev.momotombo.desperta"
+                    >
+                        <img
+                            src="assets/google-play-2.svg"
+                            width="216"
+                            height="62"
+                            alt="Descargá Despertá en Google Play"
+                        />
+                    </a>
+                </div>
+                <div class="hero-mark reveal" aria-hidden="true">
+                    <img
+                        src="assets/desperta-mark.svg"
+                        width="360"
+                        height="360"
+                        alt=""
+                    />
+                </div>
+            </section>
 
-    <section id="como-funciona" class="how-it-works" aria-labelledby="how-title">
-      <div class="shell">
-        <p id="how-title" class="section-label light">Cómo funciona</p>
-        <div class="steps">
-          <article class="step reveal">
-            <p class="step-number">1.</p>
-            <h2>Elegí<br>tu hora.</h2>
-            <p>Configurá tu alarma con repetición diaria. Personalizá el sonido, la vibración y los días que querés activarla.</p>
-          </article>
-          <article class="step step-challenge reveal">
-            <p class="step-number">2.</p>
-            <h2>Respondé<br>3 de 3.</h2>
-            <p class="score">3/3</p>
-            <p>La alarma no se apaga hasta que respondés correctamente tres preguntas de una serie.</p>
-          </article>
-          <article class="step reveal">
-            <p class="step-number">3.</p>
-            <h2>Volvé a tu<br>progreso.</h2>
-            <p>Si activás posponer, la alarma sonará nuevamente más tarde. Cada día cuenta para tu hábito.</p>
-          </article>
-        </div>
-      </div>
-    </section>
+            <section
+                id="como-funciona"
+                class="how-it-works"
+                aria-labelledby="how-title"
+            >
+                <div class="shell">
+                    <p id="how-title" class="section-label light">
+                        Cómo funciona
+                    </p>
+                    <div class="steps">
+                        <article class="step reveal">
+                            <p class="step-number">1.</p>
+                            <h2>Elegí<br />tu hora.</h2>
+                            <p>
+                                Configurá tu alarma con repetición diaria.
+                                Personalizá el sonido, la vibración y los días
+                                que querés activarla.
+                            </p>
+                        </article>
+                        <article class="step step-challenge reveal">
+                            <p class="step-number">2.</p>
+                            <h2>Respondé<br />3 de 3.</h2>
+                            <p class="score">3/3</p>
+                            <p>
+                                La alarma no se apaga hasta que respondés
+                                correctamente tres preguntas de una serie.
+                            </p>
+                        </article>
+                        <article class="step reveal">
+                            <p class="step-number">3.</p>
+                            <h2>Volvé a tu<br />progreso.</h2>
+                            <p>
+                                Si activás posponer, la alarma sonará nuevamente
+                                más tarde. Cada día cuenta para tu hábito.
+                            </p>
+                        </article>
+                    </div>
+                </div>
+            </section>
 
-    <section id="habitos" class="habits shell" aria-labelledby="habits-title">
-      <div class="habits-copy reveal">
-        <p class="section-label">Hábitos</p>
-        <h2 id="habits-title">Tus mañanas,<br>con intención.</h2>
-        <p>Construí el hábito de empezar cada día con atención y constancia.</p>
-        <p>Revisá tu historial de los últimos 7 días y mantené tu racha.</p>
-      </div>
-      <div class="habit-visual reveal" aria-label="Ejemplo de siete días de hábito">
-        <div class="days" aria-hidden="true"><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span></div>
-        <div class="habit-line" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="snoozed"></i><i class="done"></i><i class="snoozed"></i><i class="pending"></i><i class="done"></i></div>
-        <ul class="legend">
-          <li><span class="legend-dot done"></span>Día completado: respondiste 3 de 3.</li>
-          <li><span class="legend-dot snoozed"></span>Día completado: con posponer.</li>
-          <li><span class="legend-dot pending"></span>Día sin completar.</li>
-        </ul>
-      </div>
-    </section>
+            <section
+                id="habitos"
+                class="habits shell"
+                aria-labelledby="habits-title"
+            >
+                <div class="habits-copy reveal">
+                    <p class="section-label">Hábitos</p>
+                    <h2 id="habits-title">Tus mañanas,<br />con intención.</h2>
+                    <p>
+                        Construí el hábito de empezar cada día con atención y
+                        constancia.
+                    </p>
+                    <p>
+                        Revisá tu historial de los últimos 7 días y mantené tu
+                        racha.
+                    </p>
+                </div>
+                <div
+                    class="habit-visual reveal"
+                    aria-label="Ejemplo de siete días de hábito"
+                >
+                    <div class="days" aria-hidden="true">
+                        <span>Lun</span><span>Mar</span><span>Mié</span
+                        ><span>Jue</span><span>Vie</span><span>Sáb</span
+                        ><span>Dom</span>
+                    </div>
+                    <div class="habit-line" aria-hidden="true">
+                        <i class="done"></i><i class="done"></i
+                        ><i class="snoozed"></i><i class="done"></i
+                        ><i class="snoozed"></i><i class="pending"></i
+                        ><i class="done"></i>
+                    </div>
+                    <ul class="legend">
+                        <li>
+                            <span class="legend-dot done"></span>Día completado:
+                            respondiste 3 de 3.
+                        </li>
+                        <li>
+                            <span class="legend-dot snoozed"></span>Día
+                            completado: con posponer.
+                        </li>
+                        <li>
+                            <span class="legend-dot pending"></span>Día sin
+                            completar.
+                        </li>
+                    </ul>
+                </div>
+            </section>
 
-    <section id="nativephp" class="nativephp" aria-labelledby="nativephp-title">
-      <div class="shell nativephp-inner reveal">
-        <img class="nativephp-logo" src="assets/nativephp-logo.png" width="126" height="131" alt="Logotipo de NativePHP">
-        <div>
-          <h2 id="nativephp-title">Hecha de forma nativa<br>con NativePHP Mobile.</h2>
-          <p>Experiencia fluida y eficiente, construida con tecnologías nativas. Sin capas innecesarias.</p>
-          <a class="nativephp-link" href="https://nativephp.com/">Conocé NativePHP <span aria-hidden="true">→</span></a>
-        </div>
-      </div>
-    </section>
+            <section
+                id="nativephp"
+                class="nativephp"
+                aria-labelledby="nativephp-title"
+            >
+                <div class="shell nativephp-inner reveal">
+                    <img
+                        class="nativephp-logo"
+                        src="assets/nativephp-logo.png"
+                        width="126"
+                        height="131"
+                        alt="Logotipo de NativePHP"
+                    />
+                    <div>
+                        <h2 id="nativephp-title">
+                            Hecha de forma nativa<br />con NativePHP Mobile.
+                        </h2>
+                        <p>
+                            Experiencia fluida y eficiente, construida con
+                            tecnologías nativas. Sin capas innecesarias.
+                        </p>
+                        <a class="nativephp-link" href="https://nativephp.com/"
+                            >Conocé NativePHP
+                            <span aria-hidden="true">→</span></a
+                        >
+                    </div>
+                </div>
+            </section>
 
-    <section class="faq shell" aria-labelledby="faq-title">
-      <p class="section-label">Preguntas frecuentes</p>
-      <h2 id="faq-title" class="visually-hidden">Preguntas frecuentes</h2>
-      <details class="reveal"><summary>¿Cómo funciona la alarma?</summary><p>Elegís una hora y los días en que querés activarla. Cuando suena, Despertá abre un reto de tres preguntas para terminar la alarma.</p></details>
-      <details class="reveal"><summary>¿Qué pasa si respondo mal una pregunta?</summary><p>La alarma sigue activa. Podés intentar una nueva serie hasta completar correctamente las tres respuestas.</p></details>
-      <details class="reveal"><summary>¿Qué es posponer?</summary><p>Posponer vuelve a programar la alarma para más tarde. Esa ejecución se registra de forma distinta en tu progreso local.</p></details>
-      <details class="reveal"><summary>¿Puedo elegir qué días se activa?</summary><p>Sí. Podés configurar una alarma para días específicos o usarla una sola vez.</p></details>
-      <details class="reveal"><summary>¿Cómo funciona el historial de 7 días?</summary><p>El historial muestra tus ejecuciones recientes para ayudarte a identificar cómo van tus mañanas y tu racha.</p></details>
-    </section>
+            <section class="faq shell" aria-labelledby="faq-title">
+                <p class="section-label">Preguntas frecuentes</p>
+                <h2 id="faq-title" class="visually-hidden">
+                    Preguntas frecuentes
+                </h2>
+                <details class="reveal">
+                    <summary>¿Cómo funciona la alarma?</summary>
+                    <p>
+                        Elegís una hora y los días en que querés activarla.
+                        Cuando suena, Despertá abre un reto de tres preguntas
+                        para terminar la alarma.
+                    </p>
+                </details>
+                <details class="reveal">
+                    <summary>¿Qué pasa si respondo mal una pregunta?</summary>
+                    <p>
+                        La alarma sigue activa. Podés intentar una nueva serie
+                        hasta completar correctamente las tres respuestas.
+                    </p>
+                </details>
+                <details class="reveal">
+                    <summary>¿Qué es posponer?</summary>
+                    <p>
+                        Posponer vuelve a programar la alarma para más tarde.
+                        Esa ejecución se registra de forma distinta en tu
+                        progreso local.
+                    </p>
+                </details>
+                <details class="reveal">
+                    <summary>¿Puedo elegir qué días se activa?</summary>
+                    <p>
+                        Sí. Podés configurar una alarma para días específicos o
+                        usarla una sola vez.
+                    </p>
+                </details>
+                <details class="reveal">
+                    <summary>¿Cómo funciona el historial de 7 días?</summary>
+                    <p>
+                        El historial muestra tus ejecuciones recientes para
+                        ayudarte a identificar cómo van tus mañanas y tu racha.
+                    </p>
+                </details>
+            </section>
+        </main>
 
-  </main>
-
-  <footer id="privacidad" class="site-footer">
-    <div class="shell footer-content">
-      <div class="footer-privacy">
-        <p class="section-label">Privacidad</p>
-        <p>Conocé cómo funciona Despertá y qué datos utiliza.</p>
-        <a class="text-cta blue" href="privacy.html">Política de privacidad <span aria-hidden="true">→</span></a>
-      </div>
-      <a href="https://momotombo.dev/" class="footer-credit">
-        <span>Crafted with passion by <strong>Momotombo Devs</strong></span>
-        <img src="assets/isotipo.svg" width="28" height="14" alt="" aria-hidden="true">
-      </a>
-    </div>
-  </footer>
-  <script src="app.js" defer></script>
-</body>
+        <footer id="privacidad" class="site-footer">
+            <div class="shell footer-content">
+                <div class="footer-privacy">
+                    <p class="section-label">Privacidad</p>
+                    <p>Conocé cómo funciona Despertá y qué datos utiliza.</p>
+                    <a class="text-cta blue" href="privacy.html"
+                        >Política de privacidad
+                        <span aria-hidden="true">→</span></a
+                    >
+                </div>
+                <a href="https://momotombo.dev/" class="footer-credit">
+                    <span
+                        >Crafted with passion by
+                        <strong>Momotombo Devs</strong></span
+                    >
+                    <img
+                        src="assets/isotipo.svg"
+                        width="28"
+                        height="14"
+                        alt=""
+                        aria-hidden="true"
+                    />
+                </a>
+            </div>
+        </footer>
+        <script src="app.js" defer></script>
+    </body>
 </html>

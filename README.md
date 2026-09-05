@@ -1,6 +1,14 @@
-# NativePHP Mobile Starter Template
+# Despertá
 
-A pre-configured Laravel + NativePHP Mobile starter template.
+Una alarma con reto para empezar el día con atención, construida con Laravel y NativePHP Mobile.
+
+## Enlaces públicos
+
+- Sitio oficial: [desperta.momotombo.dev](https://desperta.momotombo.dev/).
+- Android: [Descargá Despertá en Google Play](https://play.google.com/store/apps/details?id=dev.momotombo.desperta).
+- [Política de privacidad](https://desperta.momotombo.dev/privacy.html).
+
+La landing y la política se publican desde `docs/`. Los enlaces a páginas y recursos locales se mantienen relativos; canonical, Open Graph, JSON-LD y sitemap usan el dominio público `https://desperta.momotombo.dev/`.
 
 ## What's Included
 

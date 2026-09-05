@@ -40,6 +40,8 @@ h1, h2 { font-family: "Archivo Black", sans-serif; font-weight: 400; letter-spac
 h1 { font-size: clamp(3.4rem, 6.2vw, 6.1rem); }
 .hero-lede { color: var(--blue); font-size: clamp(1.55rem, 2.3vw, 2.25rem); letter-spacing: -.045em; line-height: 1.05; margin: 1rem 0 1.25rem; }
 .hero-body { color: var(--muted); font-size: 1rem; font-weight: 500; line-height: 1.55; margin: 0 0 2rem; max-width: 330px; }
+.play-store-link { display: inline-block; max-width: 100%; border-radius: 8px; }
+.play-store-link img { display: block; max-width: 100%; height: auto; }
 .text-cta { color: var(--orange); display: inline-flex; gap: .55rem; font-size: 1rem; font-weight: 800; text-decoration: none; }
 .text-cta:hover { text-decoration: underline; }
 .text-cta.blue { color: var(--blue); }

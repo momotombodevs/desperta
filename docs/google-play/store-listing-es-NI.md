@@ -46,6 +46,8 @@ Las capturas muestran tanto la interfaz en inglés como la pantalla de configura
 
 - Categoría sugerida: Herramientas.
 - Correo de asistencia: `hello@momotombo.dev`.
+- Sitio web: `https://desperta.momotombo.dev/`.
+- Google Play: `https://play.google.com/store/apps/details?id=dev.momotombo.desperta`.
 - Política de privacidad: `https://desperta.momotombo.dev/privacy.html`.
 - Declaración de seguridad de datos: sin datos recopilados ni compartidos, según la versión auditada; confirmar este dato contra el AAB final y cualquier SDK incluido antes de enviarla.
 
