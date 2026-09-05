@@ -21,7 +21,7 @@ Despertá con una alarma que te reta y te ayuda a sostener tu hábito.
 
 Despertá es una alarma con reto para empezar el día con más atención.
 
-Configurá tus alarmas por hora y por los días que elijás. Cuando suene, completá una serie de tres preguntas para apagarla. Si respondés mal, la alarma sigue activa hasta que terminés el reto.
+Configurá tus alarmas por hora y por los días que elijás. Cuando suene, respondé las preguntas del reto según la dificultad elegida para apagarla. Si no alcanzás los aciertos necesarios, la alarma sigue activa hasta que completés el reto.
 
 También podés activar la vibración, elegir si querés posponer y revisar un historial local de tus ejecuciones recientes para entender cómo van tus mañanas.
 

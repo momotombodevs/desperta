@@ -30,3 +30,6 @@ public/vibe/
 
 .agents
 .claude
+
+# Credential files (keystores, private keys, etc.)
+/credentials/

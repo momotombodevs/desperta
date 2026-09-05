@@ -21,7 +21,7 @@ A challenge alarm to start your day with focus and build lasting habits.
 
 Despertá is a challenge alarm designed to help you start your day with more focus.
 
-Set alarms by time and the days you choose. When an alarm rings, complete a series of three questions to turn it off. If you answer incorrectly, the alarm stays active until you complete the challenge.
+Set alarms by time and the days you choose. When an alarm rings, answer the challenge questions at your selected difficulty to turn it off. If you do not reach the required number of correct answers, the alarm stays active until you complete the challenge.
 
 You can also enable vibration, choose whether to snooze, and check a local history of recent alarm activity to understand how your mornings are going.
 
