@@ -1,6 +1,10 @@
 {
   "name": "Despertá",
   "short_name": "Despertá",
+  "description": "Alarma con reto y seguimiento local de hábitos.",
+  "lang": "es-NI",
+  "start_url": "/",
+  "scope": "/",
   "icons": [
     {
       "src": "web-app-manifest-192x192.png",

@@ -13,6 +13,13 @@
             rel="canonical"
             href="https://desperta.momotombo.dev/privacy.html"
         />
+        <link
+            rel="preload"
+            href="assets/archivo-black-regular.ttf"
+            as="font"
+            type="font/ttf"
+            crossorigin
+        />
         <link rel="icon" href="favicon.svg" type="image/svg+xml" />
         <link
             rel="icon"
@@ -82,9 +89,15 @@
                     },
                     {
                         "@type": "WebPage",
+                        "@id": "https://desperta.momotombo.dev/privacy.html#webpage",
                         "url": "https://desperta.momotombo.dev/privacy.html",
                         "name": "Política de privacidad de Despertá",
+                        "description": "Información sobre datos, permisos, retención y controles de Despertá.",
                         "inLanguage": "es-NI",
+                        "dateModified": "2026-09-10",
+                        "about": {
+                            "@id": "https://desperta.momotombo.dev/#application"
+                        },
                         "publisher": {
                             "@id": "https://desperta.momotombo.dev/#organization"
                         }
@@ -244,7 +257,11 @@
             </section>
         </main>
         <footer class="site-footer shell privacy-footer">
-            <a href="https://momotombo.dev/" class="footer-credit">
+            <a
+                href="https://momotombo.dev/"
+                class="footer-credit"
+                rel="external"
+            >
                 <span
                     >Crafted with passion by
                     <strong>Momotombo Devs</strong></span
@@ -253,6 +270,7 @@
                     src="assets/isotipo.svg"
                     width="28"
                     height="14"
+                    loading="lazy"
                     alt=""
                     aria-hidden="true"
                 />

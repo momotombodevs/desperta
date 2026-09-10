@@ -10,6 +10,13 @@
         <meta name="robots" content="index,follow" />
         <meta name="theme-color" content="#ffffff" />
         <link rel="canonical" href="https://desperta.momotombo.dev/" />
+        <link
+            rel="preload"
+            href="assets/archivo-black-regular.ttf"
+            as="font"
+            type="font/ttf"
+            crossorigin
+        />
         <link rel="icon" href="favicon.svg" type="image/svg+xml" />
         <link
             rel="icon"
@@ -108,8 +115,8 @@
                     },
                     {
                         "@type": "FAQPage",
-                        "@id": "https://desperta.momotombo.dev/#faq",
-                        "url": "https://desperta.momotombo.dev/#faq",
+                        "@id": "https://desperta.momotombo.dev/#preguntas",
+                        "url": "https://desperta.momotombo.dev/#preguntas",
                         "inLanguage": "es-NI",
                         "mainEntity": [
                             {
@@ -151,6 +158,14 @@
                                     "@type": "Answer",
                                     "text": "El historial muestra tus ejecuciones recientes para ayudarte a identificar cómo van tus mañanas y tu racha."
                                 }
+                            },
+                            {
+                                "@type": "Question",
+                                "name": "¿Necesito una cuenta o conexión a internet?",
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": "No. La versión actual de Despertá no requiere una cuenta y guarda tus alarmas, preferencias e historial localmente en tu dispositivo."
+                                }
                             }
                         ]
                     }
@@ -183,7 +198,14 @@
                 <nav id="site-navigation" aria-label="Principal">
                     <a href="#como-funciona">Cómo funciona</a>
                     <a href="#habitos">Hábitos</a>
-                    <a href="#nativephp">NativePHP</a>
+                    <a href="#preguntas">Preguntas</a>
+                    <a
+                        class="nav-download"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        href="https://play.google.com/store/apps/details?id=dev.momotombo.desperta"
+                        >Descargar</a
+                    >
                 </nav>
             </div>
         </header>
@@ -200,8 +222,9 @@
                         Es tu primer momento<br />de atención.
                     </p>
                     <p class="hero-body">
-                        Despertá es una alarma con propósito. Te ayuda a empezar
-                        el día con presencia, no con prisa.
+                        Programá tu hora, completá un reto de 3 preguntas y
+                        revisá tu progreso. Sin cuenta: tus alarmas y hábitos se
+                        guardan localmente en tu dispositivo.
                     </p>
                     <a
                         class="play-store-link"
@@ -223,6 +246,7 @@
                         width="360"
                         height="360"
                         alt=""
+                        fetchpriority="high"
                     />
                 </div>
             </section>
@@ -327,6 +351,7 @@
                         src="assets/nativephp-logo.png"
                         width="126"
                         height="131"
+                        loading="lazy"
                         alt="Logotipo de NativePHP"
                     />
                     <div>
@@ -345,11 +370,12 @@
                 </div>
             </section>
 
-            <section class="faq shell" aria-labelledby="faq-title">
-                <p class="section-label">Preguntas frecuentes</p>
-                <h2 id="faq-title" class="visually-hidden">
-                    Preguntas frecuentes
-                </h2>
+            <section
+                id="preguntas"
+                class="faq shell"
+                aria-labelledby="faq-title"
+            >
+                <h2 id="faq-title">Preguntas frecuentes</h2>
                 <details class="reveal">
                     <summary>¿Cómo funciona la alarma?</summary>
                     <p>
@@ -387,6 +413,40 @@
                         ayudarte a identificar cómo van tus mañanas y tu racha.
                     </p>
                 </details>
+                <details class="reveal">
+                    <summary>¿Necesito una cuenta o conexión a internet?</summary>
+                    <p>
+                        No. La versión actual de Despertá no requiere una cuenta
+                        y guarda tus alarmas, preferencias e historial localmente
+                        en tu dispositivo.
+                    </p>
+                </details>
+            </section>
+
+            <section class="download" aria-labelledby="download-title">
+                <div class="shell download-inner">
+                    <div>
+                        <h2 id="download-title">Mañana empieza esta noche.</h2>
+                        <p>
+                            Dejá lista tu alarma y empezá el día prestando
+                            atención desde el primer minuto.
+                        </p>
+                    </div>
+                    <a
+                        class="play-store-link"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        href="https://play.google.com/store/apps/details?id=dev.momotombo.desperta"
+                    >
+                        <img
+                            src="assets/google-play-2.svg"
+                            width="216"
+                            height="62"
+                            loading="lazy"
+                            alt="Descargá Despertá en Google Play"
+                        />
+                    </a>
+                </div>
             </section>
         </main>
 
@@ -400,7 +460,11 @@
                         <span aria-hidden="true">→</span></a
                     >
                 </div>
-                <a href="https://momotombo.dev/" class="footer-credit">
+                <a
+                    href="https://momotombo.dev/"
+                    class="footer-credit"
+                    rel="external"
+                >
                     <span
                         >Crafted with passion by
                         <strong>Momotombo Devs</strong></span
@@ -409,6 +473,7 @@
                         src="assets/isotipo.svg"
                         width="28"
                         height="14"
+                        loading="lazy"
                         alt=""
                         aria-hidden="true"
                     />
