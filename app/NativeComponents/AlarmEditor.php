@@ -10,6 +10,7 @@ use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Momotombo\NativePHPAlarms\Events\AppResumed;
 use Momotombo\NativePHPAlarms\Events\NotificationAuthorizationChanged;
 use Momotombo\NativePHPAlarms\Exceptions\AlarmException;
 use Native\Mobile\Attributes\On;
@@ -291,6 +292,14 @@ class AlarmEditor extends NativeComponent
     private function validSnoozeMinutes(): int
     {
         return in_array($this->snoozeMinutes, [5, 10, 15], true) ? $this->snoozeMinutes : 5;
+    }
+
+    #[On(AppResumed::class)]
+    public function handleAppResumed(): void
+    {
+        if (! $this->resumeActiveAlarm()) {
+            $this->onResume();
+        }
     }
 
     public function render(): View
