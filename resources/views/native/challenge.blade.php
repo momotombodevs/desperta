@@ -3,7 +3,9 @@
 <native:top-bar :title="__('app.challenge')" :subtitle="__('app.challenge_subtitle', ['required' => $requiredCorrectAnswers, 'total' => count($questions)])" display-mode="inline"/>
 
 <native:column ref="challenge-screen" class="w-full h-full gap-5 bg-theme-background p-6">
-    @if (! $completed)
+    @if ($unavailable)
+        <native:activity-indicator />
+    @elseif (! $completed)
         <native:column class="w-full gap-4 rounded-2xl border border-theme-outline bg-theme-surface p-5">
             <native:text font="accent" class="text-sm text-theme-primary">{{ __('app.question_of', ['current' => $questionIndex + 1, 'total' => count($questions)]) }}</native:text>
             <native:progress-bar :value="($questionIndex + 1) / count($questions)"/>

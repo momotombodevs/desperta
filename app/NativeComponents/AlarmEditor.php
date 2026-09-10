@@ -2,6 +2,7 @@
 
 namespace App\NativeComponents;
 
+use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Challenges\ChallengeDifficulty;
@@ -9,6 +10,7 @@ use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Momotombo\NativePHPAlarms\Events\AppResumed;
 use Momotombo\NativePHPAlarms\Events\NotificationAuthorizationChanged;
 use Momotombo\NativePHPAlarms\Exceptions\AlarmException;
 use Native\Mobile\Attributes\On;
@@ -18,6 +20,8 @@ use Victorycodedev\ToastKit\Facades\Toast;
 
 class AlarmEditor extends NativeComponent
 {
+    use ResumesActiveAlarm;
+
     public string $alarmId = '';
 
     public bool $isEditing = false;
@@ -288,6 +292,14 @@ class AlarmEditor extends NativeComponent
     private function validSnoozeMinutes(): int
     {
         return in_array($this->snoozeMinutes, [5, 10, 15], true) ? $this->snoozeMinutes : 5;
+    }
+
+    #[On(AppResumed::class)]
+    public function handleAppResumed(): void
+    {
+        if (! $this->resumeActiveAlarm()) {
+            $this->onResume();
+        }
     }
 
     public function render(): View

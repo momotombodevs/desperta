@@ -39,11 +39,12 @@ describe('Plugin Manifest', function () {
         }
     });
 
-    it('declares notification authorization completion as a native event', function () {
+    it('declares notification authorization and foreground resume native events', function () {
         $manifest = json_decode(file_get_contents($this->manifestPath), true);
 
         expect($manifest['events'])->toBe([
             'Momotombo\\NativePHPAlarms\\Events\\NotificationAuthorizationChanged',
+            'Momotombo\\NativePHPAlarms\\Events\\AppResumed',
         ]);
     });
 
@@ -76,6 +77,18 @@ describe('Native Code', function () {
         expect($content)->toContain('package com.momotombo.plugins.nativephp_alarms');
         expect($content)->toContain('object AlarmsFunctions');
         expect($content)->toContain('BridgeFunction');
+    });
+
+    it('initializes one foreground observer and sends resume events through the native element bridge', function () {
+        $manifest = json_decode(file_get_contents($this->manifestPath), true);
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+
+        expect($manifest['android']['init_function'])->toBe('com.momotombo.plugins.nativephp_alarms.initializeAlarms');
+        expect($kotlin)->toContain('fun initializeAlarms(context: Context)')
+            ->toContain('if (appResumeObserverRegistered)')
+            ->toContain('NativePHPLifecycle.on(NativePHPLifecycle.Events.ON_RESUME)')
+            ->toContain('if (NativeUIBridge.isActive.value)')
+            ->toContain('NativeElementBridge.sendNativeEvent(APP_RESUMED, "{}")');
     });
 
     it('declares an Android-only native contract', function () {

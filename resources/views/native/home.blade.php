@@ -48,17 +48,20 @@
         <native:spacer :height="12"/>
 
         @foreach ($this->alarms as $alarm)
+            @php($isRinging = $activeAlarmId === $alarm->id)
             <native:list-item ref="edit-alarm-{{ $alarm->id }}" key="alarm-{{ $alarm->id }}"
-                              class="w-full rounded-xl border border-theme-outline bg-theme-surface"
-                              :headline="$alarm->displayTime()" :supporting="$alarm->scheduleSummary()"
-                              leadingIcon="alarm" :leadingIconColor="theme('primary')"
-                              :containerColor="theme('surface')"
+                              :class="$isRinging ? 'w-full rounded-xl border border-theme-warning bg-theme-warning' : 'w-full rounded-xl border border-theme-outline bg-theme-surface'"
+                              :headline="$alarm->displayTime()" :supporting="$isRinging ? __('app.alarm_ringing_continue') : $alarm->scheduleSummary()"
+                              leadingIcon="alarm" :leadingIconColor="theme($isRinging ? 'on-warning' : 'primary')"
+                              :containerColor="theme($isRinging ? 'warning' : 'surface')"
+                              :headlineColor="theme($isRinging ? 'on-warning' : 'on-surface')"
+                              :supportingColor="theme($isRinging ? 'on-warning' : 'on-surface-variant')"
                               :trailingSwitch="$alarm->enabled"
                               on-trailing-change="toggleAlarm('{{ $alarm->id }}')"
                               :trailing-a11y-label="__('app.alarm_active')"
                               @tap="editAlarm('{{ $alarm->id }}')"
                               on-swipe-delete="confirmDeleteAlarm('{{ $alarm->id }}')"
-                              :a11y-label="__('app.edit_alarm').' '.$alarm->displayTime()"
+                              :a11y-label="($isRinging ? __('app.alarm_ringing_continue') : __('app.edit_alarm')).' '.$alarm->displayTime()"
                               :a11y-hint="__('app.swipe_to_delete')"/>
             @if (! $loop->last)
                 <native:spacer :height="12"/>

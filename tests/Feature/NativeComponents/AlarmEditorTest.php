@@ -4,6 +4,7 @@ use App\Application\AlarmScheduling\AlarmSchedule;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Models\Alarm;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Momotombo\NativePHPAlarms\Events\AppResumed;
 use Momotombo\NativePHPAlarms\Events\NotificationAuthorizationChanged;
 use Momotombo\NativePHPAlarms\Exceptions\NativeAlarmSchedulingFailed;
 use Native\Mobile\Testing\Native;
@@ -84,6 +85,7 @@ it('continues a pending alarm after returning from Android exact alarm settings'
     $scheduler->shouldReceive('requestExactAlarmPermission')->once();
     $scheduler->shouldReceive('canPresentWhileLocked')->once()->andReturnTrue();
     $scheduler->shouldReceive('canPostNotifications')->once()->andReturnTrue();
+    $scheduler->shouldReceive('activeRingingOccurrence')->once()->andReturnNull();
     $scheduler->shouldReceive('schedule')->once();
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
@@ -100,7 +102,7 @@ it('continues a pending alarm after returning from Android exact alarm settings'
         'scheduling_status' => 'pending',
     ]);
 
-    $editor->call('onResume')
+    $editor->emitNative(AppResumed::class, [])
         ->assertToastShownWithMessage('Alarma programada.')
         ->assertReplacedWith('/');
 
@@ -114,6 +116,7 @@ it('continues a pending alarm after returning from Android full-screen alarm set
     $scheduler->shouldReceive('canPresentWhileLocked')->times(3)->andReturn(false, true, true);
     $scheduler->shouldReceive('requestFullScreenAlarmPermission')->once();
     $scheduler->shouldReceive('canPostNotifications')->once()->andReturnTrue();
+    $scheduler->shouldReceive('activeRingingOccurrence')->once()->andReturnNull();
     $scheduler->shouldReceive('schedule')->once();
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
@@ -128,7 +131,7 @@ it('continues a pending alarm after returning from Android full-screen alarm set
         'scheduling_status' => 'pending',
     ]);
 
-    $editor->call('onResume')
+    $editor->emitNative(AppResumed::class, [])
         ->assertToastShownWithMessage('Alarma programada.')
         ->assertReplacedWith('/');
 

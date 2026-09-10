@@ -184,6 +184,9 @@ return [
         '*_SECRET',
         'DB_PASSWORD',
         'DB_USERNAME',
+        'ANDROID_KEYSTORE_*',
+        'ANDROID_KEY_*',
+        'GOOGLE_SERVICE_ACCOUNT_KEY',
     ],
 
     /*
@@ -198,6 +201,16 @@ return [
     */
 
     'cleanup_exclude_files' => [
+        '.agents',
+        '.claude',
+        '.codex',
+        '.mcp.json',
+        '.env.*',
+        'auth.json',
+        'boost.json',
+        'credentials',
+        '*.keystore',
+        'docs',
         'storage/framework/sessions',
         'storage/framework/cache',
         'storage/framework/testing',

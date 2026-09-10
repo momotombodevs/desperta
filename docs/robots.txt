@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://donmanueldev.github.io/desperta/sitemap.xml
+Sitemap: https://desperta.momotombo.dev/sitemap.xml

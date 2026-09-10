@@ -47,6 +47,7 @@
         {"name": "Alarms.Snooze", "description": "Snooze one active alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Snooze"}
     ],
     "android": {
+        "init_function": "com.momotombo.plugins.nativephp_alarms.initializeAlarms",
         "min_version": 26,
         "permissions": [
             "android.permission.SCHEDULE_EXACT_ALARM",
@@ -100,6 +101,6 @@
         }
     },
     "secrets": [],
-    "events": ["Momotombo\\NativePHPAlarms\\Events\\NotificationAuthorizationChanged"],
+    "events": ["Momotombo\\NativePHPAlarms\\Events\\NotificationAuthorizationChanged", "Momotombo\\NativePHPAlarms\\Events\\AppResumed"],
     "service_provider": "Momotombo\\NativePHPAlarms\\AlarmServiceProvider"
 }

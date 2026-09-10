@@ -48,12 +48,6 @@ final class AlarmExecutionLifecycle
             return null;
         }
 
-        AlarmExecution::query()
-            ->where('alarm_id', $alarm->id)
-            ->whereIn('status', ['ringing', 'snoozed'])
-            ->where('id', '!=', $executionId)
-            ->update(['status' => 'missed', 'finished_at' => now()]);
-
         $execution = AlarmExecution::query()->firstOrCreate(
             ['id' => $executionId],
             [
@@ -65,7 +59,17 @@ final class AlarmExecutionLifecycle
             ],
         );
 
-        $execution->update(['status' => 'ringing', 'started_at' => now(), 'finished_at' => null]);
+        if ($execution->alarm_id !== $alarm->id || in_array($execution->status, ['completed', 'cancelled', 'missed'], true)) {
+            return null;
+        }
+
+        AlarmExecution::query()
+            ->where('alarm_id', $alarm->id)
+            ->whereIn('status', ['ringing', 'snoozed'])
+            ->where('id', '!=', $executionId)
+            ->update(['status' => 'missed', 'finished_at' => now(), 'challenge_progress' => null]);
+
+        $execution->update(['status' => 'ringing', 'started_at' => $execution->started_at ?? now(), 'finished_at' => null]);
 
         return $execution;
     }
@@ -81,14 +85,14 @@ final class AlarmExecutionLifecycle
 
     public function complete(AlarmExecution $execution): void
     {
-        $execution->update(['status' => 'completed', 'finished_at' => now()]);
+        $execution->update(['status' => 'completed', 'finished_at' => now(), 'challenge_progress' => null]);
     }
 
     public function cancelOpen(Alarm $alarm): void
     {
         $alarm->executions()
             ->whereIn('status', ['scheduled', 'ringing', 'snoozed'])
-            ->update(['status' => 'cancelled', 'finished_at' => now()]);
+            ->update(['status' => 'cancelled', 'finished_at' => now(), 'challenge_progress' => null]);
     }
 
     public function reconcile(NativeAlarmOccurrenceEvent $event): bool
@@ -113,14 +117,18 @@ final class AlarmExecutionLifecycle
             ],
         );
 
+        if ($execution->alarm_id !== $alarm->id) {
+            return false;
+        }
+
         if (in_array($execution->status, ['completed', 'cancelled', 'missed'], true) && ! in_array($event->status, ['completed', 'cancelled', 'missed'], true)) {
             return true;
         }
 
         $updates = match ($event->status) {
-            'triggered' => ['status' => 'ringing', 'started_at' => $occurredAt, 'finished_at' => null],
+            'triggered' => ['status' => 'ringing', 'started_at' => $execution->started_at ?? $occurredAt, 'finished_at' => null],
             'snoozed' => ['status' => 'snoozed', 'snoozed_at' => $occurredAt, 'snooze_count' => max($execution->snooze_count, $event->snoozeCount)],
-            'completed', 'cancelled', 'missed' => ['status' => $event->status, 'finished_at' => $occurredAt],
+            'completed', 'cancelled', 'missed' => ['status' => $event->status, 'finished_at' => $occurredAt, 'challenge_progress' => null],
             default => ['status' => 'scheduled'],
         };
 

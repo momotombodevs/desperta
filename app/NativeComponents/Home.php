@@ -2,7 +2,7 @@
 
 namespace App\NativeComponents;
 
-use App\AlarmScheduling\AlarmOccurrenceReconciler;
+use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Preferences\AppPreferences;
@@ -12,7 +12,6 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Momotombo\NativePHPAlarms\Events\NotificationAuthorizationChanged;
 use Momotombo\NativePHPAlarms\Exceptions\AlarmException;
-use Momotombo\NativePHPAlarms\Exceptions\NativeAlarmSchedulingFailed;
 use Native\Mobile\Attributes\Computed;
 use Native\Mobile\Attributes\On;
 use Native\Mobile\Edge\NativeComponent;
@@ -23,6 +22,8 @@ use Victorycodedev\ToastKit\Facades\Toast;
 
 class Home extends NativeComponent
 {
+    use ResumesActiveAlarm;
+
     public bool $emptyStateVisible = false;
 
     public bool $awaitingAlarmActivationPermission = false;
@@ -44,30 +45,7 @@ class Home extends NativeComponent
         $preferences->applyAppearance();
 
         $this->emptyStateVisible = Alarm::query()->doesntExist();
-        app(AlarmOccurrenceReconciler::class)->reconcile();
-
-        $this->resumeActiveChallenge();
-    }
-
-    private function resumeActiveChallenge(): void
-    {
-        try {
-            $occurrence = app(NativeAlarmScheduler::class)->activeRingingOccurrence();
-        } catch (NativeAlarmSchedulingFailed $exception) {
-            report($exception);
-
-            return;
-        }
-
-        if ($occurrence === null) {
-            return;
-        }
-
-        $this->replace('/challenge', [
-            'alarmId' => $occurrence->alarmId,
-            'executionId' => $occurrence->executionId,
-            'scheduledFor' => $occurrence->scheduledFor,
-        ]);
+        $this->resumeActiveAlarm();
     }
 
     public function createAlarm(): void
@@ -77,6 +55,18 @@ class Home extends NativeComponent
 
     public function editAlarm(string $alarmId): void
     {
+        $occurrence = $this->refreshActiveOccurrence();
+
+        if ($occurrence?->alarmId === $alarmId) {
+            $this->navigate('/challenge', [
+                'alarmId' => $occurrence->alarmId,
+                'executionId' => $occurrence->executionId,
+                'scheduledFor' => $occurrence->scheduledFor,
+            ]);
+
+            return;
+        }
+
         $this->navigate("/alarms/{$alarmId}/edit");
     }
 
@@ -113,6 +103,11 @@ class Home extends NativeComponent
         app(AlarmExecutionLifecycle::class)->cancelOpen($alarm);
 
         $alarm->delete();
+
+        if ($this->activeAlarmId === $alarmId) {
+            $this->activeAlarmId = '';
+        }
+
         $this->emptyStateVisible = true;
     }
 
@@ -138,6 +133,10 @@ class Home extends NativeComponent
 
             app(AlarmExecutionLifecycle::class)->cancelOpen($alarm);
 
+            if ($this->activeAlarmId === $alarmId) {
+                $this->activeAlarmId = '';
+            }
+
             return;
         }
 
@@ -148,6 +147,10 @@ class Home extends NativeComponent
 
     public function onResume(): void
     {
+        if ($this->resumeActiveAlarm()) {
+            return;
+        }
+
         if ($this->activationAlarmId === '') {
             return;
         }

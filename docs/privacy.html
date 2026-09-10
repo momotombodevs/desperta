@@ -11,9 +11,30 @@
         <meta name="theme-color" content="#ffffff" />
         <link
             rel="canonical"
-            href="https://donmanueldev.github.io/desperta/privacy.html"
+            href="https://desperta.momotombo.dev/privacy.html"
         />
-        <link rel="icon" href="assets/desperta-mark.svg" type="image/svg+xml" />
+        <link
+            rel="preload"
+            href="assets/archivo-black-regular.ttf"
+            as="font"
+            type="font/ttf"
+            crossorigin
+        />
+        <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+        <link
+            rel="icon"
+            href="favicon-96x96.png"
+            type="image/png"
+            sizes="96x96"
+        />
+        <link rel="shortcut icon" href="favicon.ico" />
+        <link
+            rel="apple-touch-icon"
+            href="apple-touch-icon.png"
+            sizes="180x180"
+        />
+        <link rel="manifest" href="site.webmanifest" />
+        <meta name="apple-mobile-web-app-title" content="Despertá" />
         <meta property="og:type" content="website" />
         <meta property="og:locale" content="es_NI" />
         <meta property="og:title" content="Política de privacidad · Despertá" />
@@ -23,13 +44,37 @@
         />
         <meta
             property="og:url"
-            content="https://donmanueldev.github.io/desperta/privacy.html"
+            content="https://desperta.momotombo.dev/privacy.html"
         />
         <meta
             property="og:image"
-            content="https://donmanueldev.github.io/desperta/assets/desperta-social.png"
+            content="https://desperta.momotombo.dev/assets/desperta-social.png"
         />
         <title>Política de privacidad · Despertá</title>
+        <meta property="og:image:type" content="image/png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta
+            property="og:image:alt"
+            content="Despertá · Una alarma con reto. Logo de la app y desperta.momotombo.dev."
+        />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+            name="twitter:title"
+            content="Política de privacidad · Despertá"
+        />
+        <meta
+            name="twitter:description"
+            content="Información sobre datos, permisos, retención y controles de Despertá."
+        />
+        <meta
+            name="twitter:image"
+            content="https://desperta.momotombo.dev/assets/desperta-social.png"
+        />
+        <meta
+            name="twitter:image:alt"
+            content="Despertá · Una alarma con reto. Logo de la app y desperta.momotombo.dev."
+        />
         <link rel="stylesheet" href="styles.css" />
         <script type="application/ld+json">
             {
@@ -37,18 +82,24 @@
                 "@graph": [
                     {
                         "@type": "Organization",
-                        "@id": "https://donmanueldev.github.io/desperta/#organization",
+                        "@id": "https://desperta.momotombo.dev/#organization",
                         "name": "Momotombo Devs",
                         "url": "https://momotombo.dev/",
                         "email": "hello@momotombo.dev"
                     },
                     {
                         "@type": "WebPage",
-                        "url": "https://donmanueldev.github.io/desperta/privacy.html",
+                        "@id": "https://desperta.momotombo.dev/privacy.html#webpage",
+                        "url": "https://desperta.momotombo.dev/privacy.html",
                         "name": "Política de privacidad de Despertá",
+                        "description": "Información sobre datos, permisos, retención y controles de Despertá.",
                         "inLanguage": "es-NI",
+                        "dateModified": "2026-09-10",
+                        "about": {
+                            "@id": "https://desperta.momotombo.dev/#application"
+                        },
                         "publisher": {
-                            "@id": "https://donmanueldev.github.io/desperta/#organization"
+                            "@id": "https://desperta.momotombo.dev/#organization"
                         }
                     }
                 ]
@@ -81,7 +132,7 @@
             <h1>Política de privacidad de Despertá</h1>
             <p class="policy-meta">
                 Vigente desde el 4 de septiembre de 2026 · Última actualización:
-                4 de septiembre de 2026
+                10 de septiembre de 2026
             </p>
             <p class="policy-intro">
                 Despertá es una alarma con reto creada por Momotombo Devs. Esta
@@ -131,11 +182,30 @@
             <section>
                 <h2>Analítica, publicidad y conexiones</h2>
                 <p>
-                    En la versión auditada no se encontró cliente HTTP,
-                    analítica ni publicidad en el código revisado. La app abre
-                    el sitio de Momotombo Devs únicamente cuando vos tocás ese
-                    enlace. Ese sitio puede tener sus propias prácticas de
-                    privacidad; consultalas antes de compartir información allí.
+                    La versión auditada no incorpora analítica, publicidad ni
+                    sincronización remota de tus alarmas, preferencias o
+                    historial. El paquete incluye componentes de red de
+                    NativePHP para abrir enlaces y mostrar contenido web, además
+                    de bibliotecas de soporte para navegador e imágenes.
+                </p>
+                <p>
+                    La conexión externa ocurre cuando vos abrís el sitio de
+                    Momotombo Devs o esta política desde la app. Como en
+                    cualquier visita web, el sitio puede recibir datos técnicos
+                    de la solicitud, como la dirección IP y el agente de
+                    usuario. No se adjuntan a esa solicitud tus alarmas,
+                    preferencias, historial ni respuestas del reto.
+                </p>
+            </section>
+            <section>
+                <h2>Niñez y familias</h2>
+                <p>
+                    Despertá figura en Google Play como comprometida con la
+                    Política de Familias. La versión auditada no requiere una
+                    cuenta, no contiene anuncios ni analítica y no recopila ni
+                    comparte datos personales desde la app. Madres, padres y
+                    responsables pueden escribirnos al correo indicado arriba
+                    para cualquier consulta.
                 </p>
             </section>
             <section>
@@ -187,15 +257,23 @@
             </section>
         </main>
         <footer class="site-footer shell privacy-footer">
-            <a href="https://momotombo.dev/" class="footer-credit">
-                <span>Crafted with passion by <strong>Momotombo Devs</strong></span>
+            <a
+                href="https://momotombo.dev/"
+                class="footer-credit"
+                rel="external"
+            >
+                <span
+                    >Crafted with passion by
+                    <strong>Momotombo Devs</strong></span
+                >
                 <img
                     src="assets/isotipo.svg"
                     width="28"
                     height="14"
+                    loading="lazy"
                     alt=""
                     aria-hidden="true"
-                >
+                />
             </a>
         </footer>
     </body>

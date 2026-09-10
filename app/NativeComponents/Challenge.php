@@ -2,24 +2,43 @@
 
 namespace App\NativeComponents;
 
+use App\AlarmScheduling\ActiveAlarmOccurrence;
 use App\AlarmScheduling\AlarmOccurrenceReconciler;
+use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Challenges\ChallengeCatalog;
-use App\Application\Challenges\ChallengeDifficulty;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use App\Models\AlarmChallengeAttempt;
 use App\Models\AlarmExecution;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Momotombo\NativePHPAlarms\Events\AppResumed;
 use Momotombo\NativePHPAlarms\Exceptions\NativeAlarmSchedulingFailed;
+use Native\Mobile\Attributes\On;
 use Native\Mobile\Edge\NativeComponent;
 
 class Challenge extends NativeComponent
 {
+    use ResumesActiveAlarm;
+
     public string $alarmId = '';
 
     public string $executionId = '';
+
+    public string $challengeTheme = '';
+
+    public string $difficulty = '';
+
+    public bool $unavailable = false;
+
+    /** @var list<string> */
+    private const array PROGRESS_PROPERTIES = [
+        'questions', 'usedQuestionIds', 'questionIndex', 'selectedAnswerIndex',
+        'correctAnswers', 'questionCount', 'requiredCorrectAnswers', 'attemptNumber',
+        'completed', 'passed', 'challengeTheme', 'difficulty',
+    ];
 
     public bool $snoozeAvailable = false;
 
@@ -55,71 +74,124 @@ class Challenge extends NativeComponent
         app(AlarmOccurrenceReconciler::class)->reconcile();
         $this->alarmId = (string) $this->param('alarmId', $this->data('alarmId', request()->query('alarmId', '')));
         $this->executionId = (string) $this->param('executionId', $this->data('executionId', request()->query('executionId', '')));
-        $scheduledFor = (string) $this->param('scheduledFor', $this->data('scheduledFor', request()->query('scheduledFor', '')));
-        $this->recoverActiveOccurrence($scheduledFor);
-        $alarm = Alarm::query()->find($this->alarmId);
-        $difficulty = $alarm?->challengeDifficulty() ?? ChallengeDifficulty::Normal;
+        $occurrence = $this->currentOccurrence();
+
+        if ($occurrence === null) {
+            $this->leaveUnavailableChallenge();
+
+            return;
+        }
+        $this->alarmId = $occurrence->alarmId;
+        $this->executionId = $occurrence->executionId;
+        $execution = app(AlarmExecutionLifecycle::class)->begin($this->alarmId, $this->executionId, $occurrence->scheduledFor);
+
+        if ($execution === null) {
+            $this->leaveUnavailableChallenge();
+
+            return;
+        }
+
+        $alarm = $execution->alarm;
+        $this->snoozeAvailable = $alarm->snooze_enabled;
+        $this->snoozeMinutes = $alarm->snoozeMinutes();
+
+        if ($execution->challenge_progress !== null) {
+            $this->restoreProgress($execution->challenge_progress);
+
+            return;
+        }
+
+        $difficulty = $alarm->challengeDifficulty();
+        $this->difficulty = $difficulty->value;
+        $this->challengeTheme = app(AppPreferences::class)->challengeTheme();
         $this->questionCount = $difficulty->questionCount();
         $this->requiredCorrectAnswers = $difficulty->requiredCorrectAnswers();
         $this->materializeQuestions();
         $this->usedQuestionIds = array_column($this->questions, 'id');
 
-        if ($this->alarmId !== '') {
-            $this->attemptNumber = AlarmChallengeAttempt::query()
-                ->where('alarm_id', $this->alarmId)
-                ->max('attempt_number') + 1;
+        $this->attemptNumber = AlarmChallengeAttempt::query()
+            ->where('alarm_id', $this->alarmId)
+            ->max('attempt_number') + 1;
+
+        $this->saveProgress();
+    }
+
+    protected function isShowingActiveAlarm(ActiveAlarmOccurrence $occurrence): bool
+    {
+        return ! $this->unavailable && ! $this->alarmStopped
+            && $this->alarmId === $occurrence->alarmId
+            && $this->executionId === $occurrence->executionId;
+    }
+
+    #[On(AppResumed::class)]
+    public function handleAppResumed(): void
+    {
+        if (! $this->resumeActiveAlarm()) {
+            $this->onResume();
         }
+    }
 
-        $this->snoozeAvailable = $this->executionId !== '' && $alarm?->snooze_enabled === true;
-        $this->snoozeMinutes = $alarm?->snoozeMinutes() ?? 5;
-
-        if ($this->executionId === '') {
+    public function onResume(): void
+    {
+        if ($this->alarmStopped) {
             return;
         }
 
-        if ($scheduledFor !== '') {
-            app(AlarmExecutionLifecycle::class)->begin($this->alarmId, $this->executionId, $scheduledFor);
+        app(AlarmOccurrenceReconciler::class)->reconcile();
+        if ($this->currentOccurrence() === null) {
+            $this->leaveUnavailableChallenge();
+
+            return;
         }
+
+        $this->refreshProgress();
     }
 
     public function continueChallenge(): void
     {
-        if ($this->selectedAnswerIndex === null) {
-            return;
-        }
-
-        if ($this->questions[$this->questionIndex]['options'][$this->selectedAnswerIndex] === $this->questions[$this->questionIndex]['answer']) {
-            $this->correctAnswers++;
-        }
-
-        $this->selectedAnswerIndex = null;
-
-        if ($this->questionIndex === count($this->questions) - 1) {
-            $this->completed = true;
-            $this->passed = $this->correctAnswers >= $this->requiredCorrectAnswers;
-            $this->recordAttempt();
-
-            if ($this->passed) {
-                $this->turnOffAlarm();
+        DB::transaction(function (): void {
+            if (! $this->refreshProgress() || $this->completed || $this->selectedAnswerIndex === null) {
+                return;
             }
 
-            return;
-        }
+            if ($this->questions[$this->questionIndex]['options'][$this->selectedAnswerIndex] === $this->questions[$this->questionIndex]['answer']) {
+                $this->correctAnswers++;
+            }
 
-        $this->questionIndex++;
+            $this->selectedAnswerIndex = null;
+
+            if ($this->questionIndex === count($this->questions) - 1) {
+                $this->completed = true;
+                $this->passed = $this->correctAnswers >= $this->requiredCorrectAnswers;
+                $this->recordAttempt();
+            } else {
+                $this->questionIndex++;
+            }
+
+            $this->saveProgress();
+        });
+
+        if ($this->completed && $this->passed && ! $this->unavailable) {
+            $this->turnOffAlarm();
+        }
     }
 
     public function selectAnswer(int $answerIndex): void
     {
-        if (! array_key_exists($answerIndex, $this->questions[$this->questionIndex]['options'])) {
+        if (! $this->refreshProgress() || $this->completed || ! array_key_exists($answerIndex, $this->questions[$this->questionIndex]['options'])) {
             return;
         }
 
         $this->selectedAnswerIndex = $answerIndex;
+        $this->saveProgress();
     }
 
     public function retry(): void
     {
+        if (! $this->refreshProgress() || ! $this->completed || $this->passed) {
+            return;
+        }
+
         $this->attemptNumber++;
         $this->questionIndex = 0;
         $this->selectedAnswerIndex = null;
@@ -129,11 +201,12 @@ class Challenge extends NativeComponent
         $this->alarmStopped = false;
         $this->materializeQuestions($this->usedQuestionIds);
         $this->usedQuestionIds = array_merge($this->usedQuestionIds, array_column($this->questions, 'id'));
+        $this->saveProgress();
     }
 
     public function snoozeAlarm(): void
     {
-        if (! $this->snoozeAvailable || $this->alarmStopped) {
+        if (! $this->snoozeAvailable || $this->alarmStopped || ! $this->refreshProgress()) {
             return;
         }
 
@@ -144,6 +217,12 @@ class Challenge extends NativeComponent
 
         $alarm = Alarm::query()->find($this->alarmId);
 
+        if ($this->currentOccurrence() === null) {
+            $this->leaveUnavailableChallenge();
+
+            return;
+        }
+
         app(NativeAlarmScheduler::class)->snooze($this->alarmId, $alarm?->snoozeMinutes() ?? 5);
         app(AlarmExecutionLifecycle::class)->snooze($execution);
         $this->replace('/');
@@ -151,7 +230,13 @@ class Challenge extends NativeComponent
 
     public function turnOffAlarm(): void
     {
-        if (! $this->completed || ! $this->passed || $this->alarmStopped) {
+        if ($this->alarmStopped || ! $this->refreshProgress() || ! $this->completed || ! $this->passed) {
+            return;
+        }
+
+        if ($this->currentOccurrence() === null) {
+            $this->leaveUnavailableChallenge();
+
             return;
         }
 
@@ -173,11 +258,9 @@ class Challenge extends NativeComponent
             $alarm->update(['enabled' => false, 'scheduling_status' => 'not_scheduled']);
         }
 
-        if ($this->executionId !== '') {
-            $execution = AlarmExecution::query()->find($this->executionId);
-            if ($execution !== null) {
-                app(AlarmExecutionLifecycle::class)->complete($execution);
-            }
+        $execution = AlarmExecution::query()->find($this->executionId);
+        if ($execution !== null) {
+            app(AlarmExecutionLifecycle::class)->complete($execution);
         }
 
         $this->alarmStopped = true;
@@ -195,9 +278,9 @@ class Challenge extends NativeComponent
     private function recordAttempt(): void
     {
         AlarmChallengeAttempt::query()->create([
-            'alarm_id' => $this->alarmId === '' ? null : $this->alarmId,
-            'alarm_execution_id' => $this->executionId === '' ? null : $this->executionId,
-            'challenge_theme' => app(AppPreferences::class)->challengeTheme(),
+            'alarm_id' => $this->alarmId,
+            'alarm_execution_id' => $this->executionId,
+            'challenge_theme' => $this->challengeTheme,
             'attempt_number' => $this->attemptNumber,
             'correct_answers' => $this->correctAnswers,
             'question_count' => count($this->questions),
@@ -211,30 +294,80 @@ class Challenge extends NativeComponent
     {
         $preferences = app(AppPreferences::class);
         $catalog = app(ChallengeCatalog::class);
-        $theme = $preferences->challengeTheme();
-        $this->questions = $catalog->questions($this->questionCount, $excludedQuestionIds, $preferences->lastChallengeOrder($theme));
+        $theme = $this->challengeTheme;
+        $this->questions = $catalog->questions($this->questionCount, $excludedQuestionIds, $preferences->lastChallengeOrder($theme), $theme);
         $preferences->rememberChallengeOrder($theme, $catalog->fingerprint($this->questions));
     }
 
-    private function recoverActiveOccurrence(string &$scheduledFor): void
+    private function currentOccurrence(): ?ActiveAlarmOccurrence
     {
-        if ($this->alarmId !== '') {
-            return;
-        }
-
         try {
             $occurrence = app(NativeAlarmScheduler::class)->activeRingingOccurrence();
 
             if ($occurrence === null) {
-                return;
+                return null;
             }
 
-            $this->alarmId = $occurrence->alarmId;
-            $this->executionId = $occurrence->executionId;
-            $scheduledFor = $occurrence->scheduledFor;
+            if (($this->alarmId !== '' && $this->alarmId !== $occurrence->alarmId)
+                || ($this->executionId !== '' && $this->executionId !== $occurrence->executionId)) {
+                return null;
+            }
+
+            return $occurrence;
         } catch (NativeAlarmSchedulingFailed $exception) {
             report($exception);
+
+            return null;
         }
+    }
+
+    /** @param array<string, mixed> $progress */
+    private function restoreProgress(array $progress): void
+    {
+        foreach (self::PROGRESS_PROPERTIES as $property) {
+            $this->{$property} = $progress[$property];
+        }
+    }
+
+    private function saveProgress(): void
+    {
+        $progress = [];
+        foreach (self::PROGRESS_PROPERTIES as $property) {
+            $progress[$property] = $this->{$property};
+        }
+
+        AlarmExecution::query()->whereKey($this->executionId)
+            ->where('alarm_id', $this->alarmId)
+            ->where('status', 'ringing')
+            ->first()?->update(['challenge_progress' => $progress]);
+    }
+
+    private function refreshProgress(): bool
+    {
+        if ($this->unavailable) {
+            return false;
+        }
+
+        $execution = AlarmExecution::query()->whereKey($this->executionId)
+            ->where('alarm_id', $this->alarmId)->first();
+
+        if ($execution === null || $execution->status !== 'ringing') {
+            $this->leaveUnavailableChallenge();
+
+            return false;
+        }
+
+        if ($execution->challenge_progress !== null) {
+            $this->restoreProgress($execution->challenge_progress);
+        }
+
+        return true;
+    }
+
+    private function leaveUnavailableChallenge(): void
+    {
+        $this->unavailable = true;
+        $this->replace('/');
     }
 
     public function render(): View

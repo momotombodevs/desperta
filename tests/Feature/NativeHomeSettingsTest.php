@@ -58,9 +58,9 @@ it('opens Momotombo Devs in the in-app browser from settings', function () {
         ->assertNativeCalled('Browser.OpenInApp', fn (array $parameters): bool => $parameters === ['url' => 'https://momotombo.dev/']);
 });
 
-it('configures the public GitHub Pages privacy policy URL by default', function () {
+it('configures the public Despertá privacy policy URL by default', function () {
     expect(config('services.desperta.privacy_policy_url'))
-        ->toBe('https://donmanueldev.github.io/desperta/privacy.html');
+        ->toBe('https://desperta.momotombo.dev/privacy.html');
 });
 
 it('opens the configured privacy policy in the in-app browser from settings', function () {

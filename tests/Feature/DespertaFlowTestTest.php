@@ -1,5 +1,6 @@
 <?php
 
+use App\AlarmScheduling\ActiveAlarmOccurrence;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Models\Alarm;
 use App\Models\AlarmExecution;
@@ -22,6 +23,9 @@ it('opens the challenge directly for a ringing alarm', function () {
         ->assertSee('Nueva alarma');
 
     $alarm = Alarm::factory()->create(['time' => '07:15', 'label' => 'Universidad']);
+
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00Z'));
 
     Native::visit('/challenge', ['alarmId' => $alarm->id])
         ->assertSet('alarmId', $alarm->id)
@@ -98,6 +102,10 @@ it('waits for notification authorization before scheduling a locked-screen alarm
 });
 
 it('requires every answer to be correct before the alarm can be turned off', function () {
+    $alarm = Alarm::factory()->create();
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00Z'));
+
     answerChallenge(Native::visit('/challenge'), false)
         ->assertSee('Necesitás 3 de 3.');
 
@@ -110,6 +118,10 @@ it('requires every answer to be correct before the alarm can be turned off', fun
 });
 
 it('replaces a failed challenge with unused questions and records every attempt', function () {
+    $alarm = Alarm::factory()->create();
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00Z'));
+
     $challenge = answerChallenge(Native::visit('/challenge'), false)
         ->assertSee('Necesitás 3 de 3.');
 
@@ -125,6 +137,7 @@ it('replaces a failed challenge with unused questions and records every attempt'
 it('stops a completed weekly alarm immediately', function () {
     $alarm = Alarm::factory()->create();
     $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00Z'));
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
     $scheduler->shouldNotReceive('cancel');
     app()->instance(NativeAlarmScheduler::class, $scheduler);
@@ -142,6 +155,7 @@ it('stops a completed weekly alarm immediately', function () {
 it('cancels and deactivates a completed one-time alarm immediately', function () {
     $alarm = Alarm::factory()->create(['weekdays' => []]);
     $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00Z'));
     $scheduler->shouldReceive('cancel')->once()->with($alarm->id);
     $scheduler->shouldNotReceive('completeRinging');
     app()->instance(NativeAlarmScheduler::class, $scheduler);
@@ -162,6 +176,7 @@ it('completes a real weekly execution without creating history for its next sche
         'finished_at' => null,
     ]);
     $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, $execution->id, '2026-09-03T07:00:00Z'));
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
@@ -184,6 +199,7 @@ it('snoozes a real execution for the alarm-selected duration without changing it
         'finished_at' => null,
     ]);
     $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, $execution->id, '2026-09-03T07:00:00Z'));
     $scheduler->shouldReceive('snooze')->once()->with($alarm->id, $minutes);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
@@ -204,21 +220,19 @@ it('snoozes a real execution for the alarm-selected duration without changing it
     'fifteen minutes' => 15,
 ]);
 
-it('stops a completed challenge when its alarm is no longer in the local database', function () {
+it('returns home without stopping an alarm missing from the local database', function () {
     $scheduler = mock(NativeAlarmScheduler::class);
-    $scheduler->shouldReceive('completeRinging')->once()->with('missing-alarm');
-    app()->instance(NativeAlarmScheduler::class, $scheduler);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence('missing-alarm', 'execution-1', '2026-09-03T07:00:00Z'));
+    $scheduler->shouldNotReceive('completeRinging');
 
     Native::visit('/challenge', ['alarmId' => 'missing-alarm'])
-        ->set('completed', true)
-        ->set('passed', true)
-        ->call('turnOffAlarm')
-        ->assertSet('alarmStopped', true);
+        ->assertReplacedWith('/');
 });
 
 it('shows success after three correct answers, then returns home after the alarm stops', function () {
     $alarm = Alarm::factory()->create();
     $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00Z'));
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
@@ -242,7 +256,7 @@ function answerChallenge($challenge, bool $correct = true)
         $answerIndex = array_find_key($question['options'], fn (string $option): bool => $correct
             ? $option === $question['answer']
             : $option !== $question['answer']);
-        $challenge->set('selectedAnswerIndex', $answerIndex)->tap('continue-challenge');
+        $challenge->tap("answer-{$answerIndex}")->tap('continue-challenge');
     }
 
     return $challenge;

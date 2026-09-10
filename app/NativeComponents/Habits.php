@@ -3,6 +3,7 @@
 namespace App\NativeComponents;
 
 use App\AlarmScheduling\AlarmOccurrenceReconciler;
+use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmAnalytics\AlarmHabitsAnalytics;
 use Carbon\CarbonImmutable;
 use Illuminate\View\View;
@@ -11,6 +12,8 @@ use Native\Mobile\Edge\NativeComponent;
 
 final class Habits extends NativeComponent
 {
+    use ResumesActiveAlarm;
+
     public function mount(): void
     {
         app(AlarmOccurrenceReconciler::class)->reconcile();

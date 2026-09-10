@@ -71,6 +71,7 @@ return [
     'delete_alarm' => '¿Eliminar alarma?',
     'delete_alarm_confirmation' => 'Esta acción no se puede deshacer.',
     'delete' => 'Eliminar',
+    'alarm_ringing_continue' => 'Sonando · Continuar reto',
     'alarm_active' => 'Alarma activada',
     'challenge' => 'Reto',
     'challenge_subtitle' => 'Acertá :required de :total para apagarla',

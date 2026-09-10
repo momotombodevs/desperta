@@ -16,7 +16,7 @@ class AlarmExecution extends Model
     /** @var list<string> */
     protected $fillable = [
         'id', 'alarm_id', 'alarm_label', 'alarm_time', 'status', 'scheduled_for',
-        'started_at', 'snoozed_at', 'finished_at', 'snooze_count',
+        'started_at', 'snoozed_at', 'finished_at', 'snooze_count', 'challenge_progress',
     ];
 
     protected function casts(): array
@@ -27,6 +27,7 @@ class AlarmExecution extends Model
             'snoozed_at' => 'immutable_datetime',
             'finished_at' => 'immutable_datetime',
             'snooze_count' => 'integer',
+            'challenge_progress' => 'array',
         ];
     }
 
