@@ -44,12 +44,12 @@ Las capturas muestran tanto la interfaz en inglés como la pantalla de configura
 
 ## Datos para Play Console
 
-- Categoría sugerida: Herramientas.
+- Categoría publicada: Estilo de vida.
 - Correo de asistencia: `hello@momotombo.dev`.
 - Sitio web: `https://desperta.momotombo.dev/`.
 - Google Play: `https://play.google.com/store/apps/details?id=dev.momotombo.desperta`.
 - Política de privacidad: `https://desperta.momotombo.dev/privacy.html`.
-- Declaración de seguridad de datos: sin datos recopilados ni compartidos, según la versión auditada; confirmar este dato contra el AAB final y cualquier SDK incluido antes de enviarla.
+- Declaración pública de seguridad de datos: no se recopilan ni se comparten datos. La ficha también muestra el compromiso con la Política de Familias.
 
 ## Antes de enviar a revisión
 

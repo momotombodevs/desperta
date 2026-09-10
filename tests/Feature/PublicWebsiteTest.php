@@ -43,6 +43,18 @@ it('links the accessible Google Play badge and application metadata to the Andro
     expect($application['downloadUrl'])->toBe($link->getAttribute('href'));
 });
 
+it('describes the audited network support without claiming the bundle has no HTTP client', function () {
+    $privacyPolicy = file_get_contents(base_path('docs/privacy.html'));
+
+    expect($privacyPolicy)->not->toContain('no se encontró cliente HTTP');
+    expect($privacyPolicy)->toContain(
+        'no incorpora analítica, publicidad ni',
+        'dirección IP y el agente de usuario',
+        'no recopila ni',
+        'comparte datos personales desde la app',
+    );
+});
+
 it('keeps local page and asset references relative and resolvable', function (string $page) {
     $document = HTMLDocument::createFromString(file_get_contents(base_path('docs/'.$page)));
 
