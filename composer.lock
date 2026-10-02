@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c0bbd9c032cb82edd474e7563d93ece4",
+    "content-hash": "9769ba53f1f4c55acbd2a0523e065e9a",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2371,15 +2371,21 @@
         },
         {
             "name": "momotombo/nativephp-appearance",
-            "version": "dev-main",
+            "version": "1.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/momotombodevs/nativephp-appearance.git",
+                "reference": "c04f929aed32f1b312c4e1a05a72853fb3fbe696"
+            },
             "dist": {
-                "type": "path",
-                "url": "packages/momotombo/nativephp-appearance",
-                "reference": "e655485a196c8d8ac140ad216344d5f195d8023c"
+                "type": "zip",
+                "url": "https://api.github.com/repos/momotombodevs/nativephp-appearance/zipball/c04f929aed32f1b312c4e1a05a72853fb3fbe696",
+                "reference": "c04f929aed32f1b312c4e1a05a72853fb3fbe696",
+                "shasum": ""
             },
             "require": {
-                "nativephp/mobile": "^4.0",
-                "php": "^8.2"
+                "nativephp/mobile": "^4.3",
+                "php": "^8.4"
             },
             "require-dev": {
                 "pestphp/pest": "^3.0"
@@ -2400,11 +2406,7 @@
                     "Momotombo\\NativephpAppearance\\": "src/"
                 }
             },
-            "scripts": {
-                "test": [
-                    "pest"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -2414,10 +2416,21 @@
                     "email": "hello@momotombo.dev"
                 }
             ],
-            "description": "Runtime appearance control for Despertá.",
-            "transport-options": {
-                "relative": true
-            }
+            "description": "Application-local light, dark, and system appearance preference for NativePHP Mobile.",
+            "homepage": "https://github.com/momotombodevs/nativephp-appearance",
+            "keywords": [
+                "appearance",
+                "dark-mode",
+                "light-mode",
+                "nativephp",
+                "nativephp-mobile",
+                "theme"
+            ],
+            "support": {
+                "issues": "https://github.com/momotombodevs/nativephp-appearance/issues",
+                "source": "https://github.com/momotombodevs/nativephp-appearance"
+            },
+            "time": "2026-10-02T03:25:33+00:00"
         },
         {
             "name": "monolog/monolog",
@@ -11156,8 +11169,7 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
-        "momotombo/nativephp-alarms": 20,
-        "momotombo/nativephp-appearance": 20
+        "momotombo/nativephp-alarms": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,
