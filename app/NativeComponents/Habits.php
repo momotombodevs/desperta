@@ -5,18 +5,25 @@ namespace App\NativeComponents;
 use App\AlarmScheduling\AlarmOccurrenceReconciler;
 use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmAnalytics\AlarmHabitsAnalytics;
+use App\Application\AlarmAnalytics\WeeklyProgressImage;
+use App\Application\Preferences\AppPreferences;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\Computed;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Facades\Share;
 
 final class Habits extends NativeComponent
 {
     use ResumesActiveAlarm;
 
+    public string $weeklyGoalSelection = '4';
+
     public function mount(): void
     {
         app(AlarmOccurrenceReconciler::class)->reconcile();
+        $this->weeklyGoalSelection = (string) app(AppPreferences::class)->weeklyGoal();
     }
 
     public function navTitle(): string
@@ -40,6 +47,56 @@ final class Habits extends NativeComponent
     public function habits(): array
     {
         return app(AlarmHabitsAnalytics::class)->summarize();
+    }
+
+    public function selectWeeklyGoal(string $goal): void
+    {
+        $selectedGoal = null;
+        foreach (range(1, 7) as $days) {
+            if ($goal === (string) $days || $goal === __('app.weekly_goal_days', ['count' => $days])) {
+                $selectedGoal = $days;
+                break;
+            }
+        }
+
+        if ($selectedGoal === null) {
+            return;
+        }
+
+        $this->weeklyGoalSelection = (string) $selectedGoal;
+        app(AppPreferences::class)->setWeeklyGoal($selectedGoal);
+    }
+
+    public function shareWeeklyProgress(): void
+    {
+        $summary = $this->habits['weekly_summary'];
+        $filePath = app(WeeklyProgressImage::class)->create(
+            $summary,
+            (int) $this->weeklyGoalSelection,
+            $this->habits['current_streak'],
+            $this->habits['best_streak'],
+        );
+
+        Share::file(__('app.weekly_share_title'), __('app.weekly_share_message'), $filePath);
+    }
+
+    /** @return array{goal: int, completed: int, recommendation: string, hardest_day: ?string, on_time_rate: int} */
+    #[Computed]
+    public function weeklyProgress(): array
+    {
+        $summary = $this->habits['weekly_summary'];
+        $weekday = $summary['hardest_weekday'];
+        $day = $weekday === null
+            ? null
+            : CarbonImmutable::now((string) config('app.alarm_timezone'))->startOfWeek(CarbonInterface::MONDAY)->addDays($weekday - 1)->locale(app()->getLocale())->isoFormat('dddd');
+
+        return [
+            'goal' => (int) $this->weeklyGoalSelection,
+            'completed' => $summary['on_time_mornings'],
+            'recommendation' => $summary['recommendation'],
+            'hardest_day' => $day,
+            'on_time_rate' => $summary['resolved_count'] === 0 ? 0 : (int) round(($summary['on_time_count'] / $summary['resolved_count']) * 100),
+        ];
     }
 
     /** @return list<array{id: string, name: string, color: string, points: list<array{id: string, label: string, value: int}>}> */

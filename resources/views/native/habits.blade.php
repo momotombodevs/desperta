@@ -10,6 +10,27 @@
             </native:text>
         </native:column>
 
+        <native:column class="w-full gap-3 rounded-2xl border border-theme-outline bg-theme-surface p-4">
+            <native:text font="accent" class="text-lg text-theme-on-surface">{{ __('app.weekly_goal_title') }}</native:text>
+            <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.weekly_goal_progress', ['completed' => $this->weeklyProgress['completed'], 'goal' => $this->weeklyProgress['goal']]) }}</native:text>
+            <native:progress-bar :value="min(1, $this->weeklyProgress['completed'] / $this->weeklyProgress['goal'])" />
+            <native:select ref="weekly-goal" :label="__('app.weekly_goal_label')"
+                           :options="array_map(fn (int $days): string => __('app.weekly_goal_days', ['count' => $days]), range(1, 7))"
+                           :value="__('app.weekly_goal_days', ['count' => $weeklyGoalSelection])"
+                           @change="selectWeeklyGoal" :a11y-label="__('app.weekly_goal_label')" />
+        </native:column>
+
+        <native:column class="w-full gap-2 rounded-2xl border border-theme-outline bg-theme-surface p-4">
+            <native:text font="accent" class="text-lg text-theme-on-surface">{{ __('app.weekly_summary_title') }}</native:text>
+            <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.weekly_summary_metrics', ['rate' => $this->weeklyProgress['on_time_rate'], 'snoozes' => $this->habits['weekly_summary']['snooze_count'], 'failures' => $this->habits['weekly_summary']['late_count'] + $this->habits['weekly_summary']['missed_count']]) }}</native:text>
+            @if ($this->weeklyProgress['hardest_day'] !== null)
+                <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.weekly_hardest_day', ['day' => $this->weeklyProgress['hardest_day']]) }}</native:text>
+            @endif
+            <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.'.$this->weeklyProgress['recommendation']) }}</native:text>
+            <native:button ref="share-weekly-summary" variant="secondary" class="w-full" @tap="shareWeeklyProgress"
+                           :a11y-label="__('app.share_weekly_progress')">{{ __('app.share_weekly_progress') }}</native:button>
+        </native:column>
+
         @if ($this->habits['resolved_count'] === 0)
             <native:column class="w-full items-center gap-3 rounded-2xl border border-theme-outline bg-theme-surface p-8">
                 <native:icon name="history" class="text-theme-secondary" size="40" :a11y-label="__('app.habits_empty')" />

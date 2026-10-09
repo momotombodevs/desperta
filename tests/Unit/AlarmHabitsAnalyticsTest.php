@@ -74,3 +74,66 @@ it('counts an expired unresolved alarm as missed', function () {
         ->and($summary['on_time_rate'])->toBe(0)
         ->and($summary['days'][6]['status'])->toBe('missed');
 });
+
+it('summarizes weekly punctual mornings once per local date and reports observed failures and snoozes', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
+    $monday = CarbonImmutable::parse('2026-08-31 07:00:00', 'America/Managua')->utc();
+    AlarmExecution::factory()->count(2)->create([
+        'status' => 'completed',
+        'scheduled_for' => $monday,
+        'finished_at' => $monday->addMinutes(5),
+        'snooze_count' => 0,
+    ]);
+    AlarmExecution::factory()->create([
+        'status' => 'missed',
+        'scheduled_for' => CarbonImmutable::parse('2026-09-01 07:00:00', 'America/Managua')->utc(),
+        'finished_at' => null,
+        'snooze_count' => 1,
+    ]);
+    AlarmExecution::factory()->create([
+        'status' => 'completed',
+        'scheduled_for' => CarbonImmutable::parse('2026-09-02 07:00:00', 'America/Managua')->utc(),
+        'finished_at' => CarbonImmutable::parse('2026-09-02 07:15:00', 'America/Managua')->utc(),
+        'snooze_count' => 2,
+    ]);
+
+    $summary = app(AlarmHabitsAnalytics::class)->summarize()['weekly_summary'];
+
+    expect($summary)->toMatchArray([
+        'on_time_mornings' => 1,
+        'resolved_count' => 4,
+        'on_time_count' => 2,
+        'late_count' => 1,
+        'missed_count' => 1,
+        'snooze_count' => 3,
+        'recommendation' => 'habits_recommendation_adjust',
+    ]);
+});
+
+it('returns a cautious recommendation when the current week has too little history', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
+
+    expect(app(AlarmHabitsAnalytics::class)->summarize()['weekly_summary'])->toMatchArray([
+        'on_time_mornings' => 0,
+        'resolved_count' => 0,
+        'hardest_weekday' => null,
+        'recommendation' => 'habits_recommendation_more_data',
+    ]);
+});
+
+it('counts an on-time execution once toward the daily streak when another alarm that day failed', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
+    $scheduledFor = CarbonImmutable::parse('2026-09-03 07:00:00', 'America/Managua')->utc();
+    AlarmExecution::factory()->create([
+        'status' => 'completed',
+        'scheduled_for' => $scheduledFor,
+        'finished_at' => $scheduledFor->addMinutes(5),
+    ]);
+    AlarmExecution::factory()->create([
+        'status' => 'missed',
+        'scheduled_for' => $scheduledFor->addMinutes(30),
+        'finished_at' => null,
+    ]);
+
+    expect(app(AlarmHabitsAnalytics::class)->summarize()['current_streak'])->toBe(1);
+});
