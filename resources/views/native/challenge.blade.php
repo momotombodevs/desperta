@@ -6,9 +6,18 @@
     @if ($unavailable)
         <native:activity-indicator />
     @elseif (! $completed)
+        @if ($challengeType === 'memory' && $memoryPhase === 'memorize')
+            <native:column class="w-full items-center gap-4 rounded-2xl border border-theme-outline bg-theme-surface p-5">
+                <native:text font="accent" class="text-lg text-center text-theme-primary">{{ $questions[$questionIndex]['instruction'] }}</native:text>
+                <native:text class="text-3xl text-center text-theme-on-surface">{{ $questions[$questionIndex]['memory_sequence'] }}</native:text>
+                <native:button ref="show-memory-question" variant="primary" class="w-full" size="lg" @tap="showMemoryQuestion"
+                               :a11y-label="__('app.ready_to_answer')">{{ __('app.ready_to_answer') }}</native:button>
+            </native:column>
+        @else
         <native:column class="w-full gap-4 rounded-2xl border border-theme-outline bg-theme-surface p-5">
             <native:text font="accent" class="text-sm text-theme-primary">{{ __('app.question_of', ['current' => $questionIndex + 1, 'total' => count($questions)]) }}</native:text>
             <native:progress-bar :value="($questionIndex + 1) / count($questions)"/>
+            <native:text class="text-sm text-theme-on-surface-variant">{{ $questions[$questionIndex]['instruction'] }}</native:text>
             <native:text font="accent"
                          class="text-3xl leading-tight text-theme-on-surface">{{ $questions[$questionIndex]['question'] }}</native:text>
         </native:column>
@@ -34,6 +43,7 @@
 
         <native:button ref="continue-challenge" variant="primary" class="w-full" size="lg" @tap="continueChallenge"
                        :disabled="$selectedAnswerIndex === null" :a11y-label="$questionIndex === count($questions) - 1 ? __('app.check_answers') : __('app.continue')">{{ $questionIndex === count($questions) - 1 ? __('app.check_answers') : __('app.continue') }}</native:button>
+        @endif
         @if ($snoozeAvailable)
             <native:button ref="snooze-alarm" variant="secondary" class="w-full" size="lg" @tap="snoozeAlarm"
                            :a11y-label="__('app.snooze_for_minutes', ['minutes' => $this->snoozeMinutes])">{{ __('app.snooze_for_minutes', ['minutes' => $this->snoozeMinutes]) }}</native:button>
@@ -45,6 +55,8 @@
             @if (! $alarmStopped)
                 <native:button ref="turn-off-alarm" class="w-full" size="lg" variant="primary" @tap="turnOffAlarm" :a11y-label="__('app.finish_alarm')">{{ __('app.finish_alarm') }}</native:button>
             @else
+                <native:button ref="open-morning-routine" class="w-full" size="lg" variant="secondary" @tap="openMorningRoutine"
+                               :a11y-label="__('app.open_morning_routine')">{{ __('app.open_morning_routine') }}</native:button>
                 <native:button ref="return-home"  class="w-full" size="lg" variant="primary" @tap="returnHome" :a11y-label="__('app.return_home')">{{ __('app.return_home') }}</native:button>
             @endif
         </native:column>
@@ -55,6 +67,9 @@
             </native:text>
             <native:text
                 class="text-lg text-center text-theme-on-surface-variant">{{ __('app.retry_challenge', ['required' => $requiredCorrectAnswers, 'total' => count($questions)]) }}</native:text>
+            @if ($showRetryHint)
+                <native:text class="text-sm text-center text-theme-on-surface-variant">{{ __('app.challenge_adaptive_hint') }}</native:text>
+            @endif
             <native:button ref="retry-challenge" variant="primary" class="w-full" size="lg" :a11y-label="__('app.try_again')"
                            @tap="retry">{{ __('app.try_again') }}</native:button>
         </native:column>

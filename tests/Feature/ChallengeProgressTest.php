@@ -24,7 +24,8 @@ it('restores the same questions selection and score after reopening through the 
     $challenge = Native::test(Challenge::class);
     $questions = $challenge->get('questions');
     $correct = array_search($questions[0]['answer'], $questions[0]['options'], true);
-    $challenge->tap("answer-{$correct}")->tap('continue-challenge')->tap('answer-1');
+    selectProgressChallengeOption($challenge, $correct)->tap('continue-challenge');
+    selectProgressChallengeOption($challenge, 1);
     $this->travel(10)->minutes();
     $alarm->update(['difficulty' => 'hard']);
     app(AppPreferences::class)->setChallengeTheme('math');
@@ -52,7 +53,7 @@ it('preserves a failed attempt and saves the retry without duplicating history',
     $firstQuestions = $challenge->get('questions');
     foreach ($firstQuestions as $question) {
         $wrong = array_find_key($question['options'], fn (string $answer): bool => $answer !== $question['answer']);
-        $challenge->tap("answer-{$wrong}")->tap('continue-challenge');
+        selectProgressChallengeOption($challenge, $wrong)->tap('continue-challenge');
     }
     app(AppPreferences::class)->setChallengeTheme('math');
 
@@ -67,8 +68,13 @@ it('preserves a failed attempt and saves the retry without duplicating history',
         ->assertSet('challengeTheme', 'nicaragua');
 
     expect(array_intersect(array_column($firstQuestions, 'id'), array_column($retryQuestions, 'id')))->toBeEmpty();
-    $themeIds = array_column(trans('challenges.nicaragua.questions'), 'id');
-    expect(array_diff(array_column($retryQuestions, 'id'), $themeIds))->toBeEmpty();
+    if ($resumed->get('challengeType') === 'trivia') {
+        $themeIds = array_column(trans('challenges.nicaragua.questions'), 'id');
+        expect(array_diff(array_column($retryQuestions, 'id'), $themeIds))->toBeEmpty();
+    } else {
+        $prefix = $resumed->get('challengeType') === 'mental_math' ? 'mental-math' : $resumed->get('challengeType');
+        expect(array_filter(array_column($retryQuestions, 'id'), fn (string $id): bool => str_starts_with($id, $prefix)))->toHaveCount(count($retryQuestions));
+    }
     $this->assertDatabaseCount('alarm_challenge_attempts', 1);
 });
 
@@ -81,7 +87,7 @@ it('retains progress while snoozed and restores it when the same occurrence ring
         return $active;
     });
     $scheduler->shouldReceive('snooze')->once()->with($alarm->id, 10);
-    $challenge = Native::test(Challenge::class)->tap('answer-2');
+    $challenge = selectProgressChallengeOption(Native::test(Challenge::class), 2);
     $questions = $challenge->get('questions');
     $challenge->tap('snooze-alarm')->assertReplacedWith('/');
     $execution = AlarmExecution::query()->findOrFail('execution-1');
@@ -101,7 +107,7 @@ it('starts fresh for a new occurrence and removes the previous pending progress'
         new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-04T07:00:00Z'),
         new ActiveAlarmOccurrence($alarm->id, 'execution-2', '2026-09-05T07:00:00Z'),
     );
-    Native::test(Challenge::class)->tap('answer-1');
+    selectProgressChallengeOption(Native::test(Challenge::class), 1);
 
     Native::test(Challenge::class)->assertSet('executionId', 'execution-2')
         ->assertSet('selectedAnswerIndex', null)->assertSet('questionIndex', 0);
@@ -142,7 +148,7 @@ it('clears completed progress and records only one attempt after repeated callba
     $challenge = Native::test(Challenge::class);
     foreach ($challenge->get('questions') as $question) {
         $correct = array_search($question['answer'], $question['options'], true);
-        $challenge->tap("answer-{$correct}")->tap('continue-challenge');
+        selectProgressChallengeOption($challenge, $correct)->tap('continue-challenge');
     }
     $challenge->call('turnOffAlarm')->assertSet('alarmStopped', true);
 
@@ -156,7 +162,7 @@ it('removes pending progress when an occurrence is cancelled or reconciled as te
     $alarm = Alarm::factory()->create();
     mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
         ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-04T07:00:00Z'));
-    $challenge = Native::test(Challenge::class)->tap('answer-1');
+    $challenge = selectProgressChallengeOption(Native::test(Challenge::class), 1);
     $lifecycle = app(AlarmExecutionLifecycle::class);
     if ($status === 'cancelled') {
         $lifecycle->cancelOpen($alarm);
@@ -174,7 +180,7 @@ it('ignores completion events belonging to another alarm', function () {
     $otherAlarm = Alarm::factory()->create();
     mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
         ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-04T07:00:00Z'));
-    Native::test(Challenge::class)->tap('answer-1');
+    selectProgressChallengeOption(Native::test(Challenge::class), 1);
     $progress = AlarmExecution::query()->findOrFail('execution-1')->challenge_progress;
 
     $accepted = app(AlarmExecutionLifecycle::class)->reconcile(new NativeAlarmOccurrenceEvent(
@@ -199,7 +205,7 @@ it('does not stop a newer native occurrence from a stale challenge screen', func
 
     foreach ($challenge->get('questions') as $question) {
         $correct = array_search($question['answer'], $question['options'], true);
-        $challenge->tap("answer-{$correct}")->tap('continue-challenge');
+        selectProgressChallengeOption($challenge, $correct)->tap('continue-challenge');
     }
 
     $challenge->assertReplacedWith('/');
@@ -223,7 +229,9 @@ it('automatically resumes saved progress when opening home', function () {
     $alarm = Alarm::factory()->create();
     mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
         ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-04T07:00:00Z'));
-    $challenge = Native::test(Challenge::class)->tap('answer-2')->tap('continue-challenge')->tap('answer-0');
+    $challenge = selectProgressChallengeOption(Native::test(Challenge::class), 2)
+        ->tap('continue-challenge');
+    selectProgressChallengeOption($challenge, 0);
     $questions = $challenge->get('questions');
 
     Native::visit('/')->assertSee('Sonando · Continuar reto')
@@ -232,6 +240,15 @@ it('automatically resumes saved progress when opening home', function () {
         ->assertSet('questionIndex', 1)
         ->assertSet('selectedAnswerIndex', 0);
 });
+
+function selectProgressChallengeOption($challenge, int $answerIndex)
+{
+    if ($challenge->get('challengeType') === 'memory' && $challenge->get('memoryPhase') === 'memorize') {
+        $challenge->tap('show-memory-question');
+    }
+
+    return $challenge->tap("answer-{$answerIndex}");
+}
 
 it('adds nullable progress to an existing execution without changing its history', function () {
     $execution = AlarmExecution::factory()->create(['status' => 'completed']);

@@ -2,11 +2,15 @@
 
 use App\AlarmScheduling\ActiveAlarmOccurrence;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
+use App\Application\Challenges\ChallengeCatalog;
+use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use App\NativeComponents\Challenge;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Native\Mobile\Testing\Native;
 use Native\Mobile\Testing\TestableComponent;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 
 use function Pest\Laravel\mock;
 
@@ -116,7 +120,8 @@ it('keeps a failed challenge ringing until the user retries', function () {
 
     foreach ($answers as $index => $question) {
         $wrongAnswerIndex = array_find_key($question['options'], fn (string $option): bool => $option !== $question['answer']);
-        $challenge->call('selectAnswer', $wrongAnswerIndex)->call('continueChallenge');
+        selectChallengeAnswer($challenge, $wrongAnswerIndex);
+        $challenge->call('continueChallenge');
     }
 
     $challenge
@@ -130,6 +135,29 @@ it('keeps a failed challenge ringing until the user retries', function () {
         'attempt_number' => 1,
         'passed' => false,
     ]);
+});
+
+it('shows an encouragement hint after repeated challenge failures', function () {
+    $alarm = Alarm::factory()->create(['scheduling_status' => 'scheduled']);
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
+        ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+
+    $challenge = Native::test(Challenge::class, data: ['alarmId' => $alarm->id]);
+    foreach ($challenge->get('questions') as $question) {
+        $wrongAnswerIndex = array_find_key($question['options'], fn (string $option): bool => $option !== $question['answer']);
+        selectChallengeAnswer($challenge, $wrongAnswerIndex);
+        $challenge->call('continueChallenge');
+    }
+
+    $challenge->call('retry');
+    foreach ($challenge->get('questions') as $question) {
+        $wrongAnswerIndex = array_find_key($question['options'], fn (string $option): bool => $option !== $question['answer']);
+        selectChallengeAnswer($challenge, $wrongAnswerIndex);
+        $challenge->call('continueChallenge');
+    }
+
+    $challenge->assertSee('Respirá y leé cada opción con calma. El próximo reto se ajustará a tus resultados recientes.');
+    $this->assertDatabaseCount('alarm_challenge_attempts', 2);
 });
 
 it('allows an easy challenge to stop after two correct answers', function () {
@@ -181,6 +209,19 @@ it('requires five correct answers for a hard challenge', function () {
     ]);
 });
 
+it('opens the routine for the completed alarm execution', function () {
+    $alarm = Alarm::factory()->create(['scheduling_status' => 'scheduled']);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-routine', '2026-09-03T07:00:00+00:00'));
+    $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    $challenge = Native::test(Challenge::class, data: ['alarmId' => $alarm->id]);
+    completeChallenge($challenge);
+
+    $challenge->tap('open-morning-routine')->assertNavigatedTo('/routine/execution-routine');
+});
+
 it('renders selected answer cards accessibly', function () {
     $alarm = Alarm::factory()->create();
     mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
@@ -188,6 +229,7 @@ it('renders selected answer cards accessibly', function () {
     $answerIndex = 0;
 
     $challenge
+        ->call('showMemoryQuestion')
         ->call('selectAnswer', $answerIndex)
         ->assertSet('selectedAnswerIndex', $answerIndex)
         ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'answer-0'
@@ -195,12 +237,56 @@ it('renders selected answer cards accessibly', function () {
         ->assertAccessible();
 });
 
+it('completes and records every new challenge type with resumable progress', function (int $seed, string $type) {
+    $alarm = Alarm::factory()->create(['difficulty' => 'easy', 'scheduling_status' => 'scheduled']);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+    $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+    app()->instance(ChallengeCatalog::class, new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937($seed))));
+
+    $challenge = Native::test(Challenge::class, data: ['alarmId' => $alarm->id])
+        ->assertSet('challengeType', $type);
+
+    if ($type === 'memory') {
+        $sequence = $challenge->get('questions')[0]['memory_sequence'];
+        $visibleSequence = str_replace('  ·  ', ' · ', $sequence);
+        $challenge->assertSee($visibleSequence)
+            ->tap('show-memory-question')
+            ->assertDontSee($visibleSequence);
+
+        Native::test(Challenge::class)->assertSet('memoryPhase', 'answer')->assertSet('questions', $challenge->get('questions'));
+    }
+
+    answerQuestions($challenge, [false, false, false]);
+    Native::test(Challenge::class)->assertSet('completed', true)->assertSet('passed', false);
+    $this->assertDatabaseHas('alarm_challenge_attempts', [
+        'alarm_execution_id' => 'execution-1',
+        'challenge_type' => $type,
+        'passed' => false,
+    ]);
+
+    $retry = Native::test(Challenge::class)->tap('retry-challenge');
+    answerQuestions($retry, [true, true, false]);
+    $retry->assertSet('passed', true)->assertSet('alarmStopped', true);
+    $this->assertDatabaseHas('alarm_challenge_attempts', [
+        'alarm_execution_id' => 'execution-1',
+        'challenge_type' => $type,
+        'passed' => true,
+    ]);
+})->with([
+    [1, 'memory'],
+    [3, 'sequence'],
+    [5, 'mental_math'],
+]);
+
 /** @param TestableComponent<Challenge> $challenge */
 function completeChallenge($challenge): void
 {
     foreach ($challenge->get('questions') as $question) {
         $answerIndex = array_find_key($question['options'], fn (string $option): bool => $option === $question['answer']);
-        $challenge->call('selectAnswer', $answerIndex)->call('continueChallenge');
+        selectChallengeAnswer($challenge, $answerIndex);
+        $challenge->call('continueChallenge');
     }
 }
 
@@ -210,6 +296,16 @@ function answerQuestions($challenge, array $answers): void
         $answerIndex = array_find_key($question['options'], fn (string $option): bool => $answers[$index]
             ? $option === $question['answer']
             : $option !== $question['answer']);
-        $challenge->call('selectAnswer', $answerIndex)->call('continueChallenge');
+        selectChallengeAnswer($challenge, $answerIndex);
+        $challenge->call('continueChallenge');
     }
+}
+
+function selectChallengeAnswer($challenge, int $answerIndex): void
+{
+    if ($challenge->get('challengeType') === 'memory' && $challenge->get('memoryPhase') === 'memorize') {
+        $challenge->call('showMemoryQuestion');
+    }
+
+    $challenge->call('selectAnswer', $answerIndex);
 }

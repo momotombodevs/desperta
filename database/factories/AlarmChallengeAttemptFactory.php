@@ -21,6 +21,7 @@ class AlarmChallengeAttemptFactory extends Factory
         return [
             'alarm_id' => Alarm::factory(),
             'challenge_theme' => 'nicaragua',
+            'challenge_type' => 'trivia',
             'attempt_number' => 1,
             'correct_answers' => 2,
             'question_count' => 3,

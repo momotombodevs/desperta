@@ -1,6 +1,15 @@
 <?php
 
 return [
+    'types' => [
+        'trivia' => ['instruction' => 'Elegí la respuesta correcta.'],
+        'memory' => [
+            'instruction' => 'Memorizá la secuencia y después respondé sin verla.',
+            'question' => '¿Qué número estaba en la posición :position?',
+        ],
+        'sequence' => ['instruction' => 'Encontrá el patrón y elegí el siguiente número.'],
+        'mental_math' => ['instruction' => 'Resolvé el cálculo mentalmente.'],
+    ],
     'nicaragua' => [
         'name' => 'Nicaragua',
         'questions' => [

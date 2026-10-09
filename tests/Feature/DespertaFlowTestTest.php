@@ -256,6 +256,9 @@ function answerChallenge($challenge, bool $correct = true)
         $answerIndex = array_find_key($question['options'], fn (string $option): bool => $correct
             ? $option === $question['answer']
             : $option !== $question['answer']);
+        if ($challenge->get('challengeType') === 'memory' && $challenge->get('memoryPhase') === 'memorize') {
+            $challenge->tap('show-memory-question');
+        }
         $challenge->tap("answer-{$answerIndex}")->tap('continue-challenge');
     }
 

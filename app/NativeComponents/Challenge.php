@@ -7,7 +7,10 @@ use App\AlarmScheduling\AlarmOccurrenceReconciler;
 use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
+use App\Application\Challenges\AdaptiveChallengeDifficulty;
 use App\Application\Challenges\ChallengeCatalog;
+use App\Application\Challenges\ChallengeDifficulty;
+use App\Application\Challenges\ChallengeType;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use App\Models\AlarmChallengeAttempt;
@@ -29,7 +32,11 @@ class Challenge extends NativeComponent
 
     public string $challengeTheme = '';
 
+    public string $challengeType = ChallengeType::Trivia->value;
+
     public string $difficulty = '';
+
+    public string $memoryPhase = 'memorize';
 
     public bool $unavailable = false;
 
@@ -37,14 +44,14 @@ class Challenge extends NativeComponent
     private const array PROGRESS_PROPERTIES = [
         'questions', 'usedQuestionIds', 'questionIndex', 'selectedAnswerIndex',
         'correctAnswers', 'questionCount', 'requiredCorrectAnswers', 'attemptNumber',
-        'completed', 'passed', 'challengeTheme', 'difficulty',
+        'completed', 'passed', 'challengeTheme', 'challengeType', 'difficulty', 'showRetryHint', 'memoryPhase',
     ];
 
     public bool $snoozeAvailable = false;
 
     public int $snoozeMinutes = 5;
 
-    /** @var list<array{id: string, question: string, options: list<string>, answer: string}> */
+    /** @var list<array{id: string, question: string, options: list<string>, answer: string, instruction?: string, memory_sequence?: ?string}> */
     public array $questions = [];
 
     /** @var list<string> */
@@ -65,6 +72,8 @@ class Challenge extends NativeComponent
     public bool $completed = false;
 
     public bool $passed = false;
+
+    public bool $showRetryHint = false;
 
     public bool $alarmStopped = false;
 
@@ -101,9 +110,10 @@ class Challenge extends NativeComponent
             return;
         }
 
-        $difficulty = $alarm->challengeDifficulty();
+        $difficulty = app(AdaptiveChallengeDifficulty::class)->forAlarm($alarm);
         $this->difficulty = $difficulty->value;
         $this->challengeTheme = app(AppPreferences::class)->challengeTheme();
+        $this->challengeType = app(ChallengeCatalog::class)->chooseType()->value;
         $this->questionCount = $difficulty->questionCount();
         $this->requiredCorrectAnswers = $difficulty->requiredCorrectAnswers();
         $this->materializeQuestions();
@@ -111,6 +121,7 @@ class Challenge extends NativeComponent
 
         $this->attemptNumber = AlarmChallengeAttempt::query()
             ->where('alarm_id', $this->alarmId)
+            ->where('alarm_execution_id', $this->executionId)
             ->max('attempt_number') + 1;
 
         $this->saveProgress();
@@ -178,11 +189,23 @@ class Challenge extends NativeComponent
 
     public function selectAnswer(int $answerIndex): void
     {
-        if (! $this->refreshProgress() || $this->completed || ! array_key_exists($answerIndex, $this->questions[$this->questionIndex]['options'])) {
+        if (! $this->refreshProgress() || $this->completed
+            || ($this->challengeType === ChallengeType::Memory->value && $this->memoryPhase === 'memorize')
+            || ! array_key_exists($answerIndex, $this->questions[$this->questionIndex]['options'])) {
             return;
         }
 
         $this->selectedAnswerIndex = $answerIndex;
+        $this->saveProgress();
+    }
+
+    public function showMemoryQuestion(): void
+    {
+        if ($this->challengeType !== ChallengeType::Memory->value || $this->memoryPhase !== 'memorize' || ! $this->refreshProgress()) {
+            return;
+        }
+
+        $this->memoryPhase = 'answer';
         $this->saveProgress();
     }
 
@@ -193,6 +216,8 @@ class Challenge extends NativeComponent
         }
 
         $this->attemptNumber++;
+        $this->showRetryHint = $this->attemptNumber >= 2;
+        $this->memoryPhase = 'memorize';
         $this->questionIndex = 0;
         $this->selectedAnswerIndex = null;
         $this->correctAnswers = 0;
@@ -275,12 +300,22 @@ class Challenge extends NativeComponent
         $this->replace('/');
     }
 
+    public function openMorningRoutine(): void
+    {
+        if (! $this->alarmStopped || $this->executionId === '') {
+            return;
+        }
+
+        $this->navigate('/routine/'.$this->executionId);
+    }
+
     private function recordAttempt(): void
     {
         AlarmChallengeAttempt::query()->create([
             'alarm_id' => $this->alarmId,
             'alarm_execution_id' => $this->executionId,
             'challenge_theme' => $this->challengeTheme,
+            'challenge_type' => $this->challengeType,
             'attempt_number' => $this->attemptNumber,
             'correct_answers' => $this->correctAnswers,
             'question_count' => count($this->questions),
@@ -295,8 +330,21 @@ class Challenge extends NativeComponent
         $preferences = app(AppPreferences::class);
         $catalog = app(ChallengeCatalog::class);
         $theme = $this->challengeTheme;
-        $this->questions = $catalog->questions($this->questionCount, $excludedQuestionIds, $preferences->lastChallengeOrder($theme), $theme);
-        $preferences->rememberChallengeOrder($theme, $catalog->fingerprint($this->questions));
+        $type = ChallengeType::from($this->challengeType);
+        $difficulty = ChallengeDifficulty::fromStored($this->difficulty);
+        if ($type === ChallengeType::Trivia) {
+            $questions = $catalog->questions($this->questionCount, $excludedQuestionIds, $preferences->lastChallengeOrder($theme), $theme);
+            $this->questions = array_map(fn (array $question): array => [
+                ...$question,
+                'instruction' => trans('challenges.types.trivia.instruction'),
+                'memory_sequence' => null,
+            ], $questions);
+            $preferences->rememberChallengeOrder($theme, $catalog->fingerprint($this->questions));
+
+            return;
+        }
+
+        $this->questions = $catalog->questionsForType($type, $this->questionCount, $difficulty);
     }
 
     private function currentOccurrence(): ?ActiveAlarmOccurrence
@@ -325,7 +373,9 @@ class Challenge extends NativeComponent
     private function restoreProgress(array $progress): void
     {
         foreach (self::PROGRESS_PROPERTIES as $property) {
-            $this->{$property} = $progress[$property];
+            if (array_key_exists($property, $progress)) {
+                $this->{$property} = $progress[$property];
+            }
         }
     }
 

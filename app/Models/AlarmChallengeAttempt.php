@@ -17,6 +17,7 @@ class AlarmChallengeAttempt extends Model
         'alarm_id',
         'alarm_execution_id',
         'challenge_theme',
+        'challenge_type',
         'attempt_number',
         'correct_answers',
         'question_count',
