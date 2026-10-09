@@ -31,6 +31,28 @@
             </native:row>
         </native:pressable>
 
+        <native:pressable ref="open-bedtime-reminder" class="w-full rounded-xl border border-theme-outline bg-theme-surface-variant p-4"
+                          @navigate="'/settings/bedtime-reminder'" :a11y-label="__('app.bedtime_reminder')">
+            <native:row class="w-full items-center gap-3">
+                <native:icon :android="Android::Bedtime" class="text-theme-primary" size="24"/>
+                <native:column class="flex-1 gap-1">
+                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.bedtime_reminder') }}</native:text>
+                </native:column>
+                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
+            </native:row>
+        </native:pressable>
+
+        <native:pressable ref="open-morning-routine" class="w-full rounded-xl border border-theme-outline bg-theme-surface-variant p-4"
+                          @navigate="'/settings/routine'" :a11y-label="__('app.morning_routine')">
+            <native:row class="w-full items-center gap-3">
+                <native:icon :android="Android::Checklist" class="text-theme-primary" size="24"/>
+                <native:column class="flex-1 gap-1">
+                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.morning_routine') }}</native:text>
+                </native:column>
+                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
+            </native:row>
+        </native:pressable>
+
         <native:column class="w-full gap-2">
             <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.appearance') }}</native:text>
             <native:button-group ref="appearance-selector"

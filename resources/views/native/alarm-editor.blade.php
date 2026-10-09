@@ -22,6 +22,13 @@
         <native:outlined-text-input :label="__('app.name')" native:model.live="label"
                                     :a11y-label="__('app.alarm_name')"/>
 
+        <native:toggle :label="__('app.alarm_for_specific_date')" native:model="specificDateEnabled"/>
+        @if ($specificDateEnabled)
+            <native:date-picker :label="__('app.alarm_date')" mode="date" native:model="alarmDate"
+                                :title="__('app.choose_alarm_date')" :confirm-label="__('app.accept')"
+                                :cancel-label="__('app.cancel')" :min="now(config('app.alarm_timezone'))->toDateString()"
+                                :a11y-label="__('app.alarm_date')"/>
+        @else
         <native:column class="w-full gap-3">
             <native:text font="accent" class="text-base text-theme-on-background">{{ __('app.repeat') }}</native:text>
             <native:row class="w-full gap-2">
@@ -34,6 +41,7 @@
                 <native:chip :label="__('app.weekdays.sunday.short')" native:model="sunday" :a11y-label="__('app.weekdays.sunday.label')"/>
             </native:row>
         </native:column>
+        @endif
 
         <native:toggle :label="__('app.vibration')" native:model="vibration"/>
         @android

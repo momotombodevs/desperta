@@ -162,6 +162,23 @@ describe('Native Code', function () {
         expect($manifest['android']['receivers'][1]['intent-filters'][0]['action'])->toBe('android.intent.action.BOOT_COMPLETED');
     });
 
+    it('declares bedtime notification and widget bridge support', function () {
+        $manifest = json_decode(file_get_contents($this->manifestPath), true);
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+        $names = array_column($manifest['bridge_functions'], 'name');
+
+        expect($names)->toContain('Alarms.ScheduleBedtimeReminder', 'Alarms.CancelBedtimeReminder', 'Alarms.ForgetWidgetAlarm')
+            ->and($kotlin)->toContain('class BedtimeReminderReceiver')
+            ->toContain('class AlarmWidgetProvider')
+            ->toContain('widget_enabled')
+            ->and($manifest['android']['receivers'])->toContain([
+                'name' => 'com.momotombo.plugins.nativephp_alarms.AlarmWidgetProvider',
+                'exported' => false,
+                'intent-filters' => [['action' => 'android.appwidget.action.APPWIDGET_UPDATE']],
+                'meta_data' => [['name' => 'android.appwidget.provider', 'resource' => '@xml/alarm_widget_info']],
+            ]);
+    });
+
     it('dispatches the Android notification permission result with the original request id', function () {
         $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
 
@@ -223,6 +240,16 @@ describe('Native Code', function () {
         expect($kotlin)
             ->toContain('fun withNextOccurrence(): AlarmPayload')
             ->toContain('"occurrence_id" to UUID.randomUUID().toString()');
+    });
+
+    it('validates one-time dates and prevents native snooze when disabled', function () {
+        $manifest = json_decode(file_get_contents($this->manifestPath), true);
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+
+        expect($kotlin)->toContain('fun alarmDate(): String?')
+            ->toContain('values["snooze_enabled"] == false')
+            ->toContain('weekdays.isNotEmpty() || !isValidDate(alarmDate)')
+            ->and($manifest['platforms'])->toBe(['android']);
     });
 
     it('stops a completed ringing session without removing its scheduled alarm', function () {

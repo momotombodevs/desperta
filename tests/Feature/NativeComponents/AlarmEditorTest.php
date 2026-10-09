@@ -79,6 +79,52 @@ it('sends enabled alarms through the scheduling boundary after persisting them',
     expect(Alarm::query()->sole()->enabled)->toBeTrue();
 });
 
+it('schedules a protected one-time alarm for its selected date', function () {
+    $this->travelTo('2026-09-03 06:00:00');
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('canScheduleExactly')->once()->andReturnTrue();
+    $scheduler->shouldReceive('canPresentWhileLocked')->once()->andReturnTrue();
+    $scheduler->shouldReceive('canPostNotifications')->once()->andReturnTrue();
+    $scheduler->shouldReceive('schedule')->once()->withArgs(function (AlarmSchedule $schedule): bool {
+        return $schedule->alarmDate === '2026-09-05'
+            && $schedule->weekdays === []
+            && $schedule->snoozeEnabled === false
+            && $schedule->scheduledFor === '2026-09-05T13:00:00+00:00';
+    });
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    Native::visit('/alarms/new')
+        ->toggle('specificDateEnabled', true)
+        ->pickDate('alarmDate', '2026-09-05')
+        ->pickTime('time', '07:00')
+        ->set('snoozeEnabled', false)
+        ->tap('save-alarm')
+        ->assertReplacedWith('/');
+
+    $this->assertDatabaseHas('alarms', [
+        'alarm_date' => '2026-09-05',
+        'weekdays' => '[]',
+        'snooze_enabled' => false,
+        'scheduling_status' => 'scheduled',
+    ]);
+});
+
+it('rejects a one-time alarm whose selected date and time have passed', function () {
+    $this->travelTo('2026-09-03 06:00:00');
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldNotReceive('schedule');
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    Native::visit('/alarms/new')
+        ->toggle('specificDateEnabled', true)
+        ->pickDate('alarmDate', '2026-09-02')
+        ->pickTime('time', '07:00')
+        ->tap('save-alarm')
+        ->assertToastShownWithMessage('Elegí una fecha y hora futuras.');
+
+    $this->assertDatabaseMissing('alarms', ['alarm_date' => '2026-09-02']);
+});
+
 it('continues a pending alarm after returning from Android exact alarm settings', function () {
     $scheduler = mock(NativeAlarmScheduler::class);
     $scheduler->shouldReceive('canScheduleExactly')->times(3)->andReturn(false, true, true);

@@ -6,6 +6,7 @@ use Momotombo\NativePHPAlarms\Bridge\NativeAlarmBridge;
 use Momotombo\NativePHPAlarms\DTO\ActiveAlarmOccurrence;
 use Momotombo\NativePHPAlarms\DTO\AlarmCapabilities;
 use Momotombo\NativePHPAlarms\DTO\AlarmConfiguration;
+use Momotombo\NativePHPAlarms\DTO\BedtimeReminderConfiguration;
 use Momotombo\NativePHPAlarms\Enums\AuthorizationStatus;
 use Momotombo\NativePHPAlarms\Exceptions\AlarmAuthorizationDenied;
 use Momotombo\NativePHPAlarms\Exceptions\AlarmNotFound;
@@ -121,6 +122,21 @@ final class AlarmScheduler
     public function schedule(AlarmConfiguration $configuration): void
     {
         $this->call('Alarms.Schedule', $configuration->toPayload());
+    }
+
+    public function scheduleBedtimeReminder(BedtimeReminderConfiguration $configuration): void
+    {
+        $this->call('Alarms.ScheduleBedtimeReminder', $configuration->toPayload());
+    }
+
+    public function cancelBedtimeReminder(): void
+    {
+        $this->call('Alarms.CancelBedtimeReminder');
+    }
+
+    public function forgetWidgetAlarm(string $alarmId): void
+    {
+        $this->call('Alarms.ForgetWidgetAlarm', ['id' => $alarmId]);
     }
 
     /** Replace an alarm configuration and schedule its next trigger. */

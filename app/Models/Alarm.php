@@ -19,6 +19,7 @@ class Alarm extends Model
         'time',
         'label',
         'weekdays',
+        'alarm_date',
         'vibration',
         'snooze_enabled',
         'snooze_minutes',
@@ -31,6 +32,7 @@ class Alarm extends Model
     {
         return [
             'weekdays' => 'array',
+            'alarm_date' => 'date:Y-m-d',
             'vibration' => 'boolean',
             'snooze_enabled' => 'boolean',
             'snooze_minutes' => 'integer',
@@ -49,7 +51,7 @@ class Alarm extends Model
     {
         return collect([
             filled($this->label) ? $this->label : null,
-            $this->repeatLabel() ?: __('app.once'),
+            $this->alarm_date !== null ? $this->alarm_date->translatedFormat('j M Y') : ($this->repeatLabel() ?: __('app.once')),
         ])->filter()->implode(' · ');
     }
 

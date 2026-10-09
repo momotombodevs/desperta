@@ -1,6 +1,8 @@
 package com.momotombo.plugins.nativephp_alarms
 
 import android.app.AlarmManager
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
 import android.app.KeyguardManager
 import android.app.Service
 import android.app.NotificationChannel
@@ -27,6 +29,7 @@ import android.os.VibratorManager
 import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
+import android.widget.RemoteViews
 import androidx.fragment.app.FragmentActivity
 import androidx.core.app.NotificationCompat
 import com.nativephp.mobile.bridge.BridgeFunction
@@ -245,6 +248,67 @@ object AlarmsFunctions {
         }
     }
 
+    class ScheduleBedtimeReminder(private val activity: FragmentActivity) : BridgeFunction {
+        override fun execute(parameters: Map<String, Any>): Map<String, Any> = scheduleBedtimeReminder(activity, parameters)
+    }
+
+    class CancelBedtimeReminder(private val context: Context) : BridgeFunction {
+        override fun execute(parameters: Map<String, Any>): Map<String, Any> {
+            BedtimeReminder.cancel(context)
+
+            return BridgeResponse.success(mapOf("cancelled" to true))
+        }
+    }
+
+    class ForgetWidgetAlarm(private val context: Context) : BridgeFunction {
+        override fun execute(parameters: Map<String, Any>): Map<String, Any> {
+            val alarmId = parameters["id"] as? String ?: return invalidId()
+            WidgetAlarmStore.forget(context, alarmId)
+            refreshWidgets(context)
+
+            return BridgeResponse.success(mapOf("forgotten" to true))
+        }
+    }
+
+    internal fun scheduleBedtimeReminder(context: Context, parameters: Map<String, Any>): Map<String, Any> {
+        val hour = (parameters["hour"] as? Number)?.toInt() ?: return invalidAlarm()
+        val minute = (parameters["minute"] as? Number)?.toInt() ?: return invalidAlarm()
+        val weekdays = AlarmPayload.parseWeekdays(parameters["weekdays"]) ?: return invalidAlarm()
+
+        if (hour !in 0..23 || minute !in 0..59 || weekdays.isEmpty() || weekdays.any { it !in BEDTIME_WEEKDAYS }) {
+            return invalidAlarm()
+        }
+
+        if (!canScheduleExactly(context)) {
+            return BridgeResponse.error("exact_alarm_permission_denied", "Exact alarm permission is unavailable.")
+        }
+
+        if (!canPostNotifications(context)) {
+            return BridgeResponse.error("notification_permission_denied", "Notification permission is unavailable.")
+        }
+
+        val reminder = JSONObject()
+            .put("hour", hour)
+            .put("minute", minute)
+            .put("weekdays", JSONArray(weekdays))
+            .put("title", (parameters["title"] as? String).orEmpty())
+            .put("body", (parameters["body"] as? String).orEmpty())
+            .toString()
+        context.getSharedPreferences(BEDTIME_PREFERENCES, Context.MODE_PRIVATE).edit().putString(BEDTIME_KEY, reminder).apply()
+        BedtimeReminder.schedule(context)
+
+        return BridgeResponse.success(mapOf("scheduled" to true))
+    }
+
+    internal fun bedtimeReminder(context: Context): JSONObject? = context
+        .getSharedPreferences(BEDTIME_PREFERENCES, Context.MODE_PRIVATE)
+        .getString(BEDTIME_KEY, null)
+        ?.let(::JSONObject)
+
+    private const val BEDTIME_PREFERENCES = "nativephp_bedtime_reminder"
+    private const val BEDTIME_KEY = "configuration"
+    private val BEDTIME_WEEKDAYS = setOf("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
     internal fun schedule(context: Context, parameters: Map<String, Any>): Map<String, Any> {
         val payload = AlarmPayload.from(parameters) ?: return invalidAlarm()
 
@@ -253,8 +317,10 @@ object AlarmsFunctions {
         }
 
         AlarmStore.save(context, payload)
+        WidgetAlarmStore.remember(context, payload, true)
         scheduleNext(context, payload)
         OccurrenceJournal.record(context, payload, "scheduled")
+        refreshWidgets(context)
 
         return BridgeResponse.success(mapOf("scheduled" to true, "id" to payload.id))
     }
@@ -271,6 +337,7 @@ object AlarmsFunctions {
     }
 
     internal fun cancel(context: Context, alarmId: String) {
+        AlarmStore.get(context, alarmId)?.let { WidgetAlarmStore.remember(context, it, false) }
         TriggeredAlarmStore.get(context, alarmId)?.first?.let { OccurrenceJournal.record(context, it, "cancelled") }
         AlarmPlaybackService.stop(context, alarmId)
         context.getSystemService(AlarmManager::class.java).cancel(alarmIntent(context, alarmId))
@@ -279,6 +346,7 @@ object AlarmsFunctions {
         SnoozeStore.remove(context, alarmId)
         TriggeredAlarmStore.remove(context, alarmId)
         context.getSystemService(NotificationManager::class.java).cancel(NotificationIds.forAlarm(context, alarmId))
+        refreshWidgets(context)
     }
 
     internal fun complete(context: Context, alarmId: String) {
@@ -291,6 +359,9 @@ object AlarmsFunctions {
 
     internal fun snooze(context: Context, alarmId: String, minutes: Int): Boolean {
         val alarm = TriggeredAlarmStore.get(context, alarmId)?.first ?: return false
+        if (alarm.values["snooze_enabled"] == false) {
+            return false
+        }
         val snoozeAt = System.currentTimeMillis() + minutes * 60_000L
 
         AlarmPlaybackService.stop(context, alarmId)
@@ -306,6 +377,16 @@ object AlarmsFunctions {
 
     internal fun nextTriggerAt(payload: AlarmPayload): Long {
         val now = Calendar.getInstance()
+        payload.alarmDate()?.let { date ->
+            val target = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.ROOT).apply {
+                isLenient = false
+                timeZone = java.util.TimeZone.getDefault()
+            }.parse("$date %02d:%02d".format(payload.hour, payload.minute))
+                ?: throw IllegalArgumentException("Alarm date is invalid.")
+
+            return target.time
+        }
+
         val candidate = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, payload.hour)
             set(Calendar.MINUTE, payload.minute)
@@ -328,7 +409,7 @@ object AlarmsFunctions {
 
     private fun notificationAuthorizationStatus(context: Context): String = if (canPostNotifications(context)) "authorized" else "not_determined"
 
-    private fun canPostNotifications(context: Context): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || context
+    internal fun canPostNotifications(context: Context): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || context
         .checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
     private fun canScheduleExactly(context: Context): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || context
@@ -392,6 +473,22 @@ object AlarmsFunctions {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
+    internal fun bedtimeIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
+        context,
+        9001,
+        Intent(context, BedtimeReminderReceiver::class.java).setAction("momotombo.nativephp.alarms.action.BEDTIME_REMINDER"),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    internal fun refreshWidgets(context: Context) {
+        val manager = AppWidgetManager.getInstance(context)
+        val component = android.content.ComponentName(context, AlarmWidgetProvider::class.java)
+        val widgetIds = manager.getAppWidgetIds(component)
+        if (widgetIds.isNotEmpty()) {
+            AlarmWidgetProvider().onUpdate(context, manager, widgetIds)
+        }
+    }
+
     private fun snoozeIntent(context: Context, alarmId: String): PendingIntent = PendingIntent.getBroadcast(
         context,
         ("$alarmId-snooze").hashCode(),
@@ -433,7 +530,108 @@ object AlarmsFunctions {
     private const val NOTIFICATION_REQUEST_CODE = 7001
 }
 
-/** Receives scheduled and snoozed alarms, advances repetition, and starts foreground playback. */
+/** Schedules one recurring local bedtime reminder without starting alarm playback. */
+private object BedtimeReminder {
+    fun schedule(context: Context) {
+        val reminder = AlarmsFunctions.bedtimeReminder(context) ?: return
+        val days = reminder.optJSONArray("weekdays") ?: return
+        val next = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, reminder.optInt("hour", 22))
+            set(Calendar.MINUTE, reminder.optInt("minute", 0))
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        repeat(8) {
+            val day = when (next.get(Calendar.DAY_OF_WEEK)) {
+                Calendar.MONDAY -> "monday"
+                Calendar.TUESDAY -> "tuesday"
+                Calendar.WEDNESDAY -> "wednesday"
+                Calendar.THURSDAY -> "thursday"
+                Calendar.FRIDAY -> "friday"
+                Calendar.SATURDAY -> "saturday"
+                else -> "sunday"
+            }
+            if (next.after(Calendar.getInstance()) && (0 until days.length()).any { days.optString(it) == day }) {
+                context.getSystemService(AlarmManager::class.java).setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    next.timeInMillis,
+                    AlarmsFunctions.bedtimeIntent(context),
+                )
+                return
+            }
+            next.add(Calendar.DAY_OF_YEAR, 1)
+        }
+    }
+
+    fun cancel(context: Context) {
+        context.getSystemService(AlarmManager::class.java).cancel(AlarmsFunctions.bedtimeIntent(context))
+        context.getSharedPreferences("nativephp_bedtime_reminder", Context.MODE_PRIVATE).edit().clear().apply()
+    }
+}
+
+class BedtimeReminderReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != "momotombo.nativephp.alarms.action.BEDTIME_REMINDER") {
+            return
+        }
+        val reminder = AlarmsFunctions.bedtimeReminder(context) ?: return
+        if (!AlarmsFunctions.canPostNotifications(context)) {
+            return
+        }
+
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(NotificationChannel("bedtime_reminder", "Bedtime reminders", NotificationManager.IMPORTANCE_DEFAULT))
+        manager.notify(9_001, NotificationCompat.Builder(context, "bedtime_reminder")
+            .setSmallIcon(context.resources.getIdentifier("ic_stat_alarm", "drawable", context.packageName))
+            .setContentTitle(reminder.optString("title"))
+            .setContentText(reminder.optString("body"))
+            .setAutoCancel(true)
+            .setContentIntent(PendingIntent.getActivity(context, 9001, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            .build())
+        BedtimeReminder.schedule(context)
+    }
+}
+
+/** Android home-screen widget with a single action that opens the app to toggle its next alarm. */
+class AlarmWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
+        val next = AlarmStore.all(context).values.minByOrNull { AlarmsFunctions.nextTriggerAt(it) }
+        val pausedSelection = if (next == null) WidgetAlarmStore.selected(context)?.takeIf { !it.enabled } else null
+
+        appWidgetIds.forEach { widgetId ->
+            val views = RemoteViews(context.packageName, context.resources.getIdentifier("alarm_widget", "layout", context.packageName))
+            if (next == null) {
+                views.setTextViewText(context.resources.getIdentifier("alarm_widget_time", "id", context.packageName), widgetCopy(context, "widget_empty"))
+                views.setTextViewText(context.resources.getIdentifier("alarm_widget_label", "id", context.packageName), pausedSelection?.alarm?.let { it.values["label"] as? String } ?: widgetCopy(context, "widget_empty_body"))
+                val actionKey = if (pausedSelection == null) "widget_open" else "widget_enable"
+                val actionId = context.resources.getIdentifier("alarm_widget_action", "id", context.packageName)
+                views.setTextViewText(actionId, widgetCopy(context, actionKey))
+                views.setContentDescription(actionId, widgetCopy(context, actionKey))
+                val launch = Intent(context, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .apply { pausedSelection?.let { putExtra("notification_url", "/quick-actions/alarms/${it.alarm.id}/toggle") } }
+                views.setOnClickPendingIntent(actionId, PendingIntent.getActivity(context, widgetId, launch, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            } else {
+                val time = "%d:%02d".format(java.util.Locale.ROOT, if (next.hour % 12 == 0) 12 else next.hour % 12, next.minute)
+                views.setTextViewText(context.resources.getIdentifier("alarm_widget_time", "id", context.packageName), time)
+                views.setTextViewText(context.resources.getIdentifier("alarm_widget_label", "id", context.packageName), next.values["label"] as? String ?: "Despertá")
+                val actionText = "widget_pause"
+                views.setTextViewText(context.resources.getIdentifier("alarm_widget_action", "id", context.packageName), widgetCopy(context, actionText))
+                views.setContentDescription(context.resources.getIdentifier("alarm_widget_action", "id", context.packageName), widgetCopy(context, actionText))
+                val path = "/quick-actions/alarms/${next.id}/toggle"
+                val action = Intent(context, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra("notification_url", path)
+                views.setOnClickPendingIntent(context.resources.getIdentifier("alarm_widget_action", "id", context.packageName), PendingIntent.getActivity(context, widgetId, action, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            }
+            manager.updateAppWidget(widgetId, views)
+        }
+    }
+
+    private fun widgetCopy(context: Context, key: String): String = context.getString(context.resources.getIdentifier(key, "string", context.packageName))
+}
+
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val alarmId = intent.getStringExtra(ALARM_ID) ?: return
@@ -445,6 +643,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
         if (!snoozed && alarm.weekdays.isEmpty()) {
             AlarmStore.remove(context, alarmId)
+            WidgetAlarmStore.remember(context, alarm, false)
         } else if (!snoozed) {
             AlarmStore.save(context, nextAlarm!!)
             AlarmsFunctions.scheduleNext(context, nextAlarm!!)
@@ -455,6 +654,7 @@ class AlarmReceiver : BroadcastReceiver() {
         OccurrenceJournal.record(context, alarm, "triggered")
 
         AlarmPlaybackService.start(context, alarm.id)
+        AlarmsFunctions.refreshWidgets(context)
 
         if (! context.getSystemService(KeyguardManager::class.java).isKeyguardLocked) {
             AlarmsFunctions.navigationIntent(context, alarm)
@@ -706,11 +906,15 @@ class AlarmPlaybackService : Service() {
 /** Restores stored exact alarms after Android finishes booting. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED || !canScheduleExactly(context)) {
+        if (intent.action !in setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED)) {
             return
         }
 
-        AlarmStore.all(context).values.forEach { AlarmsFunctions.scheduleNext(context, it) }
+        if (canScheduleExactly(context)) {
+            AlarmStore.all(context).values.forEach { AlarmsFunctions.scheduleNext(context, it) }
+            BedtimeReminder.schedule(context)
+        }
+        AlarmsFunctions.refreshWidgets(context)
     }
 
     private fun canScheduleExactly(context: Context): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || context
@@ -733,6 +937,8 @@ internal data class AlarmPayload(
 
     fun scheduledFor(): String? = values["scheduled_for"] as? String
 
+    fun alarmDate(): String? = values["alarm_date"] as? String
+
     fun withNextOccurrence(): AlarmPayload = copy(
         values = values + mapOf(
             "occurrence_id" to UUID.randomUUID().toString(),
@@ -748,8 +954,10 @@ internal data class AlarmPayload(
             val hour = (parameters["hour"] as? Number)?.toInt() ?: return null
             val minute = (parameters["minute"] as? Number)?.toInt() ?: return null
             val weekdays = parseWeekdays(parameters["weekdays"]) ?: return null
+            val alarmDate = parameters["alarm_date"] as? String
 
-            if (id.isBlank() || hour !in 0..23 || minute !in 0..59 || weekdays.any { it !in WEEKDAYS }) {
+            if (id.isBlank() || hour !in 0..23 || minute !in 0..59 || weekdays.any { it !in WEEKDAYS }
+                || (alarmDate != null && (!ALARM_DATE.matches(alarmDate) || weekdays.isNotEmpty() || !isValidDate(alarmDate)))) {
                 return null
             }
 
@@ -761,7 +969,7 @@ internal data class AlarmPayload(
          * as JSONArray rather than Kotlin List instances. Accept both bridge
          * representations while retaining the strict string-only contract.
          */
-        private fun parseWeekdays(value: Any?): List<String>? = when (value) {
+        internal fun parseWeekdays(value: Any?): List<String>? = when (value) {
             is JSONArray -> buildList {
                 for (index in 0 until value.length()) {
                     add(value.opt(index) as? String ?: return null)
@@ -785,6 +993,14 @@ internal data class AlarmPayload(
         }
 
         private val WEEKDAYS = setOf("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+        private val ALARM_DATE = Regex("\\d{4}-\\d{2}-\\d{2}")
+
+        private fun isValidDate(value: String): Boolean = try {
+            java.time.LocalDate.parse(value)
+            true
+        } catch (_: java.time.format.DateTimeParseException) {
+            false
+        }
     }
 }
 
@@ -931,5 +1147,39 @@ private object AlarmStore {
         (0 until array.length()).map(array::getString).toMutableSet()
     } catch (_: Exception) {
         mutableSetOf()
+    }
+}
+
+/** Retains the last quick-action target so the widget can offer reactivation after pausing it. */
+private object WidgetAlarmStore {
+    private const val PREFERENCES = "nativephp_alarm_widget"
+    private const val SELECTED_ID = "selected_alarm_id"
+
+    data class SelectedAlarm(val alarm: AlarmPayload, val enabled: Boolean)
+
+    fun remember(context: Context, alarm: AlarmPayload, enabled: Boolean) {
+        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit()
+            .putString("alarm:${alarm.id}", JSONObject(alarm.toMap()).put("widget_enabled", enabled).toString())
+            .putString(SELECTED_ID, alarm.id)
+            .apply()
+    }
+
+    fun selected(context: Context): SelectedAlarm? {
+        val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        val id = preferences.getString(SELECTED_ID, null) ?: return null
+        val json = preferences.getString("alarm:$id", null) ?: return null
+        val objectValue = JSONObject(json)
+        val alarm = AlarmPayload.fromJson(json) ?: return null
+
+        return SelectedAlarm(alarm, objectValue.optBoolean("widget_enabled", false))
+    }
+
+    fun forget(context: Context, alarmId: String) {
+        val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        val editor = preferences.edit().remove("alarm:$alarmId")
+        if (preferences.getString(SELECTED_ID, null) == alarmId) {
+            editor.remove(SELECTED_ID)
+        }
+        editor.apply()
     }
 }

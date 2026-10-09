@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFF7ED"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/alarm_widget_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Despertá"
+        android:textColor="#43302A"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/alarm_widget_time"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:text="7:00"
+        android:textColor="#43302A"
+        android:textSize="32sp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/alarm_widget_action"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:contentDescription="Activar o pausar la próxima alarma"
+        android:text="Activar o pausar" />
+</LinearLayout>
