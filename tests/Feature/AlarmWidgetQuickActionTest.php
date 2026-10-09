@@ -5,6 +5,7 @@ use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Models\Alarm;
 use App\Models\AlarmExecution;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Momotombo\NativePHPAlarms\Exceptions\NativeAlarmSchedulingFailed;
 use Native\Mobile\Testing\Native;
 
 use function Pest\Laravel\mock;
@@ -39,4 +40,18 @@ it('activates the selected alarm from the widget when required permissions are a
     expect($alarm->fresh()->enabled)->toBeTrue()
         ->and($alarm->fresh()->scheduling_status)->toBe('scheduled')
         ->and(AlarmExecution::query()->where('alarm_id', $alarm->id)->where('status', 'scheduled')->exists())->toBeTrue();
+});
+
+it('reports native bridge errors while checking widget alarm capabilities', function () {
+    $alarm = Alarm::factory()->create(['enabled' => false, 'scheduling_status' => 'not_scheduled']);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('canScheduleExactly')->once()->andThrow(new NativeAlarmSchedulingFailed('Bridge unavailable.'));
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    Native::visit("/quick-actions/alarms/{$alarm->id}/toggle")
+        ->assertToastShownWithMessage(__('app.widget_alarm_error'))
+        ->assertReplacedWith('/');
+
+    expect($alarm->fresh()->enabled)->toBeFalse()
+        ->and($alarm->fresh()->scheduling_status)->toBe('not_scheduled');
 });

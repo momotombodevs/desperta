@@ -125,6 +125,25 @@ it('rejects a one-time alarm whose selected date and time have passed', function
     $this->assertDatabaseMissing('alarms', ['alarm_date' => '2026-09-02']);
 });
 
+it('preserves selected weekdays when switching into and back out of one-time mode', function () {
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldNotReceive('canScheduleExactly');
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    Native::visit('/alarms/new')
+        ->toggle('specificDateEnabled', true)
+        ->toggle('specificDateEnabled', false)
+        ->toggle('enabled', false)
+        ->tap('save-alarm')
+        ->assertReplacedWith('/');
+
+    $this->assertDatabaseHas('alarms', [
+        'weekdays' => json_encode([1, 2, 3, 4, 5]),
+        'alarm_date' => null,
+        'enabled' => false,
+    ]);
+});
+
 it('continues a pending alarm after returning from Android exact alarm settings', function () {
     $scheduler = mock(NativeAlarmScheduler::class);
     $scheduler->shouldReceive('canScheduleExactly')->times(3)->andReturn(false, true, true);
@@ -154,6 +173,33 @@ it('continues a pending alarm after returning from Android exact alarm settings'
 
     expect(Alarm::query()->count())->toBe(1);
     expect(Alarm::query()->sole()->scheduling_status)->toBe('scheduled');
+});
+
+it('disables a one-time alarm when its date passes during an exact-alarm permission flow', function () {
+    $this->travelTo('2026-09-03 06:00:00');
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('canScheduleExactly')->twice()->andReturn(false, true);
+    $scheduler->shouldReceive('requestExactAlarmPermission')->once();
+    $scheduler->shouldReceive('activeRingingOccurrence')->once()->andReturnNull();
+    $scheduler->shouldNotReceive('schedule');
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    $editor = Native::visit('/alarms/new')
+        ->toggle('specificDateEnabled', true)
+        ->pickDate('alarmDate', '2026-09-03')
+        ->pickTime('time', '07:00')
+        ->tap('save-alarm')
+        ->assertSet('resumeAfterExactAlarmPermission', true);
+    $this->travelTo('2026-09-03 14:00:00');
+
+    $editor->emitNative(AppResumed::class, [])
+        ->assertToastShownWithMessage('Elegí una fecha y hora futuras.');
+
+    $this->assertDatabaseHas('alarms', [
+        'enabled' => false,
+        'scheduling_status' => 'not_scheduled',
+        'alarm_date' => '2026-09-03',
+    ]);
 });
 
 it('continues a pending alarm after returning from Android full-screen alarm settings', function () {

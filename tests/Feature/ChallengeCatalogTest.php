@@ -67,6 +67,19 @@ it('builds valid memory, sequence, and mental math questions at each difficulty'
     }
 });
 
+it('localizes the sequence question prompt with the selected language', function () {
+    $preferences = app(AppPreferences::class);
+    $catalog = new ChallengeCatalog($preferences, new Randomizer(new Mt19937(37)));
+
+    app()->setLocale('en');
+    $english = $catalog->questionsForType(ChallengeType::Sequence, 1, ChallengeDifficulty::Easy)[0]['question'];
+    app()->setLocale('es_NI');
+    $spanish = $catalog->questionsForType(ChallengeType::Sequence, 1, ChallengeDifficulty::Easy)[0]['question'];
+
+    expect($english)->toEndWith('what comes next?')
+        ->and($spanish)->toEndWith('¿qué sigue?');
+});
+
 it('falls back to the local general knowledge package when selected content is invalid', function () {
     Lang::addLines([
         'challenges.broken' => ['questions' => [['id' => 'bad', 'question' => '', 'options' => ['one'], 'answer' => 'missing']]],

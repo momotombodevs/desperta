@@ -84,20 +84,25 @@ final class BedtimeReminderEditor extends NativeComponent
 
     public function onResume(): void
     {
-        if ($this->awaitingExactPermission) {
-            $this->awaitingExactPermission = false;
-            if (! Alarm::canSchedule()) {
-                $this->showErrorToast(__('app.exact_alarm_permission_denied'));
+        try {
+            if ($this->awaitingExactPermission) {
+                $this->awaitingExactPermission = false;
+                if (! Alarm::canSchedule()) {
+                    $this->showErrorToast(__('app.exact_alarm_permission_denied'));
+
+                    return;
+                }
+                $this->scheduleAfterPermissions();
 
                 return;
             }
-            $this->scheduleAfterPermissions();
 
-            return;
-        }
-
-        if ($this->awaitingNotificationPermission && Alarm::canPostNotifications()) {
-            $this->scheduleAfterPermissions();
+            if ($this->awaitingNotificationPermission && Alarm::canPostNotifications()) {
+                $this->scheduleAfterPermissions();
+            }
+        } catch (AlarmException $exception) {
+            report($exception);
+            $this->showErrorToast(__('app.bedtime_reminder_error'));
         }
     }
 
@@ -130,23 +135,23 @@ final class BedtimeReminderEditor extends NativeComponent
             return;
         }
 
-        if (! Alarm::canSchedule()) {
-            $this->awaitingExactPermission = true;
-            Alarm::requestAuthorization();
-            $this->showErrorToast(__('app.exact_alarm_permission_title'));
-
-            return;
-        }
-
-        if (! Alarm::canPostNotifications()) {
-            $this->awaitingNotificationPermission = true;
-            $this->notificationPermissionRequestId = (string) Str::uuid();
-            Alarm::requestNotificationAuthorization($this->notificationPermissionRequestId);
-
-            return;
-        }
-
         try {
+            if (! Alarm::canSchedule()) {
+                $this->awaitingExactPermission = true;
+                Alarm::requestAuthorization();
+                $this->showErrorToast(__('app.exact_alarm_permission_title'));
+
+                return;
+            }
+
+            if (! Alarm::canPostNotifications()) {
+                $this->awaitingNotificationPermission = true;
+                $this->notificationPermissionRequestId = (string) Str::uuid();
+                Alarm::requestNotificationAuthorization($this->notificationPermissionRequestId);
+
+                return;
+            }
+
             $weekdays = array_map(fn (int $day): Weekday => Weekday::from(match ($day) {
                 1 => 'monday',
                 2 => 'tuesday',

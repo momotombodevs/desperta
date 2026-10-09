@@ -45,6 +45,23 @@ it('restores the same questions selection and score after reopening through the 
     $this->assertDatabaseCount('alarm_challenge_attempts', 0);
 });
 
+it('restores legacy challenge progress without an instruction for the challenge screen', function () {
+    $alarm = Alarm::factory()->create();
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
+        ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-legacy', '2026-09-04T07:00:00Z'));
+    Native::test(Challenge::class);
+    $execution = AlarmExecution::query()->findOrFail('execution-legacy');
+    $progress = $execution->challenge_progress;
+    $progress['questions'] = array_map(function (array $question): array {
+        unset($question['instruction']);
+
+        return $question;
+    }, $progress['questions']);
+    $execution->update(['challenge_progress' => $progress]);
+
+    Native::test(Challenge::class)->assertSee(__('challenges.types.'.($progress['challengeType'] ?? 'trivia').'.instruction'));
+});
+
 it('preserves a failed attempt and saves the retry without duplicating history', function () {
     $alarm = Alarm::factory()->create();
     mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')

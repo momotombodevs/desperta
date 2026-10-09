@@ -113,19 +113,9 @@ class AlarmEditor extends NativeComponent
 
     public function updatedSpecificDateEnabled(): void
     {
-        if ($this->specificDateEnabled) {
-            $this->monday = false;
-            $this->tuesday = false;
-            $this->wednesday = false;
-            $this->thursday = false;
-            $this->friday = false;
-            $this->saturday = false;
-            $this->sunday = false;
-
-            return;
+        if (! $this->specificDateEnabled) {
+            $this->alarmDate = '';
         }
-
-        $this->alarmDate = '';
     }
 
     public function save(): void
@@ -134,18 +124,10 @@ class AlarmEditor extends NativeComponent
             return;
         }
 
-        if ($this->specificDateEnabled) {
-            try {
-                $scheduledAt = CarbonImmutable::createFromFormat('!Y-m-d H:i', $this->alarmDate.' '.$this->time, config('app.alarm_timezone'));
-            } catch (\Throwable) {
-                $scheduledAt = null;
-            }
+        if ($this->specificDateEnabled && ! $this->specificDateIsInFuture()) {
+            $this->showErrorToast(__('app.alarm_date_must_be_future'));
 
-            if ($scheduledAt === null || $scheduledAt->format('Y-m-d H:i') !== $this->alarmDate.' '.$this->time || $scheduledAt->isPast()) {
-                $this->showErrorToast(__('app.alarm_date_must_be_future'));
-
-                return;
-            }
+            return;
         }
 
         $scheduler = app(NativeAlarmScheduler::class);
@@ -155,7 +137,7 @@ class AlarmEditor extends NativeComponent
         $alarm->fill([
             'time' => $this->time,
             'label' => $this->label,
-            'weekdays' => $this->selectedWeekdays(),
+            'weekdays' => $this->specificDateEnabled ? [] : $this->selectedWeekdays(),
             'alarm_date' => $this->specificDateEnabled ? $this->alarmDate : null,
             'vibration' => $this->vibration,
             'snooze_enabled' => $this->snoozeEnabled,
@@ -246,6 +228,17 @@ class AlarmEditor extends NativeComponent
         $scheduler = app(NativeAlarmScheduler::class);
 
         try {
+            if ($this->specificDateEnabled && ! $this->specificDateIsInFuture()) {
+                if ($this->cancelExistingSchedule) {
+                    $scheduler->cancel($alarm->id);
+                    app(AlarmExecutionLifecycle::class)->cancelOpen($alarm);
+                }
+
+                $this->markExpiredOneTimeAlarm($alarm);
+
+                return;
+            }
+
             if (! $scheduler->canScheduleExactly()) {
                 $this->resumeAfterExactAlarmPermission = true;
                 $scheduler->requestExactAlarmPermission();
@@ -284,6 +277,14 @@ class AlarmEditor extends NativeComponent
             $this->showErrorToast($exception->getMessage() ?: __('app.scheduling_error'));
 
             return;
+        } catch (\InvalidArgumentException $exception) {
+            if (! $this->specificDateEnabled) {
+                throw $exception;
+            }
+
+            $this->markExpiredOneTimeAlarm($alarm);
+
+            return;
         }
 
         $this->cancelExistingSchedule = false;
@@ -303,6 +304,29 @@ class AlarmEditor extends NativeComponent
             ->animation('snap')
             ->duration(4000)
             ->show();
+    }
+
+    private function specificDateIsInFuture(): bool
+    {
+        try {
+            $scheduledAt = CarbonImmutable::createFromFormat('!Y-m-d H:i', $this->alarmDate.' '.$this->time, config('app.alarm_timezone'));
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $scheduledAt !== null
+            && $scheduledAt->format('Y-m-d H:i') === $this->alarmDate.' '.$this->time
+            && $scheduledAt->greaterThan(CarbonImmutable::now(config('app.alarm_timezone')));
+    }
+
+    private function markExpiredOneTimeAlarm(Alarm $alarm): void
+    {
+        $alarm->update(['enabled' => false, 'scheduling_status' => 'not_scheduled']);
+        $this->enabled = false;
+        $this->awaitingPermission = false;
+        $this->notificationPermissionRequestId = '';
+        $this->cancelExistingSchedule = false;
+        $this->showErrorToast(__('app.alarm_date_must_be_future'));
     }
 
     /** @return list<int> */

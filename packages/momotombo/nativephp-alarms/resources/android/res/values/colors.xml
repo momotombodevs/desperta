@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="alarm_widget_background">#FFF7ED</color>
+    <color name="alarm_widget_foreground">#43302A</color>
+</resources>

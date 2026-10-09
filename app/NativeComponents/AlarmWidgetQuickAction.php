@@ -39,14 +39,14 @@ final class AlarmWidgetQuickAction extends NativeComponent
             return;
         }
 
-        if (! $scheduler->canScheduleExactly() || ! $scheduler->canPresentWhileLocked() || ! $scheduler->canPostNotifications()) {
-            $this->showError(__('app.widget_alarm_permission'));
-            $this->replace("/alarms/{$alarm->id}/edit");
-
-            return;
-        }
-
         try {
+            if (! $scheduler->canScheduleExactly() || ! $scheduler->canPresentWhileLocked() || ! $scheduler->canPostNotifications()) {
+                $this->showError(__('app.widget_alarm_permission'));
+                $this->replace("/alarms/{$alarm->id}/edit");
+
+                return;
+            }
+
             $schedule = app(AlarmExecutionLifecycle::class)->scheduleFor($alarm);
             $scheduler->schedule($schedule);
             $alarm->update(['enabled' => true, 'scheduling_status' => 'scheduled']);

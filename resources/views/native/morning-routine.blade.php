@@ -3,17 +3,7 @@
 <native:scroll-view class="w-full h-full bg-theme-background">
     <native:column class="w-full gap-4 p-5">
         @if ($executionId !== '')
-            @if ($this->configuredSteps->isEmpty())
-                <native:column class="w-full items-center gap-3 rounded-2xl border border-theme-outline bg-theme-surface p-6">
-                    <native:text font="accent" class="text-lg text-center text-theme-on-surface">{{ __('app.morning_routine_not_configured') }}</native:text>
-                    <native:text class="text-sm text-center text-theme-on-surface-variant">{{ __('app.morning_routine_optional') }}</native:text>
-                </native:column>
-            @elseif ($this->executionSteps->isEmpty())
-                <native:column class="w-full gap-3 rounded-2xl border border-theme-outline bg-theme-surface p-5">
-                    <native:text class="text-base text-theme-on-surface">{{ __('app.morning_routine_ready') }}</native:text>
-                    <native:button ref="start-morning-routine" :label="__('app.start_morning_routine')" variant="primary" @tap="startRoutine" />
-                </native:column>
-            @else
+            @if ($this->executionSteps->isNotEmpty())
                 <native:column class="w-full gap-2 rounded-2xl bg-theme-sunrise p-5">
                     <native:text font="accent" class="text-xl text-theme-on-sunrise">{{ __('app.morning_routine_title') }}</native:text>
                     <native:text class="text-sm text-theme-on-sunrise">{{ __('app.morning_routine_progress', ['completed' => $this->executionSteps->whereNotNull('completed_at')->count(), 'total' => $this->executionSteps->count()]) }}</native:text>
@@ -36,6 +26,16 @@
                         <native:text font="accent" class="text-lg text-theme-on-surface">{{ __('app.morning_routine_complete') }}</native:text>
                     </native:column>
                 @endif
+            @elseif ($this->configuredSteps->isEmpty())
+                <native:column class="w-full items-center gap-3 rounded-2xl border border-theme-outline bg-theme-surface p-6">
+                    <native:text font="accent" class="text-lg text-center text-theme-on-surface">{{ __('app.morning_routine_not_configured') }}</native:text>
+                    <native:text class="text-sm text-center text-theme-on-surface-variant">{{ __('app.morning_routine_optional') }}</native:text>
+                </native:column>
+            @else
+                <native:column class="w-full gap-3 rounded-2xl border border-theme-outline bg-theme-surface p-5">
+                    <native:text class="text-base text-theme-on-surface">{{ __('app.morning_routine_ready') }}</native:text>
+                    <native:button ref="start-morning-routine" :label="__('app.start_morning_routine')" variant="primary" @tap="startRoutine" />
+                </native:column>
             @endif
         @else
             <native:column class="w-full gap-2">

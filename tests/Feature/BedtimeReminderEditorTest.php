@@ -68,3 +68,59 @@ it('does not schedule a reminder without at least one selected day', function ()
 
     $this->assertDatabaseMissing('app_preferences', ['key' => 'bedtime_reminder']);
 });
+
+it('reports native capability failures while saving a bedtime reminder', function () {
+    $bridge = Mockery::mock(NativeAlarmBridge::class);
+    $bridge->shouldReceive('call')->with('Alarms.Capabilities', [])->once()->andReturn([
+        'status' => 'error',
+        'code' => 'native_error',
+        'message' => 'Bridge unavailable.',
+    ]);
+    app()->instance(NativeAlarmBridge::class, $bridge);
+
+    Native::visit('/settings/bedtime-reminder')
+        ->toggle('enabled', true)
+        ->tap('save-bedtime-reminder')
+        ->assertToastShownWithMessage(__('app.bedtime_reminder_error'));
+
+    $this->assertDatabaseMissing('app_preferences', ['key' => 'bedtime_reminder']);
+});
+
+it('reports exact-alarm authorization request failures while saving a bedtime reminder', function () {
+    $bridge = Mockery::mock(NativeAlarmBridge::class);
+    $bridge->shouldReceive('call')->with('Alarms.Capabilities', [])->once()->andReturn(['exact' => false]);
+    $bridge->shouldReceive('call')->with('Alarms.RequestAuthorization', [])->once()->andReturn([
+        'status' => 'error',
+        'code' => 'native_error',
+        'message' => 'Bridge unavailable.',
+    ]);
+    app()->instance(NativeAlarmBridge::class, $bridge);
+
+    Native::visit('/settings/bedtime-reminder')
+        ->toggle('enabled', true)
+        ->tap('save-bedtime-reminder')
+        ->assertToastShownWithMessage(__('app.bedtime_reminder_error'));
+
+    $this->assertDatabaseMissing('app_preferences', ['key' => 'bedtime_reminder']);
+});
+
+it('reports notification authorization request failures after checking bedtime capabilities', function () {
+    $bridge = Mockery::mock(NativeAlarmBridge::class);
+    $bridge->shouldReceive('call')->with('Alarms.Capabilities', [])->once()->andReturn(['exact' => true]);
+    $bridge->shouldReceive('call')->with('Alarms.AuthorizationStatus', [])->once()->andReturn(['status' => 'authorized']);
+    $bridge->shouldReceive('call')->with('Alarms.NotificationAuthorizationStatus', [])->once()->andReturn(['status' => 'not_determined']);
+    $bridge->shouldReceive('call')->withArgs(fn (string $method, array $parameters): bool => $method === 'Alarms.RequestNotificationAuthorization'
+        && isset($parameters['requestId']))->once()->andReturn([
+            'status' => 'error',
+            'code' => 'native_error',
+            'message' => 'Bridge unavailable.',
+        ]);
+    app()->instance(NativeAlarmBridge::class, $bridge);
+
+    Native::visit('/settings/bedtime-reminder')
+        ->toggle('enabled', true)
+        ->tap('save-bedtime-reminder')
+        ->assertToastShownWithMessage(__('app.bedtime_reminder_error'));
+
+    $this->assertDatabaseMissing('app_preferences', ['key' => 'bedtime_reminder']);
+});

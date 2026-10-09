@@ -166,7 +166,7 @@ class ChallengeCatalog
 
         return [
             'id' => "sequence-{$index}-{$start}-{$step}",
-            'question' => implode(', ', array_slice($values, 0, 4)).', … ¿qué sigue?',
+            'question' => implode(', ', array_slice($values, 0, 4)).', … '.trans('challenges.types.sequence.prompt'),
             'options' => $this->optionsAround((int) $answer, max(0, (int) $answer - ($step * 3)), (int) $answer + ($step * 3)),
             'answer' => $answer,
             'instruction' => trans('challenges.types.sequence.instruction'),

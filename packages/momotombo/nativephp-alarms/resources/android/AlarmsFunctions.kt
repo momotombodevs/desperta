@@ -576,6 +576,7 @@ class BedtimeReminderReceiver : BroadcastReceiver() {
             return
         }
         val reminder = AlarmsFunctions.bedtimeReminder(context) ?: return
+        BedtimeReminder.schedule(context)
         if (!AlarmsFunctions.canPostNotifications(context)) {
             return
         }
@@ -589,7 +590,6 @@ class BedtimeReminderReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .setContentIntent(PendingIntent.getActivity(context, 9001, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             .build())
-        BedtimeReminder.schedule(context)
     }
 }
 
@@ -597,7 +597,9 @@ class BedtimeReminderReceiver : BroadcastReceiver() {
 class AlarmWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
         val next = AlarmStore.all(context).values.minByOrNull { AlarmsFunctions.nextTriggerAt(it) }
-        val pausedSelection = if (next == null) WidgetAlarmStore.selected(context)?.takeIf { !it.enabled } else null
+        val pausedSelection = if (next == null) WidgetAlarmStore.selected(context)?.takeIf {
+            !it.enabled && canReactivate(it.alarm)
+        } else null
 
         appWidgetIds.forEach { widgetId ->
             val views = RemoteViews(context.packageName, context.resources.getIdentifier("alarm_widget", "layout", context.packageName))
@@ -613,7 +615,12 @@ class AlarmWidgetProvider : AppWidgetProvider() {
                     .apply { pausedSelection?.let { putExtra("notification_url", "/quick-actions/alarms/${it.alarm.id}/toggle") } }
                 views.setOnClickPendingIntent(actionId, PendingIntent.getActivity(context, widgetId, launch, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             } else {
-                val time = "%d:%02d".format(java.util.Locale.ROOT, if (next.hour % 12 == 0) 12 else next.hour % 12, next.minute)
+                val time = android.text.format.DateFormat.getTimeFormat(context).format(Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, next.hour)
+                    set(Calendar.MINUTE, next.minute)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.time)
                 views.setTextViewText(context.resources.getIdentifier("alarm_widget_time", "id", context.packageName), time)
                 views.setTextViewText(context.resources.getIdentifier("alarm_widget_label", "id", context.packageName), next.values["label"] as? String ?: "Despertá")
                 val actionText = "widget_pause"
@@ -627,6 +634,12 @@ class AlarmWidgetProvider : AppWidgetProvider() {
             }
             manager.updateAppWidget(widgetId, views)
         }
+    }
+
+    private fun canReactivate(alarm: AlarmPayload): Boolean = try {
+        alarm.alarmDate() == null || AlarmsFunctions.nextTriggerAt(alarm) > System.currentTimeMillis()
+    } catch (_: IllegalArgumentException) {
+        false
     }
 
     private fun widgetCopy(context: Context, key: String): String = context.getString(context.resources.getIdentifier(key, "string", context.packageName))

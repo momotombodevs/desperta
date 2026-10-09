@@ -70,6 +70,20 @@ it('persists a routine snapshot and completion state for one alarm execution', f
         ->toBe(2);
 });
 
+it('renders a saved execution routine after all configured steps are deleted', function () {
+    $manager = app(MorningRoutineManager::class);
+    $step = $manager->addStep('Drink water');
+    $execution = AlarmExecution::factory()->create(['status' => 'completed']);
+    Native::test(MorningRoutine::class, data: ['executionId' => $execution->id])->call('startRoutine');
+    $manager->deleteStep($step);
+
+    Native::test(MorningRoutine::class, data: ['executionId' => $execution->id])
+        ->assertSee('0 de 1 pasos completados')
+        ->assertSee('Drink water')
+        ->call('completeRoutineStep', AlarmExecutionRoutineStep::query()->where('alarm_execution_id', $execution->id)->value('id'))
+        ->assertSet('routineStatus', 'complete');
+});
+
 it('keeps routine progress separate for different alarm executions', function () {
     $manager = app(MorningRoutineManager::class);
     $manager->addStep('Drink water');

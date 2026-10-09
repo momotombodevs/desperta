@@ -129,6 +129,8 @@
             "android/res/xml/alarm_widget_info.xml": "res/xml/alarm_widget_info.xml",
             "android/res/layout/alarm_widget.xml": "res/layout/alarm_widget.xml",
             "android/res/values/strings.xml": "res/values/strings.xml",
+            "android/res/values/colors.xml": "res/values/colors.xml",
+            "android/res/values-night/colors.xml": "res/values-night/colors.xml",
             "android/res/values-en/strings.xml": "res/values-en/strings.xml"
         }
     },

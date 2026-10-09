@@ -55,6 +55,32 @@ it('lowers difficulty after two consecutive failed attempts', function () {
     expect(app(AdaptiveChallengeDifficulty::class)->forAlarm($alarm))->toBe(ChallengeDifficulty::Normal);
 });
 
+it('lowers difficulty for recent failures in missed executions despite a later pass', function () {
+    $alarm = Alarm::factory()->create(['difficulty' => 'hard']);
+
+    foreach ([
+        ['status' => 'missed', 'finished_at' => CarbonImmutable::parse('2026-10-01 07:10:00', 'America/Managua'), 'passed' => false],
+        ['status' => 'cancelled', 'finished_at' => CarbonImmutable::parse('2026-10-02 07:10:00', 'America/Managua'), 'passed' => false],
+        ['status' => 'completed', 'finished_at' => CarbonImmutable::parse('2026-10-03 07:02:00', 'America/Managua'), 'passed' => true],
+    ] as $index => $result) {
+        $execution = AlarmExecution::factory()->for($alarm)->create([
+            'status' => $result['status'],
+            'started_at' => $result['finished_at']->subMinutes(2),
+            'finished_at' => $result['finished_at'],
+        ]);
+        AlarmChallengeAttempt::factory()->for($alarm)->create([
+            'alarm_execution_id' => $execution->id,
+            'attempt_number' => 1,
+            'correct_answers' => $result['passed'] ? 5 : 2,
+            'question_count' => 5,
+            'passed' => $result['passed'],
+            'created_at' => $result['finished_at']->addSeconds($index),
+        ]);
+    }
+
+    expect(app(AdaptiveChallengeDifficulty::class)->forAlarm($alarm))->toBe(ChallengeDifficulty::Normal);
+});
+
 it('keeps the configured difficulty when history is insufficient or performance is not consistently fast', function () {
     $alarm = Alarm::factory()->create(['difficulty' => 'normal']);
 

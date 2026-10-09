@@ -7,7 +7,10 @@ return [
             'instruction' => 'Memorizá la secuencia y después respondé sin verla.',
             'question' => '¿Qué número estaba en la posición :position?',
         ],
-        'sequence' => ['instruction' => 'Encontrá el patrón y elegí el siguiente número.'],
+        'sequence' => [
+            'instruction' => 'Encontrá el patrón y elegí el siguiente número.',
+            'prompt' => '¿qué sigue?',
+        ],
         'mental_math' => ['instruction' => 'Resolvé el cálculo mentalmente.'],
     ],
     'nicaragua' => [

@@ -56,7 +56,8 @@ final class AlarmHabitsAnalytics
             $execution->id => $this->statusFor($execution, $now),
         ]);
         $resolved = $executions->filter(fn (AlarmExecution $execution): bool => $statuses[$execution->id] !== 'pending');
-        $onTime = $executions->filter(fn (AlarmExecution $execution): bool => $statuses[$execution->id] === 'on_time');
+        $onTime = $executions->filter(fn (AlarmExecution $execution): bool => $statuses[$execution->id] === 'on_time'
+            && $execution->snooze_count === 0);
         $difficultDays = AlarmExecution::query()
             ->where('status', '!=', 'cancelled')
             ->whereBetween('scheduled_for', [$weekStart->subDays(21)->utc(), $weekStart->subSecond()->utc()])

@@ -15,7 +15,7 @@ final class AdaptiveChallengeDifficulty
     {
         $executions = AlarmExecution::query()
             ->where('alarm_id', $alarm->id)
-            ->where('status', 'completed')
+            ->whereIn('status', ['completed', 'missed', 'cancelled'])
             ->whereNotNull('finished_at')
             ->whereNotNull('started_at')
             ->latest('finished_at')
@@ -33,19 +33,18 @@ final class AdaptiveChallengeDifficulty
             ->whereIn('alarm_execution_id', $executions->pluck('id'))
             ->orderBy('created_at')
             ->orderBy('id')
-            ->get()
-            ->groupBy('alarm_execution_id');
+            ->get();
 
-        $latestAttempts = $attempts->flatten()->sortBy([
+        $latestAttempts = $attempts->sortBy([
             ['created_at', 'desc'],
             ['id', 'desc'],
-        ])->take(2)->values();
+        ])->take(3)->values();
 
-        if ($latestAttempts->count() === 2 && $latestAttempts->every(fn (AlarmChallengeAttempt $attempt): bool => ! $attempt->passed)) {
+        if ($latestAttempts->count() >= 2 && $latestAttempts->where('passed', false)->count() >= 2) {
             return $this->stepDown($alarm->challengeDifficulty());
         }
 
-        if ($executions->count() === 3 && $this->hasConsistentFastSuccesses($executions, $attempts)) {
+        if ($executions->count() === 3 && $this->hasConsistentFastSuccesses($executions, $attempts->groupBy('alarm_execution_id'))) {
             return $this->stepUp($alarm->challengeDifficulty());
         }
 

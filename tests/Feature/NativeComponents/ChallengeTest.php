@@ -280,6 +280,22 @@ it('completes and records every new challenge type with resumable progress', fun
     [5, 'mental_math'],
 ]);
 
+it('shows each memory sequence before asking for its answer', function () {
+    $alarm = Alarm::factory()->create(['difficulty' => 'easy', 'scheduling_status' => 'scheduled']);
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
+        ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+    app()->instance(ChallengeCatalog::class, new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937(1))));
+    $challenge = Native::test(Challenge::class, data: ['alarmId' => $alarm->id]);
+    $questions = $challenge->get('questions');
+    $answerIndex = array_search($questions[0]['answer'], $questions[0]['options'], true);
+
+    selectChallengeAnswer($challenge, $answerIndex);
+    $challenge->call('continueChallenge')
+        ->assertSet('questionIndex', 1)
+        ->assertSet('memoryPhase', 'memorize')
+        ->assertSee(str_replace('  ·  ', ' · ', $questions[1]['memory_sequence']));
+});
+
 /** @param TestableComponent<Challenge> $challenge */
 function completeChallenge($challenge): void
 {

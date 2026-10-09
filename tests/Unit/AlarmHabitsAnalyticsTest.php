@@ -110,6 +110,23 @@ it('summarizes weekly punctual mornings once per local date and reports observed
     ]);
 });
 
+it('does not count an on-time snoozed execution as a weekly goal success', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
+    $scheduledFor = CarbonImmutable::parse('2026-09-02 07:00:00', 'America/Managua')->utc();
+    AlarmExecution::factory()->create([
+        'status' => 'completed',
+        'scheduled_for' => $scheduledFor,
+        'finished_at' => $scheduledFor->addMinutes(5),
+        'snooze_count' => 1,
+    ]);
+
+    $summary = app(AlarmHabitsAnalytics::class)->summarize()['weekly_summary'];
+
+    expect($summary['on_time_count'])->toBe(0)
+        ->and($summary['on_time_mornings'])->toBe(0)
+        ->and($summary['resolved_count'])->toBe(1);
+});
+
 it('returns a cautious recommendation when the current week has too little history', function () {
     $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
 

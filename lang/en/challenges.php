@@ -7,7 +7,10 @@ return [
             'instruction' => 'Memorize the sequence, then answer from memory.',
             'question' => 'Which number was in position :position?',
         ],
-        'sequence' => ['instruction' => 'Find the pattern and choose the next number.'],
+        'sequence' => [
+            'instruction' => 'Find the pattern and choose the next number.',
+            'prompt' => 'what comes next?',
+        ],
         'mental_math' => ['instruction' => 'Solve the calculation in your head.'],
     ],
     'nicaragua' => [

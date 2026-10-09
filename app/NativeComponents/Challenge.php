@@ -177,6 +177,9 @@ class Challenge extends NativeComponent
                 $this->recordAttempt();
             } else {
                 $this->questionIndex++;
+                if ($this->challengeType === ChallengeType::Memory->value) {
+                    $this->memoryPhase = 'memorize';
+                }
             }
 
             $this->saveProgress();
@@ -377,6 +380,11 @@ class Challenge extends NativeComponent
                 $this->{$property} = $progress[$property];
             }
         }
+
+        $this->questions = array_map(fn (array $question): array => [
+            ...$question,
+            'instruction' => $question['instruction'] ?? trans('challenges.types.'.$this->challengeType.'.instruction'),
+        ], $this->questions);
     }
 
     private function saveProgress(): void

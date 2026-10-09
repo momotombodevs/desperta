@@ -289,6 +289,36 @@ describe('Native Code', function () {
         expect($kotlin)->toContain('NotificationIds.forAlarm');
         expect($kotlin)->toContain('CATEGORY_ALARM');
     });
+
+    it('keeps bedtime reminders recurring when notification permission is unavailable', function () {
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+        $receiverStart = strpos($kotlin, 'class BedtimeReminderReceiver');
+        $widgetStart = strpos($kotlin, 'class AlarmWidgetProvider', $receiverStart);
+        $receiver = substr($kotlin, $receiverStart, $widgetStart - $receiverStart);
+
+        expect($receiver)->toContain('BedtimeReminder.schedule(context)')
+            ->and(strpos($receiver, 'BedtimeReminder.schedule(context)'))
+            ->toBeLessThan(strpos($receiver, 'if (!AlarmsFunctions.canPostNotifications(context))'));
+    });
+
+    it('formats widget alarm time for the device locale and hides expired one-time reactivation', function () {
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+
+        expect($kotlin)->toContain('android.text.format.DateFormat.getTimeFormat(context)')
+            ->toContain('!it.enabled && canReactivate(it.alarm)')
+            ->toContain('alarm.alarmDate() == null || AlarmsFunctions.nextTriggerAt(alarm) > System.currentTimeMillis()');
+    });
+
+    it('uses day and night color resources for the alarm widget', function () {
+        $layout = file_get_contents($this->pluginPath.'/resources/android/res/layout/alarm_widget.xml');
+        $dayColors = file_get_contents($this->pluginPath.'/resources/android/res/values/colors.xml');
+        $nightColors = file_get_contents($this->pluginPath.'/resources/android/res/values-night/colors.xml');
+
+        expect($layout)->toContain('@color/alarm_widget_background', '@color/alarm_widget_foreground')
+            ->and($layout)->not->toContain('#FFF7ED', '#43302A')
+            ->and($dayColors)->toContain('alarm_widget_background', 'alarm_widget_foreground')
+            ->and($nightColors)->toContain('alarm_widget_background', 'alarm_widget_foreground');
+    });
 });
 
 describe('PHP Classes', function () {
