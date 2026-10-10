@@ -25,7 +25,7 @@ it('publishes canonical and social URLs on the official domain', function (strin
 
 it('links the accessible Google Play badge and application metadata to the Android listing', function () {
     $document = HTMLDocument::createFromString(file_get_contents(base_path('docs/index.html')));
-    $link = $document->querySelector('a[href="https://play.google.com/store/apps/details?id=dev.momotombo.desperta"]');
+    $link = $document->querySelector('a.play-store-link[href="https://play.google.com/store/apps/details?id=dev.momotombo.desperta"]');
 
     expect($link)->not->toBeNull();
     expect($link->getAttribute('target'))->toBe('_blank');
@@ -44,7 +44,7 @@ it('links the accessible Google Play badge and application metadata to the Andro
 });
 
 it('describes the audited network support without claiming the bundle has no HTTP client', function () {
-    $privacyPolicy = file_get_contents(base_path('docs/privacy.html'));
+    $privacyPolicy = preg_replace('/\s+/', ' ', file_get_contents(base_path('docs/privacy.html')));
 
     expect($privacyPolicy)->not->toContain('no se encontró cliente HTTP');
     expect($privacyPolicy)->toContain(

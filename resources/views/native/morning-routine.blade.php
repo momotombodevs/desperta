@@ -99,6 +99,7 @@
             @empty
                 <native:column class="w-full items-center gap-2 rounded-2xl border border-theme-outline bg-theme-surface p-6">
                     <native:text class="text-base text-center text-theme-on-surface">{{ __('app.morning_routine_empty') }}</native:text>
+                    <native:text class="text-sm text-center text-theme-on-surface-variant">{{ __('app.morning_routine_optional') }}</native:text>
                 </native:column>
             @endforelse
         @endif
