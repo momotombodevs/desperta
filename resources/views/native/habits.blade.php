@@ -4,7 +4,7 @@
     <native:column class="w-full gap-5 p-5">
         <native:column class="w-full gap-2 rounded-2xl bg-theme-sunrise p-6">
             <native:text font="accent" class="text-sm text-theme-on-sunrise">{{ __('app.current_streak') }}</native:text>
-            <native:text font="accent" class="text-5xl text-theme-on-sunrise">{{ $this->habits['current_streak'] }} {{ __('app.days') }}</native:text>
+            <native:text font="accent" class="text-5xl text-theme-on-sunrise">{{ $this->habits['current_streak_label'] }}</native:text>
             <native:text class="text-base text-theme-on-sunrise">
                 {{ __('app.habits_on_time_summary', ['on_time' => $this->habits['on_time_count'], 'resolved' => $this->habits['resolved_count']]) }}
             </native:text>
@@ -15,8 +15,8 @@
             <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.weekly_goal_progress', ['completed' => $this->weeklyProgress['completed'], 'goal' => $this->weeklyProgress['goal']]) }}</native:text>
             <native:progress-bar :value="min(1, $this->weeklyProgress['completed'] / $this->weeklyProgress['goal'])" />
             <native:select ref="weekly-goal" :label="__('app.weekly_goal_label')"
-                           :options="array_map(fn (int $days): string => __('app.weekly_goal_days', ['count' => $days]), range(1, 7))"
-                           :value="__('app.weekly_goal_days', ['count' => $weeklyGoalSelection])"
+                           :options="array_map(fn (int $days): string => $days === 1 ? __('app.weekly_goal_day', ['count' => $days]) : __('app.weekly_goal_days', ['count' => $days]), range(1, 7))"
+                           :value="$weeklyGoalSelection === '1' ? __('app.weekly_goal_day', ['count' => 1]) : __('app.weekly_goal_days', ['count' => $weeklyGoalSelection])"
                            @change="selectWeeklyGoal" :a11y-label="__('app.weekly_goal_label')" />
         </native:column>
 
@@ -26,7 +26,6 @@
             @if ($this->weeklyProgress['hardest_day'] !== null)
                 <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.weekly_hardest_day', ['day' => $this->weeklyProgress['hardest_day']]) }}</native:text>
             @endif
-            <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.'.$this->weeklyProgress['recommendation']) }}</native:text>
             <native:button ref="share-weekly-summary" variant="secondary" class="w-full" @tap="shareWeeklyProgress"
                            :a11y-label="__('app.share_weekly_progress')">{{ __('app.share_weekly_progress') }}</native:button>
         </native:column>
@@ -40,7 +39,7 @@
             <native:row class="w-full gap-3">
                 <native:column class="flex-1 gap-1 rounded-2xl border border-theme-outline bg-theme-surface p-4">
                     <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.best_streak') }}</native:text>
-                    <native:text font="accent" class="text-2xl text-theme-on-surface">{{ $this->habits['best_streak'] }} {{ __('app.days') }}</native:text>
+                    <native:text font="accent" class="text-2xl text-theme-on-surface">{{ $this->habits['best_streak_label'] }}</native:text>
                 </native:column>
                 <native:column class="flex-1 gap-1 rounded-2xl border border-theme-outline bg-theme-surface p-4">
                     <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.on_time') }}</native:text>
@@ -57,7 +56,7 @@
                     @foreach ($this->habits['days'] as $day)
                         <native:column class="flex-1 items-center gap-1">
                             <native:icon name="circle" size="18" class="{{ match ($day['status']) { 'on_time' => 'text-theme-success', 'late' => 'text-theme-warning', 'missed' => 'text-theme-destructive', 'pending' => 'text-theme-secondary', default => 'text-theme-outline' } }}" :a11y-label="__('app.habit_day_'.$day['status'])" />
-                            <native:text class="text-xs text-theme-on-surface-variant">{{ \Carbon\CarbonImmutable::parse($day['date'])->locale(app()->getLocale())->isoFormat('dd') }}</native:text>
+                            <native:text class="text-xs text-theme-on-surface-variant">{{ $day['label'] }}</native:text>
                         </native:column>
                     @endforeach
                 </native:row>

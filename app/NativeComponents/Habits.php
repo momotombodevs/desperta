@@ -9,6 +9,7 @@ use App\Application\AlarmAnalytics\WeeklyProgressImage;
 use App\Application\Preferences\AppPreferences;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Native\Mobile\Attributes\Computed;
 use Native\Mobile\Edge\NativeComponent;
@@ -34,26 +35,47 @@ final class Habits extends NativeComponent
     /**
      * @return array{
      *     current_streak: int,
+     *     current_streak_label: string,
      *     best_streak: int,
+     *     best_streak_label: string,
      *     on_time_count: int,
      *     resolved_count: int,
      *     on_time_rate: int,
      *     without_snooze_count: int,
      *     without_snooze_rate: int,
-     *     days: list<array{date: string, status: string, on_time: int, late: int, missed: int, pending: int}>
+     *     days: list<array{date: string, label: string, status: string, on_time: int, late: int, missed: int, pending: int}>
      * }
      */
     #[Computed]
     public function habits(): array
     {
-        return app(AlarmHabitsAnalytics::class)->summarize();
+        $summary = app(AlarmHabitsAnalytics::class)->summarize();
+        $language = app(AppPreferences::class)->language();
+        $days = array_map(
+            fn (array $day): array => [
+                ...$day,
+                'label' => Str::ucfirst(CarbonImmutable::parse($day['date'])->locale($language)->isoFormat('dd')),
+            ],
+            $summary['days'],
+        );
+
+        return [
+            ...$summary,
+            'days' => $days,
+            'current_streak_label' => $summary['current_streak'].' '.($summary['current_streak'] === 1 ? __('app.day') : __('app.days')),
+            'best_streak_label' => $summary['best_streak'].' '.($summary['best_streak'] === 1 ? __('app.day') : __('app.days')),
+        ];
     }
 
     public function selectWeeklyGoal(string $goal): void
     {
         $selectedGoal = null;
         foreach (range(1, 7) as $days) {
-            if ($goal === (string) $days || $goal === __('app.weekly_goal_days', ['count' => $days])) {
+            $localizedGoal = $days === 1
+                ? __('app.weekly_goal_day', ['count' => $days])
+                : __('app.weekly_goal_days', ['count' => $days]);
+
+            if ($goal === (string) $days || $goal === $localizedGoal) {
                 $selectedGoal = $days;
                 break;
             }
@@ -86,9 +108,10 @@ final class Habits extends NativeComponent
     {
         $summary = $this->habits['weekly_summary'];
         $weekday = $summary['hardest_weekday'];
+        $language = app(AppPreferences::class)->language();
         $day = $weekday === null
             ? null
-            : CarbonImmutable::now((string) config('app.alarm_timezone'))->startOfWeek(CarbonInterface::MONDAY)->addDays($weekday - 1)->locale(app()->getLocale())->isoFormat('dddd');
+            : Str::ucfirst(CarbonImmutable::now((string) config('app.alarm_timezone'))->startOfWeek(CarbonInterface::MONDAY)->addDays($weekday - 1)->locale($language)->isoFormat('dddd'));
 
         return [
             'goal' => (int) $this->weeklyGoalSelection,
@@ -136,7 +159,7 @@ final class Habits extends NativeComponent
             'points' => array_map(
                 fn (array $day): array => [
                     'id' => "{$status}-{$day['date']}",
-                    'label' => CarbonImmutable::parse($day['date'])->locale(app()->getLocale())->isoFormat('dd'),
+                    'label' => $day['label'],
                     'value' => $day[$status],
                 ],
                 $this->habits['days'],
