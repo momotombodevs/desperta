@@ -2,6 +2,8 @@
 
 use App\AlarmScheduling\ActiveAlarmOccurrence;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
+use App\Application\Challenges\ChallengeCatalog;
+use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use App\Models\AlarmExecution;
 use App\NativeComponents\AlarmEditor;
@@ -13,6 +15,8 @@ use App\NativeComponents\Settings;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Momotombo\NativePHPAlarms\Events\AppResumed;
 use Native\Mobile\Testing\Native;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 
 use function Pest\Laravel\mock;
 
@@ -34,6 +38,7 @@ it('opens the active challenge when Android resumes another screen', function (s
 
 it('keeps the current challenge and its selected answer across repeated Android resumes', function () {
     $alarm = Alarm::factory()->create();
+    app()->instance(ChallengeCatalog::class, new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937(2))));
     mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
         ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-04T07:00:00Z'));
     $challenge = Native::test(Challenge::class)->tap('answer-1')->tap('continue-challenge')->tap('answer-2');
@@ -49,6 +54,7 @@ it('keeps the current challenge and its selected answer across repeated Android 
 
 it('replaces an older visible challenge when a different occurrence is ringing', function () {
     $alarm = Alarm::factory()->create();
+    app()->instance(ChallengeCatalog::class, new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937(2))));
     mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')->andReturn(
         new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-04T07:00:00Z'),
         new ActiveAlarmOccurrence($alarm->id, 'execution-2', '2026-09-05T07:00:00Z'),

@@ -14,6 +14,8 @@ it('opens the settings page and persists its selections', function () {
 
     Native::visit('/settings')
         ->assertSee('Apariencia')
+        ->assertSee('Tema de las preguntas de trivia')
+        ->assertDontSee('Este tema se aplica solo a los retos de trivia')
         ->assertElement('svg', fn (array $node): bool => ($node['props']['alt'] ?? null) === 'Despertá'
             && str_ends_with($node['props']['src'] ?? '', '/public/images/brand/desperta-mark.svg'))
         ->assertElement('svg', fn (array $node): bool => ($node['props']['alt'] ?? null) === 'Bandera de Nicaragua'
@@ -39,6 +41,7 @@ it('opens the settings page and persists its selections', function () {
 
 it('uses a full-width picker instead of tabs, radio groups, or chips for challenge themes', function () {
     Native::visit('/settings')
+        ->assertDontSee('Este tema se aplica solo a los retos de trivia')
         ->assertMissingElement('radio_group')
         ->assertMissingElement('tab_row')
         ->assertMissingElement('chip')

@@ -2,16 +2,18 @@
 
 return [
     'types' => [
-        'trivia' => ['instruction' => 'Elegí la respuesta correcta.'],
+        'trivia' => ['name' => 'Trivia', 'instruction' => 'Elegí la respuesta correcta.'],
         'memory' => [
+            'name' => 'Memoria',
             'instruction' => 'Memorizá la secuencia y después respondé sin verla.',
             'question' => '¿Qué número estaba en la posición :position?',
         ],
         'sequence' => [
+            'name' => 'Secuencias',
             'instruction' => 'Encontrá el patrón y elegí el siguiente número.',
             'prompt' => '¿qué sigue?',
         ],
-        'mental_math' => ['instruction' => 'Resolvé el cálculo mentalmente.'],
+        'mental_math' => ['name' => 'Cálculo mental', 'instruction' => 'Resolvé el cálculo mentalmente.'],
     ],
     'nicaragua' => [
         'name' => 'Nicaragua',
@@ -19,7 +21,7 @@ return [
             ['id' => 'capital', 'question' => '¿Cuál es la capital de Nicaragua?', 'options' => ['León', 'Managua', 'Granada', 'Masaya'], 'answer' => 'Managua'],
             ['id' => 'lake', 'question' => '¿Cuál es el lago más grande de Nicaragua?', 'options' => ['Xolotlán', 'Cocibolca', 'Apanás', 'Tisma'], 'answer' => 'Cocibolca'],
             ['id' => 'griteria', 'question' => '¿En qué ciudad se celebra La Gritería?', 'options' => ['Estelí', 'León', 'Chinandega', 'Jinotepe'], 'answer' => 'León'],
-            ['id' => 'volcanoes', 'question' => '¿Cuántos volcanes tiene Nicaragua?', 'options' => ['12', '19', '25', '31'], 'answer' => '19'],
+            ['id' => 'volcanoes', 'question' => 'Según el INETER, ¿cuántos volcanes componen la cadena volcánica de Nicaragua?', 'options' => ['12', '18', '25', '31'], 'answer' => '18'],
             ['id' => 'national-bird', 'question' => '¿Cuál es el ave nacional de Nicaragua?', 'options' => ['Guardabarranco', 'Quetzal', 'Colibrí', 'Pelícano'], 'answer' => 'Guardabarranco'],
             ['id' => 'independence-month', 'question' => '¿En qué mes se celebra la independencia de Nicaragua?', 'options' => ['Julio', 'Septiembre', 'Octubre', 'Diciembre'], 'answer' => 'Septiembre'],
             ['id' => 'independence-day', 'question' => '¿Qué día se celebra la independencia de Nicaragua?', 'options' => ['14 de septiembre', '15 de septiembre', '19 de julio', '12 de octubre'], 'answer' => '15 de septiembre'],
