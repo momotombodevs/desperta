@@ -98,7 +98,7 @@ Las funciones deben conservar el enfoque local-first de la app, reutilizar el hi
 
 La implementación local de los tickets 01–10 está integrada. El 2026-10-09 se aclaró que Nicaragua es el tema de las preguntas de trivia, se identificó el tipo de reto durante la alarma y se ajustaron las descripciones de periodos, denominadores y criterios de hábitos. La respuesta del catálogo sobre la cadena volcánica se corrigió a 18 según [INETER](https://www.ineter.gob.ni/geoportales/vulnerabilidades-amenazas/index.html), con cobertura de prueba en español e inglés.
 
-La aceptación final de los tickets 07–10 sigue pendiente en **emulador y dispositivo Android físico**: programación, permisos, widget, acciones rápidas, recordatorio nocturno, bottom sheet y diálogo nativo de compartir. El estado actual del artefacto y los requisitos pendientes de Google Play están en [internal-track-readiness.md](../docs/google-play/internal-track-readiness.md). El ticket 11 se descartó; la app conservará su catálogo local y no descargará paquetes de retos.
+La aceptación final de los tickets 07–10 sigue pendiente en **emulador y dispositivo Android físico**: programación, permisos, widget, acciones rápidas, recordatorio nocturno, bottom sheet y diálogo nativo de compartir. El ticket 11 se descartó; la app conservará su catálogo local y no descargará paquetes de retos.
 
 Las listas de criterios de cada ticket se conservan como aceptación funcional completa; las pruebas automatizadas no sustituyen la verificación en Android indicada arriba.
 
