@@ -2,7 +2,7 @@
                 show-navigation-icon/>
 
 <native:scroll-view class="w-full h-full bg-theme-background">
-    <native:column ref="alarm-editor-screen" class="w-full gap-5 p-5">
+    <native:column ref="alarm-editor-screen" class="w-full gap-4 p-5">
         <native:column class="w-full gap-2 rounded-2xl bg-theme-sunrise/15 p-5">
             <native:text font="accent"
                          class="text-xl text-theme-on-background">{{ __('app.morning_intention') }}</native:text>

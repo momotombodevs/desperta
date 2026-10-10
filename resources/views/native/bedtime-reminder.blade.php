@@ -1,8 +1,13 @@
+@use('App\Icons\Android')
+
 <native:top-bar :title="__('app.bedtime_reminder')" show-navigation-icon />
 
 <native:scroll-view class="w-full h-full bg-theme-background">
-    <native:column class="w-full gap-5 p-5">
-        <native:text class="text-base text-theme-on-surface-variant">{{ __('app.bedtime_reminder_explainer') }}</native:text>
+    <native:column class="w-full gap-4 p-5">
+        <native:row class="w-full items-center gap-3 rounded-2xl bg-theme-sunrise/15 p-5">
+            <native:icon :android="Android::Bedtime" class="text-theme-sunrise" size="24" />
+            <native:text class="flex-1 text-sm text-theme-on-surface">{{ __('app.bedtime_reminder_explainer') }}</native:text>
+        </native:row>
         <native:toggle :label="__('app.bedtime_reminder_enabled')" native:model="enabled" />
         @if ($enabled)
             <native:date-picker :label="__('app.bedtime_reminder_time')" mode="time" hour-format="12"
@@ -18,7 +23,6 @@
                 <native:chip :label="__('app.weekday_abbreviations.7')" native:model="sunday" :a11y-label="__('app.weekday_names.7')" />
             </native:row>
         @endif
-        <native:button variant="secondary" size="lg" class="w-full" @navigate="'/'">{{ __('app.view_next_alarm') }}</native:button>
         <native:button ref="save-bedtime-reminder" variant="primary" size="lg" class="w-full" @tap="save"
                        :disabled="$awaitingExactPermission || $awaitingNotificationPermission">{{ __('app.save_alarm') }}</native:button>
     </native:column>

@@ -39,7 +39,6 @@
             @endif
         @else
             <native:column class="w-full gap-2">
-                <native:text font="accent" class="text-xl text-theme-on-background">{{ __('app.morning_routine_title') }}</native:text>
                 <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.morning_routine_setup_description') }}</native:text>
             </native:column>
 
@@ -53,7 +52,7 @@
             @endif
 
             @forelse ($this->configuredSteps as $index => $step)
-                <native:column class="w-full gap-3 rounded-xl border border-theme-outline bg-theme-surface p-4">
+                <native:column class="w-full gap-2 rounded-xl border border-theme-outline bg-theme-surface p-4">
                     @if ($editingStepId === $step->id)
                         <native:outlined-text-input :label="__('app.morning_routine_step_label')" native:model.live="editingLabel"
                                                     :a11y-label="__('app.morning_routine_step_label')" />
@@ -65,21 +64,41 @@
                             <native:button :label="__('app.cancel')" variant="secondary" @tap="cancelEditing" />
                         </native:row>
                     @else
-                        <native:text class="text-base text-theme-on-surface">{{ $step->label }}</native:text>
-                        <native:row class="w-full gap-2">
-                            <native:button :label="__('app.move_up')" :disabled="$index === 0" @tap="moveStepUp('{{ $step->id }}')" />
-                            <native:button :label="__('app.move_down')" :disabled="$index === $this->configuredSteps->count() - 1" @tap="moveStepDown('{{ $step->id }}')" />
+                        <native:row class="w-full items-center gap-3">
+                            <native:text class="flex-1 text-base text-theme-on-surface">{{ $step->label }}</native:text>
+                            <native:row class="gap-1">
+                                <native:button icon="up" variant="ghost" size="sm" class="w-12 h-12"
+                                               :a11y-label="__('app.move_up')" :disabled="$index === 0"
+                                               @tap="moveStepUp('{{ $step->id }}')" />
+                                <native:button icon="down" variant="ghost" size="sm" class="w-12 h-12"
+                                               :a11y-label="__('app.move_down')"
+                                               :disabled="$index === $this->configuredSteps->count() - 1"
+                                               @tap="moveStepDown('{{ $step->id }}')" />
+                            </native:row>
                         </native:row>
-                        <native:row class="w-full gap-2">
-                            <native:button :label="__('app.edit')" variant="secondary" @tap="editStep('{{ $step->id }}')" />
-                            <native:button :label="__('app.delete')" variant="secondary" @tap="deleteStep('{{ $step->id }}')" />
+                        <native:row class="w-full justify-end gap-2">
+                            <native:pressable ref="edit-routine-step-{{ $step->id }}"
+                                              class="rounded-xl border border-theme-outline bg-theme-surface-variant px-4 py-3"
+                                              @tap="editStep('{{ $step->id }}')" :a11y-label="__('app.edit')">
+                                <native:row class="items-center gap-2">
+                                    <native:icon name="edit" class="text-theme-primary" size="18" />
+                                    <native:text class="text-sm text-theme-primary">{{ __('app.edit') }}</native:text>
+                                </native:row>
+                            </native:pressable>
+                            <native:pressable ref="delete-routine-step-{{ $step->id }}"
+                                              class="rounded-xl border border-theme-destructive/20 bg-theme-destructive/10 px-4 py-3"
+                                              @tap="deleteStep('{{ $step->id }}')" :a11y-label="__('app.delete')">
+                                <native:row class="items-center gap-2">
+                                    <native:icon name="delete" class="text-theme-destructive" size="18" />
+                                    <native:text class="text-sm text-theme-destructive">{{ __('app.delete') }}</native:text>
+                                </native:row>
+                            </native:pressable>
                         </native:row>
                     @endif
                 </native:column>
             @empty
                 <native:column class="w-full items-center gap-2 rounded-2xl border border-theme-outline bg-theme-surface p-6">
                     <native:text class="text-base text-center text-theme-on-surface">{{ __('app.morning_routine_empty') }}</native:text>
-                    <native:text class="text-sm text-center text-theme-on-surface-variant">{{ __('app.morning_routine_optional') }}</native:text>
                 </native:column>
             @endforelse
         @endif

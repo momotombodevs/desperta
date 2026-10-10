@@ -1,7 +1,7 @@
 <native:top-bar :title="__('app.alarm_history')" show-navigation-icon />
 
-<native:scroll-view class="w-full h-full bg-theme-surface">
-    <native:column class="w-full gap-3 p-6">
+<native:scroll-view class="w-full h-full bg-theme-background">
+    <native:column class="w-full gap-4 p-5">
         @if ($this->executions->isEmpty())
             <native:column class="w-full items-center gap-3 rounded-2xl border border-theme-outline bg-theme-surface p-8">
                 <native:icon name="history" class="text-theme-secondary" size="40" :a11y-label="__('app.alarm_history_empty')" />
@@ -11,7 +11,7 @@
         @else
             @foreach ($this->executions as $execution)
                 <native:row key="execution-{{ $execution->id }}"
-                            class="w-full items-center gap-3 rounded-xl border border-theme-outline bg-theme-surface-variant p-4"
+                            class="w-full items-center gap-3 rounded-xl border border-theme-outline bg-theme-surface p-4"
                             :a11y-label="$execution->displayLabel().' · '.$execution->displayTimestamp().' · '.$execution->displayStatus()">
                     <native:icon name="history" class="text-theme-secondary" size="20" />
                     <native:column class="flex-1 gap-1">
