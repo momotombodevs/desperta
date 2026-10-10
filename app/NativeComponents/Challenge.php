@@ -11,14 +11,18 @@ use App\Application\Challenges\AdaptiveChallengeDifficulty;
 use App\Application\Challenges\ChallengeCatalog;
 use App\Application\Challenges\ChallengeDifficulty;
 use App\Application\Challenges\ChallengeType;
+use App\Application\MorningRoutine\MorningRoutineManager;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use App\Models\AlarmChallengeAttempt;
 use App\Models\AlarmExecution;
+use App\Models\AlarmExecutionRoutineStep;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Momotombo\NativePHPAlarms\Events\AppResumed;
 use Momotombo\NativePHPAlarms\Exceptions\NativeAlarmSchedulingFailed;
+use Native\Mobile\Attributes\Computed;
 use Native\Mobile\Attributes\On;
 use Native\Mobile\Edge\NativeComponent;
 
@@ -76,6 +80,8 @@ class Challenge extends NativeComponent
     public bool $showRetryHint = false;
 
     public bool $alarmStopped = false;
+
+    public bool $routineSheetVisible = false;
 
     public function mount(): void
     {
@@ -292,6 +298,7 @@ class Challenge extends NativeComponent
         }
 
         $this->alarmStopped = true;
+        $this->prepareMorningRoutine();
     }
 
     public function returnHome(): void
@@ -305,11 +312,41 @@ class Challenge extends NativeComponent
 
     public function openMorningRoutine(): void
     {
+        if (! $this->alarmStopped || $this->executionId === '' || $this->routineSteps->isEmpty()) {
+            return;
+        }
+
+        $this->routineSheetVisible = true;
+    }
+
+    public function dismissRoutineSheet(): void
+    {
+        $this->routineSheetVisible = false;
+    }
+
+    public function completeRoutineStep(string $stepId): void
+    {
         if (! $this->alarmStopped || $this->executionId === '') {
             return;
         }
 
-        $this->navigate('/routine/'.$this->executionId);
+        $execution = AlarmExecution::query()->find($this->executionId);
+        if ($execution === null || $execution->status !== 'completed') {
+            return;
+        }
+
+        app(MorningRoutineManager::class)->completeStep($execution, $stepId);
+    }
+
+    /** @return Collection<int, AlarmExecutionRoutineStep> */
+    #[Computed]
+    public function routineSteps(): Collection
+    {
+        $execution = $this->executionId === '' ? null : AlarmExecution::query()->find($this->executionId);
+
+        return $execution === null
+            ? new Collection
+            : app(MorningRoutineManager::class)->executionSteps($execution);
     }
 
     private function recordAttempt(): void
@@ -325,6 +362,18 @@ class Challenge extends NativeComponent
             'required_correct_answers' => $this->requiredCorrectAnswers,
             'passed' => $this->passed,
         ]);
+    }
+
+    private function prepareMorningRoutine(): void
+    {
+        $execution = $this->executionId === '' ? null : AlarmExecution::query()->find($this->executionId);
+        if ($execution === null || $execution->status !== 'completed') {
+            return;
+        }
+
+        $manager = app(MorningRoutineManager::class);
+        $manager->beginForExecution($execution);
+        $this->routineSheetVisible = $manager->executionSteps($execution)->isNotEmpty();
     }
 
     /** @param list<string> $excludedQuestionIds */

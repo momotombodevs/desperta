@@ -5,6 +5,7 @@ use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Challenges\ChallengeCatalog;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
+use App\Models\MorningRoutineStep;
 use App\NativeComponents\Challenge;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Native\Mobile\Testing\Native;
@@ -209,8 +210,9 @@ it('requires five correct answers for a hard challenge', function () {
     ]);
 });
 
-it('opens the routine for the completed alarm execution', function () {
+it('shows the configured routine in a bottom sheet when the alarm is turned off', function () {
     $alarm = Alarm::factory()->create(['scheduling_status' => 'scheduled']);
+    MorningRoutineStep::query()->create(['label' => 'Tomar agua', 'position' => 0]);
     $scheduler = mock(NativeAlarmScheduler::class);
     $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-routine', '2026-09-03T07:00:00+00:00'));
     $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
@@ -219,7 +221,21 @@ it('opens the routine for the completed alarm execution', function () {
     $challenge = Native::test(Challenge::class, data: ['alarmId' => $alarm->id]);
     completeChallenge($challenge);
 
-    $challenge->tap('open-morning-routine')->assertNavigatedTo('/routine/execution-routine');
+    $challenge
+        ->assertSet('routineSheetVisible', true)
+        ->assertSee('Tomar agua')
+        ->assertElement('bottom_sheet');
+
+    $this->assertDatabaseHas('alarm_execution_routine_steps', [
+        'alarm_execution_id' => 'execution-routine',
+        'label' => 'Tomar agua',
+    ]);
+
+    $challenge
+        ->call('dismissRoutineSheet')
+        ->assertSet('routineSheetVisible', false)
+        ->tap('open-morning-routine')
+        ->assertSet('routineSheetVisible', true);
 });
 
 it('renders selected answer cards accessibly', function () {
