@@ -162,6 +162,23 @@ describe('Native Code', function () {
         expect($manifest['android']['receivers'][1]['intent-filters'][0]['action'])->toBe('android.intent.action.BOOT_COMPLETED');
     });
 
+    it('declares bedtime notification and widget bridge support', function () {
+        $manifest = json_decode(file_get_contents($this->manifestPath), true);
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+        $names = array_column($manifest['bridge_functions'], 'name');
+
+        expect($names)->toContain('Alarms.ScheduleBedtimeReminder', 'Alarms.CancelBedtimeReminder', 'Alarms.ForgetWidgetAlarm')
+            ->and($kotlin)->toContain('class BedtimeReminderReceiver')
+            ->toContain('class AlarmWidgetProvider')
+            ->toContain('widget_enabled')
+            ->and($manifest['android']['receivers'])->toContain([
+                'name' => 'com.momotombo.plugins.nativephp_alarms.AlarmWidgetProvider',
+                'exported' => false,
+                'intent-filters' => [['action' => 'android.appwidget.action.APPWIDGET_UPDATE']],
+                'meta_data' => [['name' => 'android.appwidget.provider', 'resource' => '@xml/alarm_widget_info']],
+            ]);
+    });
+
     it('dispatches the Android notification permission result with the original request id', function () {
         $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
 
@@ -212,9 +229,19 @@ describe('Native Code', function () {
             ->and($kotlin)->toContain('.setFullScreenIntent(AlarmsFunctions.fullScreenIntent(this, alarm.id), true)')
             ->and($kotlin)->toContain('fun launchPath(): String?')
             ->and($kotlin)->toContain('putExtra("notification_url", path)')
+            ->and($kotlin)->toContain('.setData(nativeRouteUri(path))')
             ->and($kotlin)->toContain('if (! context.getSystemService(KeyguardManager::class.java).isKeyguardLocked)')
             ->and($kotlin)->toContain('AlarmsFunctions.navigationIntent(context, alarm)')
             ->and($kotlin)->not->toContain('/challenge/$id');
+    });
+
+    it('uses an Intent data URI for warm widget routes to avoid a second WebView navigation', function () {
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+
+        expect($kotlin)->toContain('fun nativeRouteUri(path: String): Uri = Uri.parse("nativephp-widget://${path.trimStart(\'/\')}")')
+            ->and($kotlin)->toContain('data = AlarmsFunctions.nativeRouteUri(path)')
+            ->and($kotlin)->toContain('.setData(AlarmsFunctions.nativeRouteUri(path))')
+            ->and($kotlin)->toContain('putExtra("notification_url", path)');
     });
 
     it('creates a new neutral occurrence for repeating alarms', function () {
@@ -223,6 +250,16 @@ describe('Native Code', function () {
         expect($kotlin)
             ->toContain('fun withNextOccurrence(): AlarmPayload')
             ->toContain('"occurrence_id" to UUID.randomUUID().toString()');
+    });
+
+    it('validates one-time dates and prevents native snooze when disabled', function () {
+        $manifest = json_decode(file_get_contents($this->manifestPath), true);
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+
+        expect($kotlin)->toContain('fun alarmDate(): String?')
+            ->toContain('values["snooze_enabled"] == false')
+            ->toContain('weekdays.isNotEmpty() || !isValidDate(alarmDate)')
+            ->and($manifest['platforms'])->toBe(['android']);
     });
 
     it('stops a completed ringing session without removing its scheduled alarm', function () {
@@ -261,6 +298,45 @@ describe('Native Code', function () {
         expect($kotlin)->toContain('ic_stat_alarm');
         expect($kotlin)->toContain('NotificationIds.forAlarm');
         expect($kotlin)->toContain('CATEGORY_ALARM');
+    });
+
+    it('keeps bedtime reminders recurring when notification permission is unavailable', function () {
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+        $receiverStart = strpos($kotlin, 'class BedtimeReminderReceiver');
+        $widgetStart = strpos($kotlin, 'class AlarmWidgetProvider', $receiverStart);
+        $receiver = substr($kotlin, $receiverStart, $widgetStart - $receiverStart);
+
+        expect($receiver)->toContain('BedtimeReminder.schedule(context)')
+            ->and(strpos($receiver, 'BedtimeReminder.schedule(context)'))
+            ->toBeLessThan(strpos($receiver, 'if (!AlarmsFunctions.canPostNotifications(context))'));
+    });
+
+    it('formats widget alarm time for the device locale and hides expired one-time reactivation', function () {
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+
+        expect($kotlin)->toContain('android.text.format.DateFormat.getTimeFormat(context)')
+            ->toContain('!it.enabled && canReactivate(it.alarm)')
+            ->toContain('alarm.alarmDate() == null || AlarmsFunctions.nextTriggerAt(alarm) > System.currentTimeMillis()');
+    });
+
+    it('uses day and night color resources for the alarm widget', function () {
+        $layout = file_get_contents($this->pluginPath.'/resources/android/res/layout/alarm_widget.xml');
+        $dayColors = file_get_contents($this->pluginPath.'/resources/android/res/values/colors.xml');
+        $nightColors = file_get_contents($this->pluginPath.'/resources/android/res/values-night/colors.xml');
+        $background = file_get_contents($this->pluginPath.'/resources/android/res/drawable/alarm_widget_background.xml');
+        $actionBackground = file_get_contents($this->pluginPath.'/resources/android/res/drawable/alarm_widget_action_background.xml');
+        $manifest = json_decode(file_get_contents($this->manifestPath), true);
+
+        expect($layout)->toContain('@color/alarm_widget_foreground')
+            ->and($layout)->toContain('@drawable/alarm_widget_background', '@drawable/alarm_widget_action_background')
+            ->and($layout)->toContain('<TextView', 'android:fontFamily="sans-serif-medium"')
+            ->and($layout)->not->toContain('<Button')
+            ->and($background)->toContain('@color/alarm_widget_outline', '24dp')
+            ->and($actionBackground)->toContain('@color/alarm_widget_action', '20dp')
+            ->and($dayColors)->toContain('alarm_widget_background', 'alarm_widget_foreground', '#1D4ED8')
+            ->and($nightColors)->toContain('alarm_widget_background', 'alarm_widget_foreground', '#2563EB')
+            ->and($manifest['assets']['android'])->toHaveKey('android/res/drawable/alarm_widget_background.xml')
+            ->and($manifest['assets']['android'])->toHaveKey('android/res/drawable/alarm_widget_action_background.xml');
     });
 });
 

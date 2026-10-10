@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_brand">Despertá</string>
+    <string name="widget_next_alarm">Próxima alarma</string>
+    <string name="widget_paused">Alarma pausada</string>
+    <string name="widget_empty">Sin alarma</string>
+    <string name="widget_empty_body">Abrí Despertá para crear una</string>
+    <string name="widget_open">Abrir</string>
+    <string name="widget_toggle">Activar o pausar</string>
+    <string name="widget_pause">Pausar alarma</string>
+    <string name="widget_enable">Activar alarma</string>
+</resources>

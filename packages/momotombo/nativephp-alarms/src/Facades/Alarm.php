@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Facade;
 use Momotombo\NativePHPAlarms\AlarmScheduler;
 use Momotombo\NativePHPAlarms\DTO\AlarmCapabilities;
 use Momotombo\NativePHPAlarms\DTO\AlarmConfiguration;
+use Momotombo\NativePHPAlarms\DTO\BedtimeReminderConfiguration;
 use Momotombo\NativePHPAlarms\Enums\AuthorizationStatus;
 
 /**
@@ -19,6 +20,9 @@ use Momotombo\NativePHPAlarms\Enums\AuthorizationStatus;
  * @method static bool canSchedule()
  * @method static bool canPostNotifications()
  * @method static void schedule(AlarmConfiguration $configuration)
+ * @method static void scheduleBedtimeReminder(BedtimeReminderConfiguration $configuration)
+ * @method static void cancelBedtimeReminder()
+ * @method static void forgetWidgetAlarm(string $alarmId)
  * @method static void update(AlarmConfiguration $configuration)
  * @method static void complete(string $alarmId)
  * @method static void cancel(string $alarmId)

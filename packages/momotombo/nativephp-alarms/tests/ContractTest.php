@@ -3,6 +3,7 @@
 use Momotombo\NativePHPAlarms\AlarmScheduler;
 use Momotombo\NativePHPAlarms\Bridge\NativeAlarmBridge;
 use Momotombo\NativePHPAlarms\DTO\AlarmConfiguration;
+use Momotombo\NativePHPAlarms\DTO\BedtimeReminderConfiguration;
 use Momotombo\NativePHPAlarms\Enums\AuthorizationStatus;
 use Momotombo\NativePHPAlarms\Enums\Weekday;
 use Momotombo\NativePHPAlarms\Events\NotificationAuthorizationChanged;
@@ -35,6 +36,8 @@ it('serializes a reusable weekly alarm configuration with an occurrence and laun
         'notification_body' => 'Your alarm is ringing.',
         'occurrence_id' => 'occurrence-1',
         'scheduled_for' => '2026-09-03T06:30:00+00:00',
+        'alarm_date' => null,
+        'snooze_enabled' => true,
     ]);
 });
 
@@ -46,7 +49,38 @@ it('rejects invalid alarm configuration values', function (callable $configure, 
     'duplicate weekday' => [fn (): AlarmConfiguration => new AlarmConfiguration(id: 'wake-up', weekdays: [Weekday::Monday, Weekday::Monday]), 'duplicates'],
     'invalid snooze' => [fn (): AlarmConfiguration => new AlarmConfiguration(id: 'wake-up', snoozeMinutes: 0), 'at least one minute'],
     'invalid launch path' => [fn (): AlarmConfiguration => AlarmConfiguration::make('wake-up')->launchPath('wake-up'), 'begin with a slash'],
+    'invalid one-time date' => [fn (): AlarmConfiguration => AlarmConfiguration::make('wake-up')->onDate('2026-02-30'), 'valid YYYY-MM-DD'],
+    'one-time and weekly schedule conflict' => [fn (): AlarmConfiguration => AlarmConfiguration::make('wake-up')->repeatOn([Weekday::Monday])->onDate('2026-09-03'), 'without weekly repetition'],
 ]);
+
+it('serializes a no-snooze alarm for one selected date', function () {
+    $payload = AlarmConfiguration::make('important-day')
+        ->at('06:30')
+        ->onDate('2026-09-03')
+        ->snoozeEnabled(false)
+        ->toPayload();
+
+    expect($payload['alarm_date'])->toBe('2026-09-03')
+        ->and($payload['snooze_enabled'])->toBeFalse()
+        ->and($payload['weekdays'])->toBe([]);
+});
+
+it('serializes a recurring bedtime notification without alarm playback settings', function () {
+    $configuration = new BedtimeReminderConfiguration(
+        time: '21:30',
+        weekdays: [Weekday::Monday, Weekday::Friday],
+        title: 'Get ready for bed',
+        body: 'Check tomorrow’s alarm.',
+    );
+
+    expect($configuration->toPayload())->toBe([
+        'hour' => 21,
+        'minute' => 30,
+        'weekdays' => ['monday', 'friday'],
+        'title' => 'Get ready for bed',
+        'body' => 'Check tomorrow’s alarm.',
+    ]);
+});
 
 it('maps native capabilities and authorization without assuming platform parity', function () {
     $scheduler = new AlarmScheduler(new class implements NativeAlarmBridge

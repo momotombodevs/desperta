@@ -43,13 +43,27 @@ it('uses a full-width picker instead of tabs, radio groups, or chips for challen
         ->assertMissingElement('tab_row')
         ->assertMissingElement('chip')
         ->assertElement('select', fn (array $node): bool => ($node['ref'] ?? null) === 'challenge-theme-selector')
-        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'open-history');
+        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'open-history')
+        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'open-bedtime-reminder')
+        ->assertElement('pressable', fn (array $node): bool => ($node['ref'] ?? null) === 'open-morning-routine');
 });
 
 it('opens history from the settings page', function () {
     Native::visit('/settings')
         ->tap('open-history')
         ->assertNavigatedTo('/settings/history');
+});
+
+it('opens the bedtime reminder settings from the settings page', function () {
+    Native::visit('/settings')
+        ->tap('open-bedtime-reminder')
+        ->assertNavigatedTo('/settings/bedtime-reminder');
+});
+
+it('opens the morning routine settings from the settings page', function () {
+    Native::visit('/settings')
+        ->tap('open-morning-routine')
+        ->assertNavigatedTo('/settings/routine');
 });
 
 it('opens Momotombo Devs in the in-app browser from settings', function () {

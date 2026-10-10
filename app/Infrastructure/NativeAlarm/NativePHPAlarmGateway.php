@@ -96,6 +96,10 @@ final class NativePHPAlarmGateway implements NativeAlarmGateway
             ->notification($alarm->notificationTitle, $alarm->notificationBody)
             ->occurrence($alarm->executionId, $alarm->scheduledFor);
 
+        $configuration = $configuration
+            ->onDate($alarm->alarmDate)
+            ->snoozeEnabled($alarm->snoozeEnabled);
+
         if ($alarm->snoozeEnabled) {
             $configuration = $configuration->snooze($alarm->snoozeMinutes);
         }

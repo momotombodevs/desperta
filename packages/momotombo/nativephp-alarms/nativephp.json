@@ -44,7 +44,10 @@
         {"name": "Alarms.AcknowledgeOccurrences", "description": "Acknowledge reconciled alarm occurrence events.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.AcknowledgeOccurrences"},
         {"name": "Alarms.Complete", "description": "Stop an active ringing session without cancelling its schedule.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Complete"},
         {"name": "Alarms.Cancel", "description": "Cancel one alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Cancel"},
-        {"name": "Alarms.Snooze", "description": "Snooze one active alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Snooze"}
+        {"name": "Alarms.Snooze", "description": "Snooze one active alarm.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.Snooze"},
+        {"name": "Alarms.ScheduleBedtimeReminder", "description": "Schedule a recurring local bedtime reminder.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.ScheduleBedtimeReminder"},
+        {"name": "Alarms.CancelBedtimeReminder", "description": "Cancel the recurring local bedtime reminder.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.CancelBedtimeReminder"},
+        {"name": "Alarms.ForgetWidgetAlarm", "description": "Remove a deleted alarm from the widget state.", "android": "com.momotombo.plugins.nativephp_alarms.AlarmsFunctions.ForgetWidgetAlarm"}
     ],
     "android": {
         "init_function": "com.momotombo.plugins.nativephp_alarms.initializeAlarms",
@@ -86,6 +89,31 @@
                 "intent-filters": [
                     {
                         "action": "android.intent.action.BOOT_COMPLETED"
+                    },
+                    {
+                        "action": "android.intent.action.TIME_SET"
+                    },
+                    {
+                        "action": "android.intent.action.TIMEZONE_CHANGED"
+                    }
+                ]
+            },
+            {
+                "name": "com.momotombo.plugins.nativephp_alarms.BedtimeReminderReceiver",
+                "exported": false
+            },
+            {
+                "name": "com.momotombo.plugins.nativephp_alarms.AlarmWidgetProvider",
+                "exported": false,
+                "intent-filters": [
+                    {
+                        "action": "android.appwidget.action.APPWIDGET_UPDATE"
+                    }
+                ],
+                "meta_data": [
+                    {
+                        "name": "android.appwidget.provider",
+                        "resource": "@xml/alarm_widget_info"
                     }
                 ]
             }
@@ -97,7 +125,16 @@
     },
     "assets": {
         "android": {
-            "android/drawable/ic_stat_alarm.xml": "res/drawable/ic_stat_alarm.xml"
+            "android/drawable/ic_stat_alarm.xml": "res/drawable/ic_stat_alarm.xml",
+            "android/res/xml/alarm_widget_info.xml": "res/xml/alarm_widget_info.xml",
+            "android/res/layout/alarm_widget.xml": "res/layout/alarm_widget.xml",
+            "android/res/drawable/alarm_widget_background.xml": "res/drawable/alarm_widget_background.xml",
+            "android/res/drawable/alarm_widget_action_background.xml": "res/drawable/alarm_widget_action_background.xml",
+            "android/res/drawable/alarm_widget_icon_background.xml": "res/drawable/alarm_widget_icon_background.xml",
+            "android/res/values/strings.xml": "res/values/strings.xml",
+            "android/res/values/colors.xml": "res/values/colors.xml",
+            "android/res/values-night/colors.xml": "res/values-night/colors.xml",
+            "android/res/values-en/strings.xml": "res/values-en/strings.xml"
         }
     },
     "secrets": [],

@@ -6,7 +6,7 @@
 
 | Platform | Support | Notes |
 | --- | --- | --- |
-| Android | API 26+ | Full implementation: exact `AlarmManager` alarms, foreground playback, vibration, weekly repetition, boot rescheduling, notification permission, and snooze. |
+| Android | API 26+ | Full implementation: exact `AlarmManager` alarms, date-specific one-time schedules, foreground playback, vibration, weekly repetition, boot rescheduling, notification permission, and configurable snooze. |
 | iOS | Not implemented | The manifest retains `ios.min_version` because the NativePHP manifest validator requires it, but there are no iOS bridge functions or native sources. Treat the plugin as Android-only. |
 
 Android declares `SCHEDULE_EXACT_ALARM`, `USE_FULL_SCREEN_INTENT`, `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, `VIBRATE`, and foreground media-playback permissions. Exact-alarm and notification access remain user and OS decisions, so callers must check their status before relying on them.
@@ -37,6 +37,11 @@ $alarm = AlarmConfiguration::make('weekday-wake-up')
     ->launchPath('/wake-up')
     ->notification('Wake up', 'Your alarm is ringing.')
     ->occurrence('occurrence-123', '2026-09-03T06:30:00+00:00');
+
+$importantDay = AlarmConfiguration::make('important-day')
+    ->at('06:30')
+    ->onDate('2026-09-10')
+    ->snoozeEnabled(false);
 
 if (Alarm::canSchedule()) {
     Alarm::schedule($alarm);
@@ -73,7 +78,7 @@ The `occurrence()` values are supplied by the application domain. They make reco
 
 | Type | Public fields or methods | Contract |
 | --- | --- | --- |
-| `AlarmConfiguration` | `make`, `at`, `repeatOn`, `label`, `vibration`, `progressiveVolume`, `snooze`, `launchPath`, `notification`, `occurrence`, `toPayload`, `fromPayload` | Immutable alarm payload. `at()` requires `HH:MM`; weekdays must be unique `Weekday` enum cases; snooze is at least one minute; a launch path begins with `/`; occurrence ID and scheduled time cannot be blank. |
+| `AlarmConfiguration` | `make`, `at`, `repeatOn`, `onDate`, `label`, `vibration`, `progressiveVolume`, `snooze`, `snoozeEnabled`, `launchPath`, `notification`, `occurrence`, `toPayload`, `fromPayload` | Immutable alarm payload. `at()` requires `HH:MM`; weekdays must be unique `Weekday` enum cases; a one-time date uses `YYYY-MM-DD` and cannot be combined with weekly repetition; snooze is at least one minute and can be disabled; a launch path begins with `/`; occurrence ID and scheduled time cannot be blank. |
 | `AlarmCapabilities` | `exact`, `snooze`, `repeating`, `systemAlarmUi`, `volumeControl` | Read-only feature matrix. `volumeControl` is available through the opt-in progressive-volume ramp. |
 | `ActiveAlarmOccurrence` | `alarmId`, `occurrenceId`, `scheduledFor`, `fromPayload` | Returns `null` from `fromPayload()` unless all three values are present and non-empty. |
 | `AuthorizationStatus` | `NotDetermined`, `Authorized`, `Denied`, `Unsupported` | Exact-alarm and notification authorization values. |
@@ -88,6 +93,8 @@ The `occurrence()` values are supplied by the application domain. They make reco
 | `id` | string | Stable application alarm ID. |
 | `hour`, `minute` | integer | Local wall-clock time. |
 | `weekdays` | list of strings | Empty for one-shot; otherwise lowercase `Weekday` values. |
+| `alarm_date` | nullable string | Local calendar date for a date-specific one-time alarm (`YYYY-MM-DD`). Null keeps the existing next-occurrence behavior. |
+| `snooze_enabled` | boolean | Whether the native bridge accepts snoozing this alarm. |
 | `label` | nullable string | Human-readable fallback notification title. |
 | `vibration` | boolean | Whether playback should vibrate. |
 | `progressive_volume` | boolean | Whether Android ramps playback from 20% to 100% over 30 seconds without changing the device volume. |

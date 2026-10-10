@@ -12,7 +12,13 @@ final class AlarmExecutionLifecycle
 {
     public function scheduleFor(Alarm $alarm): AlarmSchedule
     {
-        $scheduledFor = $this->nextScheduledFor($alarm);
+        $scheduledFor = $alarm->alarm_date !== null
+            ? CarbonImmutable::parse($alarm->alarm_date->format('Y-m-d').' '.$alarm->time, $this->alarmTimezone())->utc()
+            : $this->nextScheduledFor($alarm);
+
+        if ($scheduledFor->isPast()) {
+            throw new \InvalidArgumentException('The alarm date and time must be in the future.');
+        }
         $executionId = (string) Str::uuid();
 
         AlarmExecution::query()->create([
@@ -28,7 +34,7 @@ final class AlarmExecutionLifecycle
             id: $alarm->id,
             time: $alarm->time,
             label: $alarm->label,
-            weekdays: $alarm->weekdays,
+            weekdays: $alarm->alarm_date !== null ? [] : $alarm->weekdays,
             vibration: $alarm->vibration,
             snoozeEnabled: $alarm->snooze_enabled,
             difficulty: $alarm->challengeDifficulty()->value,
@@ -37,6 +43,7 @@ final class AlarmExecutionLifecycle
             snoozeMinutes: $alarm->snoozeMinutes(),
             notificationTitle: filled($alarm->label) ? $alarm->label : __('app.alarm_notification_title'),
             notificationBody: __('app.alarm_notification_body'),
+            alarmDate: $alarm->alarm_date?->format('Y-m-d'),
         );
     }
 
@@ -134,11 +141,19 @@ final class AlarmExecutionLifecycle
 
         $execution->update(['scheduled_for' => $scheduledFor, ...$updates]);
 
+        if ($alarm->alarm_date !== null && $event->status === 'triggered') {
+            $alarm->update(['enabled' => false, 'scheduling_status' => 'not_scheduled']);
+        }
+
         return true;
     }
 
     public function nextScheduledFor(Alarm $alarm): CarbonImmutable
     {
+        if ($alarm->alarm_date !== null) {
+            return CarbonImmutable::parse($alarm->alarm_date->format('Y-m-d').' '.$alarm->time, $this->alarmTimezone())->utc();
+        }
+
         $candidate = CarbonImmutable::now($this->alarmTimezone())->setTimeFromTimeString($alarm->time)->startOfMinute();
 
         for ($daysAhead = 0; $daysAhead <= 7; $daysAhead++) {

@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Momotombo\NativePHPAlarms\Events\NotificationAuthorizationChanged;
 use Momotombo\NativePHPAlarms\Exceptions\AlarmException;
+use Momotombo\NativePHPAlarms\Facades\Alarm as NativeAlarm;
 use Native\Mobile\Attributes\Computed;
 use Native\Mobile\Attributes\On;
 use Native\Mobile\Edge\NativeComponent;
@@ -101,6 +102,12 @@ class Home extends NativeComponent
         }
 
         app(AlarmExecutionLifecycle::class)->cancelOpen($alarm);
+
+        try {
+            NativeAlarm::forgetWidgetAlarm($alarm->id);
+        } catch (AlarmException $exception) {
+            report($exception);
+        }
 
         $alarm->delete();
 

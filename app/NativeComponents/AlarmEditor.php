@@ -8,6 +8,7 @@ use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Challenges\ChallengeDifficulty;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Momotombo\NativePHPAlarms\Events\AppResumed;
@@ -37,6 +38,10 @@ class AlarmEditor extends NativeComponent
     public string $notificationPermissionRequestId = '';
 
     public string $time = '07:00';
+
+    public bool $specificDateEnabled = false;
+
+    public string $alarmDate = '';
 
     public string $label = '';
 
@@ -71,6 +76,7 @@ class AlarmEditor extends NativeComponent
         $preferences = app(AppPreferences::class);
         $preferences->applyLanguage();
         $this->difficultyDisplay = $this->localizedDifficulty($this->difficulty);
+        $this->alarmDate = CarbonImmutable::now(config('app.alarm_timezone'))->toDateString();
         $alarmId = (string) $this->param('alarm', '');
 
         if ($alarmId === '') {
@@ -82,6 +88,8 @@ class AlarmEditor extends NativeComponent
         $this->alarmId = $alarm->id;
         $this->isEditing = true;
         $this->time = $alarm->time;
+        $this->specificDateEnabled = $alarm->alarm_date !== null;
+        $this->alarmDate = $alarm->alarm_date?->format('Y-m-d') ?? $this->alarmDate;
         $this->label = $alarm->label;
         $this->monday = in_array(1, $alarm->weekdays, true);
         $this->tuesday = in_array(2, $alarm->weekdays, true);
@@ -103,9 +111,22 @@ class AlarmEditor extends NativeComponent
         $this->difficulty = $this->storedDifficulty($this->difficultyDisplay);
     }
 
+    public function updatedSpecificDateEnabled(): void
+    {
+        if (! $this->specificDateEnabled) {
+            $this->alarmDate = '';
+        }
+    }
+
     public function save(): void
     {
         if ($this->awaitingPermission) {
+            return;
+        }
+
+        if ($this->specificDateEnabled && ! $this->specificDateIsInFuture()) {
+            $this->showErrorToast(__('app.alarm_date_must_be_future'));
+
             return;
         }
 
@@ -116,7 +137,8 @@ class AlarmEditor extends NativeComponent
         $alarm->fill([
             'time' => $this->time,
             'label' => $this->label,
-            'weekdays' => $this->selectedWeekdays(),
+            'weekdays' => $this->specificDateEnabled ? [] : $this->selectedWeekdays(),
+            'alarm_date' => $this->specificDateEnabled ? $this->alarmDate : null,
             'vibration' => $this->vibration,
             'snooze_enabled' => $this->snoozeEnabled,
             'snooze_minutes' => $this->validSnoozeMinutes(),
@@ -206,6 +228,17 @@ class AlarmEditor extends NativeComponent
         $scheduler = app(NativeAlarmScheduler::class);
 
         try {
+            if ($this->specificDateEnabled && ! $this->specificDateIsInFuture()) {
+                if ($this->cancelExistingSchedule) {
+                    $scheduler->cancel($alarm->id);
+                    app(AlarmExecutionLifecycle::class)->cancelOpen($alarm);
+                }
+
+                $this->markExpiredOneTimeAlarm($alarm);
+
+                return;
+            }
+
             if (! $scheduler->canScheduleExactly()) {
                 $this->resumeAfterExactAlarmPermission = true;
                 $scheduler->requestExactAlarmPermission();
@@ -244,6 +277,14 @@ class AlarmEditor extends NativeComponent
             $this->showErrorToast($exception->getMessage() ?: __('app.scheduling_error'));
 
             return;
+        } catch (\InvalidArgumentException $exception) {
+            if (! $this->specificDateEnabled) {
+                throw $exception;
+            }
+
+            $this->markExpiredOneTimeAlarm($alarm);
+
+            return;
         }
 
         $this->cancelExistingSchedule = false;
@@ -263,6 +304,29 @@ class AlarmEditor extends NativeComponent
             ->animation('snap')
             ->duration(4000)
             ->show();
+    }
+
+    private function specificDateIsInFuture(): bool
+    {
+        try {
+            $scheduledAt = CarbonImmutable::createFromFormat('!Y-m-d H:i', $this->alarmDate.' '.$this->time, config('app.alarm_timezone'));
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $scheduledAt !== null
+            && $scheduledAt->format('Y-m-d H:i') === $this->alarmDate.' '.$this->time
+            && $scheduledAt->greaterThan(CarbonImmutable::now(config('app.alarm_timezone')));
+    }
+
+    private function markExpiredOneTimeAlarm(Alarm $alarm): void
+    {
+        $alarm->update(['enabled' => false, 'scheduling_status' => 'not_scheduled']);
+        $this->enabled = false;
+        $this->awaitingPermission = false;
+        $this->notificationPermissionRequestId = '';
+        $this->cancelExistingSchedule = false;
+        $this->showErrorToast(__('app.alarm_date_must_be_future'));
     }
 
     /** @return list<int> */

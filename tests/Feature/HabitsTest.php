@@ -5,6 +5,7 @@ use App\Application\AlarmScheduling\NativeAlarmGateway;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use App\Models\AlarmExecution;
+use App\NativeComponents\Habits;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Native\Mobile\Testing\Native;
@@ -102,4 +103,22 @@ it('uses English habit labels when English is selected', function () {
     Native::visit('/settings/habits')
         ->assertSee('Habits')
         ->assertSee('No habits to show yet');
+});
+
+it('persists a valid weekly goal and renders the localized weekly summary', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
+    AlarmExecution::factory()->create([
+        'status' => 'completed',
+        'scheduled_for' => CarbonImmutable::parse('2026-09-02 07:00:00', 'America/Managua')->utc(),
+        'finished_at' => CarbonImmutable::parse('2026-09-02 07:05:00', 'America/Managua')->utc(),
+    ]);
+
+    Native::test(Habits::class)
+        ->call('selectWeeklyGoal', '6')
+        ->assertSet('weeklyGoalSelection', '6')
+        ->assertSee('Meta semanal')
+        ->assertSee('Esta semana')
+        ->assertSee('1 de 6 mañanas a tiempo esta semana');
+
+    expect(app(AppPreferences::class)->weeklyGoal())->toBe(6);
 });

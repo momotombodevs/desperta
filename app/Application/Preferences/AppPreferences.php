@@ -17,6 +17,8 @@ class AppPreferences
 
     private const string ChallengeOrderKeyPrefix = 'challenge_order_';
 
+    private const string WeeklyGoalKey = 'weekly_goal';
+
     /** @var list<string> */
     private const array Appearances = ['system', 'light', 'dark'];
 
@@ -41,6 +43,25 @@ class AppPreferences
     public function challengeTheme(): string
     {
         return $this->value(self::ChallengeThemeKey, 'nicaragua');
+    }
+
+    public function weeklyGoal(): int
+    {
+        $goal = filter_var($this->value(self::WeeklyGoalKey, '4'), FILTER_VALIDATE_INT);
+
+        return is_int($goal) && $goal >= 1 && $goal <= 7 ? $goal : 4;
+    }
+
+    public function setWeeklyGoal(int $goal): void
+    {
+        if ($goal < 1 || $goal > 7) {
+            throw new InvalidArgumentException('Weekly goal must be between 1 and 7.');
+        }
+
+        AppPreference::query()->updateOrCreate(
+            ['key' => self::WeeklyGoalKey],
+            ['value' => (string) $goal],
+        );
     }
 
     public function setAppearance(string $appearance): void

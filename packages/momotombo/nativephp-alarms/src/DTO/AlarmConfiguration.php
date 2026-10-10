@@ -28,6 +28,8 @@ final readonly class AlarmConfiguration
         public ?string $notificationBody = null,
         public ?string $occurrenceId = null,
         public ?string $scheduledFor = null,
+        public ?string $alarmDate = null,
+        public bool $snoozeEnabled = true,
     ) {
         if (trim($id) === '') {
             throw new InvalidAlarmConfiguration('An alarm id is required.');
@@ -43,6 +45,15 @@ final readonly class AlarmConfiguration
 
         if ($snoozeMinutes !== null && $snoozeMinutes < 1) {
             throw new InvalidAlarmConfiguration('Snooze duration must be at least one minute.');
+        }
+
+        if ($alarmDate !== null) {
+            $parsedDate = \DateTimeImmutable::createFromFormat('!Y-m-d', $alarmDate);
+            $dateErrors = \DateTimeImmutable::getLastErrors();
+
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $alarmDate) !== 1 || ! $parsedDate || $parsedDate->format('Y-m-d') !== $alarmDate || ($dateErrors !== false && ($dateErrors['warning_count'] > 0 || $dateErrors['error_count'] > 0)) || $weekdays !== []) {
+                throw new InvalidAlarmConfiguration('Alarm date must be a valid YYYY-MM-DD date without weekly repetition.');
+            }
         }
 
         foreach ($weekdays as $weekday) {
@@ -84,6 +95,18 @@ final readonly class AlarmConfiguration
     public function repeatOn(array $weekdays): self
     {
         return $this->with(weekdays: $weekdays);
+    }
+
+    /** Set a one-time local calendar date. Repeating weekdays must remain empty. */
+    public function onDate(?string $date): self
+    {
+        return self::fromPayload(array_replace($this->toPayload(), ['alarm_date' => $date]));
+    }
+
+    /** Explicitly allow or prevent snoozing for this alarm. */
+    public function snoozeEnabled(bool $enabled): self
+    {
+        return $this->with(snoozeEnabled: $enabled);
     }
 
     /** Set the human-readable fallback title for a ringing notification. */
@@ -144,7 +167,7 @@ final readonly class AlarmConfiguration
     /**
      * Serialize this configuration into the stable Android bridge payload.
      *
-     * @return array{id: string, hour: int, minute: int, weekdays: list<string>, label: ?string, vibration: bool, progressive_volume: bool, snooze_minutes: ?int, launch_path: ?string, notification_title: ?string, notification_body: ?string, occurrence_id: ?string, scheduled_for: ?string}
+     * @return array{id: string, hour: int, minute: int, weekdays: list<string>, label: ?string, vibration: bool, progressive_volume: bool, snooze_minutes: ?int, launch_path: ?string, notification_title: ?string, notification_body: ?string, occurrence_id: ?string, scheduled_for: ?string, alarm_date: ?string, snooze_enabled: bool}
      */
     public function toPayload(): array
     {
@@ -162,6 +185,8 @@ final readonly class AlarmConfiguration
             'notification_body' => $this->notificationBody,
             'occurrence_id' => $this->occurrenceId,
             'scheduled_for' => $this->scheduledFor,
+            'alarm_date' => $this->alarmDate,
+            'snooze_enabled' => $this->snoozeEnabled,
         ];
     }
 
@@ -189,6 +214,8 @@ final readonly class AlarmConfiguration
             notificationBody: isset($payload['notification_body']) ? (string) $payload['notification_body'] : null,
             occurrenceId: isset($payload['occurrence_id']) ? (string) $payload['occurrence_id'] : null,
             scheduledFor: isset($payload['scheduled_for']) ? (string) $payload['scheduled_for'] : null,
+            alarmDate: isset($payload['alarm_date']) ? (string) $payload['alarm_date'] : null,
+            snoozeEnabled: (bool) ($payload['snooze_enabled'] ?? true),
         );
     }
 
@@ -206,6 +233,8 @@ final readonly class AlarmConfiguration
         ?string $notificationBody = null,
         ?string $occurrenceId = null,
         ?string $scheduledFor = null,
+        ?string $alarmDate = null,
+        ?bool $snoozeEnabled = null,
     ): self {
         return new self(
             id: $this->id,
@@ -221,6 +250,8 @@ final readonly class AlarmConfiguration
             notificationBody: $notificationBody ?? $this->notificationBody,
             occurrenceId: $occurrenceId ?? $this->occurrenceId,
             scheduledFor: $scheduledFor ?? $this->scheduledFor,
+            alarmDate: $alarmDate ?? $this->alarmDate,
+            snoozeEnabled: $snoozeEnabled ?? $this->snoozeEnabled,
         );
     }
 }

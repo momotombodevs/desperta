@@ -3,13 +3,13 @@
 <native:top-bar :title="__('app.settings')" show-navigation-icon />
 
 <native:scroll-view class="w-full h-full bg-theme-background">
-    <native:column class="w-full gap-4 p-6">
+    <native:column class="w-full gap-4 p-5">
         <native:row class="w-full justify-center">
             <native:svg :src="public_path('images/brand/desperta-mark.svg')" :width="92" :height="92" :fit="1"
                         :alt="__('app.app_name')"/>
         </native:row>
 
-        <native:pressable ref="open-habits" class="w-full rounded-xl border border-theme-outline bg-theme-surface-variant p-4"
+        <native:pressable ref="open-habits" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
                           @navigate="'/settings/habits'" :a11y-label="__('app.habits')">
             <native:row class="w-full items-center gap-3">
                 <native:icon :android="Android::BarChart" class="text-theme-primary" size="24"/>
@@ -20,12 +20,34 @@
             </native:row>
         </native:pressable>
 
-        <native:pressable ref="open-history" class="w-full rounded-xl border border-theme-outline bg-theme-surface-variant p-4"
+        <native:pressable ref="open-history" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
                           @navigate="'/settings/history'" :a11y-label="__('app.view_history')">
             <native:row class="w-full items-center gap-3">
                 <native:icon :android="Android::History" class="text-theme-primary" size="24"/>
                 <native:column class="flex-1 gap-1">
                     <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.alarm_history') }}</native:text>
+                </native:column>
+                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
+            </native:row>
+        </native:pressable>
+
+        <native:pressable ref="open-bedtime-reminder" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
+                          @navigate="'/settings/bedtime-reminder'" :a11y-label="__('app.bedtime_reminder')">
+            <native:row class="w-full items-center gap-3">
+                <native:icon :android="Android::Bedtime" class="text-theme-primary" size="24"/>
+                <native:column class="flex-1 gap-1">
+                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.bedtime_reminder') }}</native:text>
+                </native:column>
+                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
+            </native:row>
+        </native:pressable>
+
+        <native:pressable ref="open-morning-routine" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
+                          @navigate="'/settings/routine'" :a11y-label="__('app.morning_routine')">
+            <native:row class="w-full items-center gap-3">
+                <native:icon :android="Android::Checklist" class="text-theme-primary" size="24"/>
+                <native:column class="flex-1 gap-1">
+                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.morning_routine') }}</native:text>
                 </native:column>
                 <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
             </native:row>

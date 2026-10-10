@@ -13,7 +13,10 @@
     "repositories": [
         {
             "type": "path",
-            "url": "packages/momotombo/nativephp-alarms"
+            "url": "packages/momotombo/nativephp-alarms",
+            "options": {
+                "symlink": false
+            }
         },
         {
             "name": "nativephp-plugins",
@@ -51,7 +54,10 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        }
+        },
+        "classmap": [
+            "packages/momotombo/nativephp-alarms/src/"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

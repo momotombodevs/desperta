@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_brand">Despertá</string>
+    <string name="widget_next_alarm">Next alarm</string>
+    <string name="widget_paused">Alarm paused</string>
+    <string name="widget_empty">No alarm</string>
+    <string name="widget_empty_body">Open Despertá to create one</string>
+    <string name="widget_open">Open</string>
+    <string name="widget_toggle">Enable or pause</string>
+    <string name="widget_pause">Pause alarm</string>
+    <string name="widget_enable">Enable alarm</string>
+</resources>

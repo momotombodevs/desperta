@@ -20,6 +20,17 @@ it('records the scheduled native occurrence before it reaches the device', funct
         ->and(AlarmExecution::query()->whereKey($schedule->executionId)->value('status'))->toBe('scheduled');
 });
 
+it('preserves a selected date for one-time alarm scheduling', function () {
+    $this->travelTo('2026-09-03 06:00:00');
+    $alarm = Alarm::factory()->create(['time' => '07:15', 'weekdays' => [], 'alarm_date' => '2026-09-05']);
+
+    $schedule = app(AlarmExecutionLifecycle::class)->scheduleFor($alarm);
+
+    expect($schedule->alarmDate)->toBe('2026-09-05')
+        ->and($schedule->weekdays)->toBe([])
+        ->and($schedule->scheduledFor)->toBe('2026-09-05T13:15:00+00:00');
+});
+
 it('marks an older open execution as missed when the next one begins', function () {
     $alarm = Alarm::factory()->create();
     $missed = AlarmExecution::factory()->for($alarm)->create(['status' => 'snoozed', 'finished_at' => null]);

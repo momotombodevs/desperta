@@ -18,5 +18,6 @@ final readonly class AlarmSchedule
         public int $snoozeMinutes = 5,
         public string $notificationTitle = '',
         public string $notificationBody = '',
+        public ?string $alarmDate = null,
     ) {}
 }
