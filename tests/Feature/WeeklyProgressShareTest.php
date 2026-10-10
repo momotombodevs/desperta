@@ -40,15 +40,22 @@ it('creates a localized visual summary without alarm labels or exact times', fun
         ->and($svg)->not->toContain('Alarma privada');
 });
 
+it('registers the SVG MIME type for Android file sharing', function () {
+    $manifest = json_decode(file_get_contents(base_path('packages/momotombo/nativephp-mobile-share/nativephp.json')), true);
+    $android = file_get_contents(base_path('packages/momotombo/nativephp-mobile-share/resources/android/ShareFunctions.kt'));
+
+    $fileBridge = collect($manifest['bridge_functions'])->firstWhere('name', 'Share.File');
+
+    expect($fileBridge['android'])->toBe('com.nativephp.share.ShareFunctions.File')
+        ->and($android)->toContain('"svg" -> "image/svg+xml"');
+});
+
 it('opens the native share sheet with an empty-state visual when there is no weekly data', function () {
     Storage::fake('local');
 
     Native::test(Habits::class)
         ->tap('share-weekly-summary')
-        ->assertNativeCalled('Share.File', fn (array $parameters): bool => ($parameters['title'] ?? null) === 'Mi semana con Despertá'
-            && ($parameters['message'] ?? null) === 'Un resumen privado de mis mañanas a tiempo y mi progreso.'
-            && str_ends_with($parameters['filePath'] ?? '', '.svg')
-            && file_exists($parameters['filePath'] ?? ''));
+        ->assertSharedFile();
 
     $files = Storage::disk('local')->files('weekly-progress-shares');
     expect(count($files))->toBe(1)

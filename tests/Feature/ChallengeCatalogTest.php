@@ -50,6 +50,35 @@ it('keeps localized question identifiers aligned across Spanish and English', fu
     expect(array_column($spanish, 'id'))->toBe(array_column($english, 'id'));
 });
 
+it('uses the INETER volcanic-chain count in the Nicaragua package in both locales', function () {
+    $spanish = collect(trans('challenges.nicaragua.questions', [], 'es_NI'))
+        ->firstWhere('id', 'volcanoes');
+    $english = collect(trans('challenges.nicaragua.questions', [], 'en'))
+        ->firstWhere('id', 'volcanoes');
+
+    expect($spanish['question'])->toContain('INETER')
+        ->and($spanish['answer'])->toBe('18')
+        ->and($spanish['options'])->toContain($spanish['answer'])
+        ->and($english['question'])->toContain('INETER')
+        ->and($english['answer'])->toBe('18')
+        ->and($english['options'])->toContain($english['answer']);
+});
+
+it('keeps every localized package question unique and its answer selectable', function () {
+    foreach (['nicaragua', 'math', 'general_knowledge'] as $theme) {
+        foreach (['es_NI', 'en'] as $locale) {
+            $questions = trans("challenges.{$theme}.questions", [], $locale);
+            $ids = array_column($questions, 'id');
+
+            expect(array_unique($ids))->toHaveCount(count($ids));
+
+            foreach ($questions as $question) {
+                expect($question['options'])->toContain($question['answer']);
+            }
+        }
+    }
+});
+
 it('builds valid memory, sequence, and mental math questions at each difficulty', function () {
     $catalog = new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937(29)));
 

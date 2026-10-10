@@ -47,6 +47,8 @@ it('maps an application alarm schedule to the plugin configuration', function ()
         'notification_body' => 'Es hora de despertar.',
         'occurrence_id' => '018f0b8d-1d3e-7f14-8caa-111111111111',
         'scheduled_for' => '2026-09-03T06:30:00+00:00',
+        'alarm_date' => null,
+        'snooze_enabled' => true,
     ]);
 });
 

@@ -19,6 +19,13 @@
             }
         },
         {
+            "type": "path",
+            "url": "packages/momotombo/nativephp-mobile-share",
+            "options": {
+                "symlink": false
+            }
+        },
+        {
             "name": "nativephp-plugins",
             "type": "composer",
             "url": "https://plugins.nativephp.com"
@@ -33,6 +40,7 @@
         "momotombo/nativephp-appearance": "^1.0",
         "nativephp/mobile": "^4.0",
         "nativephp/mobile-browser": "^1.0",
+        "nativephp/mobile-share": "^1.1",
         "nativephp/mobile-ui": "^0.3",
         "unloc/nativephp-enhanced-splash": "^1.0",
         "unloc/nativephp-svg-component": "^1.1",

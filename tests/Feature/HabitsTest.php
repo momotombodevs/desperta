@@ -33,7 +33,12 @@ it('renders punctuality metrics for terminal executions in the selected period',
 
     Native::visit('/settings/habits')
         ->assertSee('50%')
-        ->assertSee('1 de 2 despertares a tiempo')
+        ->assertSee('A tiempo · 7 días: 1/2')
+        ->assertDontSee('La racha suma días seguidos')
+        ->assertDontSee('Una alarma cuenta a tiempo')
+        ->assertDontSee('Cada día cuenta una vez')
+        ->assertDontSee('Los gráficos muestran')
+        ->assertDontSee('Estás atendiendo tus alarmas a tiempo')
         ->assertSee('Mejor racha')
         ->assertSee('Sin posponer')
         ->assertSee('ÚLTIMOS 7 DÍAS')
@@ -78,7 +83,7 @@ it('reconciles a completed native wake-up before rendering its habits', function
     app()->instance(NativeAlarmGateway::class, $gateway);
 
     Native::visit('/settings/habits')
-        ->assertSee('1 de 1 despertares a tiempo')
+        ->assertSee('A tiempo · 7 días: 1/1')
         ->assertDontSee('Todavía no hay hábitos que mostrar');
 
     $this->assertDatabaseHas('alarm_executions', [
@@ -105,6 +110,58 @@ it('uses English habit labels when English is selected', function () {
         ->assertSee('No habits to show yet');
 });
 
+it('applies the saved Spanish locale when habits are opened with the default app locale', function () {
+    app(AppPreferences::class)->setLanguage('es_NI');
+    app()->setLocale('en');
+
+    Native::visit('/settings/habits')
+        ->assertSee('Hábitos')
+        ->assertSee('Todavía no hay hábitos que mostrar')
+        ->assertDontSee('Habits')
+        ->assertDontSee('No habits to show yet');
+});
+
+it('keeps habit metrics concise in English when there is activity', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
+    app(AppPreferences::class)->setLanguage('en');
+    AlarmExecution::factory()->create([
+        'status' => 'completed',
+        'scheduled_for' => CarbonImmutable::parse('2026-09-02 07:00:00', 'America/Managua')->utc(),
+        'finished_at' => CarbonImmutable::parse('2026-09-02 07:05:00', 'America/Managua')->utc(),
+    ]);
+
+    Native::visit('/settings/habits')
+        ->assertSee('On time · 7 days: 1/1')
+        ->assertDontSee('A streak counts consecutive days')
+        ->assertDontSee('An alarm counts as on time')
+        ->assertDontSee('Percentage of completed alarms with no snoozes');
+});
+
+it('renders localized weekday labels and singular streaks in Spanish', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-04 18:00:00', 'UTC'));
+    AlarmExecution::factory()->create([
+        'status' => 'completed',
+        'scheduled_for' => CarbonImmutable::parse('2026-09-04 07:00:00', 'America/Managua')->utc(),
+        'finished_at' => CarbonImmutable::parse('2026-09-04 07:05:00', 'America/Managua')->utc(),
+    ]);
+
+    Native::visit('/settings/habits')
+        ->assertSee('1 día')
+        ->assertDontSee('1 días')
+        ->assertSee('Sá')
+        ->assertSee('Do')
+        ->assertSee('Lu')
+        ->assertSee('Ma')
+        ->assertSee('Mi')
+        ->assertSee('Ju')
+        ->assertSee('Vi')
+        ->assertElement('bar_chart', function (array $node): bool {
+            $series = json_decode($node['props']['series_json'] ?? '[]', true);
+
+            return array_column($series[0]['points'], 'label') === ['Sá', 'Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi'];
+        });
+});
+
 it('persists a valid weekly goal and renders the localized weekly summary', function () {
     $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
     AlarmExecution::factory()->create([
@@ -114,6 +171,9 @@ it('persists a valid weekly goal and renders the localized weekly summary', func
     ]);
 
     Native::test(Habits::class)
+        ->call('selectWeeklyGoal', '1')
+        ->assertSet('weeklyGoalSelection', '1')
+        ->assertSee('1 día')
         ->call('selectWeeklyGoal', '6')
         ->assertSet('weeklyGoalSelection', '6')
         ->assertSee('Meta semanal')
@@ -121,4 +181,24 @@ it('persists a valid weekly goal and renders the localized weekly summary', func
         ->assertSee('1 de 6 mañanas a tiempo esta semana');
 
     expect(app(AppPreferences::class)->weeklyGoal())->toBe(6);
+});
+
+it('labels the historical hardest weekday as a recent-weeks result in both languages', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
+
+    foreach (['2026-08-17', '2026-08-24'] as $date) {
+        AlarmExecution::factory()->create([
+            'status' => 'missed',
+            'scheduled_for' => CarbonImmutable::parse("{$date} 07:00:00", 'America/Managua')->utc(),
+        ]);
+    }
+
+    app()->setLocale('en');
+    app(AppPreferences::class)->setLanguage('es_NI');
+    Native::visit('/settings/habits')
+        ->assertSee('Día más difícil en las últimas semanas: Lunes');
+
+    app(AppPreferences::class)->setLanguage('en');
+    Native::visit('/settings/habits')
+        ->assertSee('Most difficult day in recent weeks: Monday');
 });

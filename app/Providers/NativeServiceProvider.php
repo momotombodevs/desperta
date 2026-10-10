@@ -7,6 +7,7 @@ use Illuminate\Support\ServiceProvider;
 use Momotombo\NativePHPAlarms\AlarmServiceProvider;
 use Momotombo\NativephpAppearance\AppearanceServiceProvider;
 use Native\Mobile\Providers\BrowserServiceProvider;
+use Native\Mobile\Providers\ShareServiceProvider;
 use Native\Mobile\UI\NativeUIServiceProvider;
 use Unloc\NativephpEnhancedSplash\NativephpEnhancedSplashServiceProvider;
 use Unloc\NativephpSvgComponent\SvgServiceProvider;
@@ -50,6 +51,7 @@ class NativeServiceProvider extends ServiceProvider
             NativePHPChartsServiceProvider::class,
             SvgServiceProvider::class,
             NativephpEnhancedSplashServiceProvider::class,
+            ShareServiceProvider::class,
 
         ];
     }

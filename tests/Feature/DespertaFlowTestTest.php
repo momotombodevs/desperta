@@ -2,17 +2,23 @@
 
 use App\AlarmScheduling\ActiveAlarmOccurrence;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
+use App\Application\Challenges\ChallengeCatalog;
+use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use App\Models\AlarmExecution;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Momotombo\NativePHPAlarms\Events\NotificationAuthorizationChanged;
 use Native\Mobile\Testing\Native;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 
 use function Pest\Laravel\mock;
 
 uses(LazilyRefreshDatabase::class);
 
 it('opens the challenge directly for a ringing alarm', function () {
+    app()->instance(ChallengeCatalog::class, new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937(2))));
+
     Native::visit('/')
         ->assertDontSee('Tus alarmas')
         ->assertDontSee('Aún no tenés alarmas creadas.')

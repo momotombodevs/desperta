@@ -3,6 +3,14 @@
 <native:top-bar :title="__('app.challenge')" :subtitle="__('app.challenge_subtitle', ['required' => $requiredCorrectAnswers, 'total' => count($questions)])" display-mode="inline"/>
 
 <native:column ref="challenge-screen" class="w-full h-full gap-4 bg-theme-background p-5">
+    @if (! $unavailable)
+        @php($challengeTypeName = __('challenges.types.'.$challengeType.'.name'))
+        <native:text class="text-sm text-theme-on-surface-variant">
+            {{ $challengeType === 'trivia'
+                ? __('app.challenge_type_with_topic', ['type' => $challengeTypeName, 'topic' => __('challenges.'.$challengeTheme.'.name')])
+                : __('app.challenge_type_label', ['type' => $challengeTypeName]) }}
+        </native:text>
+    @endif
     @if ($unavailable)
         <native:activity-indicator />
     @elseif (! $completed)

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "74561694ef6aee80cbeceb66c82a7883",
+    "content-hash": "02e65b46c025d4b512c9f7f6d286ac06",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2685,6 +2685,43 @@
                 "source": "https://github.com/NativePHP/mobile-browser/tree/1.0.2"
             },
             "time": "2026-07-17T01:37:54+00:00"
+        },
+        {
+            "name": "nativephp/mobile-share",
+            "version": "1.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/momotombo/nativephp-mobile-share",
+                "reference": "5e3d894fd1d4d552fe849cc3c50281cef6be535f"
+            },
+            "require": {
+                "nativephp/mobile": "^3.0 || ^4.0",
+                "php": "^8.2"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Native\\Mobile\\Providers\\ShareServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Native\\Mobile\\Providers\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Native share sheet plugin for NativePHP Mobile with SVG MIME support",
+            "transport-options": {
+                "symlink": false,
+                "relative": true
+            }
         },
         {
             "name": "nativephp/mobile-ui",

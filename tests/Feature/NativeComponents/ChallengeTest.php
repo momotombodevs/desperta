@@ -83,6 +83,18 @@ it('starts the scheduled execution passed through the native challenge route', f
     ]);
 });
 
+it('labels the generated challenge type separately from its trivia topic', function () {
+    $alarm = Alarm::factory()->create();
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
+        ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+
+    $challenge = Native::test(Challenge::class, data: ['alarmId' => $alarm->id])
+        ->set('challengeType', 'mental_math');
+
+    $challenge->assertSee('Reto: Cálculo mental')
+        ->assertDontSee('Cálculo mental · Nicaragua');
+});
+
 it('completes a repeating alarm without cancelling its future schedule', function () {
     $alarm = Alarm::factory()->create([
         'weekdays' => [1, 3, 5],
