@@ -509,9 +509,12 @@ object AlarmsFunctions {
     internal fun navigationIntent(context: Context, alarm: AlarmPayload): Intent? = alarm.launchPath()
         ?.let { path ->
             Intent(context, MainActivity::class.java)
+                .setData(nativeRouteUri(path))
                 .putExtra("notification_url", path)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
+
+    internal fun nativeRouteUri(path: String): Uri = Uri.parse("nativephp-widget://${path.trimStart('/')}")
 
     internal fun fullScreenIntent(context: Context, alarmId: String): PendingIntent = PendingIntent.getActivity(
         context,
@@ -604,6 +607,8 @@ class AlarmWidgetProvider : AppWidgetProvider() {
         appWidgetIds.forEach { widgetId ->
             val views = RemoteViews(context.packageName, context.resources.getIdentifier("alarm_widget", "layout", context.packageName))
             if (next == null) {
+                val headingKey = if (pausedSelection == null) "widget_brand" else "widget_paused"
+                views.setTextViewText(context.resources.getIdentifier("alarm_widget_heading", "id", context.packageName), widgetCopy(context, headingKey))
                 views.setTextViewText(context.resources.getIdentifier("alarm_widget_time", "id", context.packageName), widgetCopy(context, "widget_empty"))
                 views.setTextViewText(context.resources.getIdentifier("alarm_widget_label", "id", context.packageName), pausedSelection?.alarm?.let { it.values["label"] as? String } ?: widgetCopy(context, "widget_empty_body"))
                 val actionKey = if (pausedSelection == null) "widget_open" else "widget_enable"
@@ -612,9 +617,16 @@ class AlarmWidgetProvider : AppWidgetProvider() {
                 views.setContentDescription(actionId, widgetCopy(context, actionKey))
                 val launch = Intent(context, MainActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    .apply { pausedSelection?.let { putExtra("notification_url", "/quick-actions/alarms/${it.alarm.id}/toggle") } }
+                    .apply {
+                        pausedSelection?.let {
+                            val path = "/quick-actions/alarms/${it.alarm.id}/toggle"
+                            data = AlarmsFunctions.nativeRouteUri(path)
+                            putExtra("notification_url", path)
+                        }
+                    }
                 views.setOnClickPendingIntent(actionId, PendingIntent.getActivity(context, widgetId, launch, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             } else {
+                views.setTextViewText(context.resources.getIdentifier("alarm_widget_heading", "id", context.packageName), widgetCopy(context, "widget_next_alarm"))
                 val time = android.text.format.DateFormat.getTimeFormat(context).format(Calendar.getInstance().apply {
                     set(Calendar.HOUR_OF_DAY, next.hour)
                     set(Calendar.MINUTE, next.minute)
@@ -629,6 +641,7 @@ class AlarmWidgetProvider : AppWidgetProvider() {
                 val path = "/quick-actions/alarms/${next.id}/toggle"
                 val action = Intent(context, MainActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .setData(AlarmsFunctions.nativeRouteUri(path))
                     .putExtra("notification_url", path)
                 views.setOnClickPendingIntent(context.resources.getIdentifier("alarm_widget_action", "id", context.packageName), PendingIntent.getActivity(context, widgetId, action, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             }

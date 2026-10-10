@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="alarm_widget_background">#FFF7ED</color>
-    <color name="alarm_widget_foreground">#43302A</color>
+    <color name="alarm_widget_foreground">#0F172A</color>
+    <color name="alarm_widget_supporting">#64748B</color>
+    <color name="alarm_widget_accent">#C2410C</color>
+    <color name="alarm_widget_icon_background">#FFEDD5</color>
+    <color name="alarm_widget_outline">#FED7AA</color>
+    <color name="alarm_widget_action">#1D4ED8</color>
+    <color name="alarm_widget_action_foreground">#FFFFFF</color>
 </resources>

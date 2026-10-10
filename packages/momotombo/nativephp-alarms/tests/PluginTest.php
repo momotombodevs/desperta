@@ -229,9 +229,19 @@ describe('Native Code', function () {
             ->and($kotlin)->toContain('.setFullScreenIntent(AlarmsFunctions.fullScreenIntent(this, alarm.id), true)')
             ->and($kotlin)->toContain('fun launchPath(): String?')
             ->and($kotlin)->toContain('putExtra("notification_url", path)')
+            ->and($kotlin)->toContain('.setData(nativeRouteUri(path))')
             ->and($kotlin)->toContain('if (! context.getSystemService(KeyguardManager::class.java).isKeyguardLocked)')
             ->and($kotlin)->toContain('AlarmsFunctions.navigationIntent(context, alarm)')
             ->and($kotlin)->not->toContain('/challenge/$id');
+    });
+
+    it('uses an Intent data URI for warm widget routes to avoid a second WebView navigation', function () {
+        $kotlin = file_get_contents($this->pluginPath.'/resources/android/AlarmsFunctions.kt');
+
+        expect($kotlin)->toContain('fun nativeRouteUri(path: String): Uri = Uri.parse("nativephp-widget://${path.trimStart(\'/\')}")')
+            ->and($kotlin)->toContain('data = AlarmsFunctions.nativeRouteUri(path)')
+            ->and($kotlin)->toContain('.setData(AlarmsFunctions.nativeRouteUri(path))')
+            ->and($kotlin)->toContain('putExtra("notification_url", path)');
     });
 
     it('creates a new neutral occurrence for repeating alarms', function () {
@@ -313,11 +323,20 @@ describe('Native Code', function () {
         $layout = file_get_contents($this->pluginPath.'/resources/android/res/layout/alarm_widget.xml');
         $dayColors = file_get_contents($this->pluginPath.'/resources/android/res/values/colors.xml');
         $nightColors = file_get_contents($this->pluginPath.'/resources/android/res/values-night/colors.xml');
+        $background = file_get_contents($this->pluginPath.'/resources/android/res/drawable/alarm_widget_background.xml');
+        $actionBackground = file_get_contents($this->pluginPath.'/resources/android/res/drawable/alarm_widget_action_background.xml');
+        $manifest = json_decode(file_get_contents($this->manifestPath), true);
 
-        expect($layout)->toContain('@color/alarm_widget_background', '@color/alarm_widget_foreground')
-            ->and($layout)->not->toContain('#FFF7ED', '#43302A')
-            ->and($dayColors)->toContain('alarm_widget_background', 'alarm_widget_foreground')
-            ->and($nightColors)->toContain('alarm_widget_background', 'alarm_widget_foreground');
+        expect($layout)->toContain('@color/alarm_widget_foreground')
+            ->and($layout)->toContain('@drawable/alarm_widget_background', '@drawable/alarm_widget_action_background')
+            ->and($layout)->toContain('<TextView', 'android:fontFamily="sans-serif-medium"')
+            ->and($layout)->not->toContain('<Button')
+            ->and($background)->toContain('@color/alarm_widget_outline', '24dp')
+            ->and($actionBackground)->toContain('@color/alarm_widget_action', '20dp')
+            ->and($dayColors)->toContain('alarm_widget_background', 'alarm_widget_foreground', '#1D4ED8')
+            ->and($nightColors)->toContain('alarm_widget_background', 'alarm_widget_foreground', '#2563EB')
+            ->and($manifest['assets']['android'])->toHaveKey('android/res/drawable/alarm_widget_background.xml')
+            ->and($manifest['assets']['android'])->toHaveKey('android/res/drawable/alarm_widget_action_background.xml');
     });
 });
 
