@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9769ba53f1f4c55acbd2a0523e065e9a",
+    "content-hash": "74561694ef6aee80cbeceb66c82a7883",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2366,7 +2366,8 @@
             ],
             "description": "Cross-platform native alarm contract for NativePHP Mobile.",
             "transport-options": {
-                "relative": true
+                "relative": true,
+                "symlink": false
             }
         },
         {
