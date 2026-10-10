@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d9c2b75f48b20d20a037b41b75c55f10",
+    "content-hash": "02e65b46c025d4b512c9f7f6d286ac06",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2689,24 +2689,14 @@
         {
             "name": "nativephp/mobile-share",
             "version": "1.1.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/NativePHP/mobile-share.git",
-                "reference": "217a556ee7863010187a527752b8cef46057f2f5"
-            },
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/NativePHP/mobile-share/zipball/217a556ee7863010187a527752b8cef46057f2f5",
-                "reference": "217a556ee7863010187a527752b8cef46057f2f5",
-                "shasum": ""
+                "type": "path",
+                "url": "packages/momotombo/nativephp-mobile-share",
+                "reference": "5e3d894fd1d4d552fe849cc3c50281cef6be535f"
             },
             "require": {
                 "nativephp/mobile": "^3.0 || ^4.0",
                 "php": "^8.2"
-            },
-            "require-dev": {
-                "orchestra/testbench": "^10.0",
-                "pestphp/pest": "^2.7|^3.0|^4.0"
             },
             "type": "nativephp-plugin",
             "extra": {
@@ -2724,22 +2714,14 @@
                     "Native\\Mobile\\Providers\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
-            "authors": [
-                {
-                    "name": "NativePHP",
-                    "email": "support@nativephp.com"
-                }
-            ],
-            "description": "Native share sheet plugin for NativePHP Mobile",
-            "support": {
-                "issues": "https://github.com/NativePHP/mobile-share/issues",
-                "source": "https://github.com/NativePHP/mobile-share/tree/1.1.0"
-            },
-            "time": "2026-09-03T18:26:20+00:00"
+            "description": "Native share sheet plugin for NativePHP Mobile with SVG MIME support",
+            "transport-options": {
+                "symlink": false,
+                "relative": true
+            }
         },
         {
             "name": "nativephp/mobile-ui",

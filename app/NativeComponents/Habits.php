@@ -24,7 +24,9 @@ final class Habits extends NativeComponent
     public function mount(): void
     {
         app(AlarmOccurrenceReconciler::class)->reconcile();
-        $this->weeklyGoalSelection = (string) app(AppPreferences::class)->weeklyGoal();
+        $preferences = app(AppPreferences::class);
+        $preferences->applyLanguage();
+        $this->weeklyGoalSelection = (string) $preferences->weeklyGoal();
     }
 
     public function navTitle(): string

@@ -110,6 +110,17 @@ it('uses English habit labels when English is selected', function () {
         ->assertSee('No habits to show yet');
 });
 
+it('applies the saved Spanish locale when habits are opened with the default app locale', function () {
+    app(AppPreferences::class)->setLanguage('es_NI');
+    app()->setLocale('en');
+
+    Native::visit('/settings/habits')
+        ->assertSee('Hábitos')
+        ->assertSee('Todavía no hay hábitos que mostrar')
+        ->assertDontSee('Habits')
+        ->assertDontSee('No habits to show yet');
+});
+
 it('keeps habit metrics concise in English when there is activity', function () {
     $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
     app(AppPreferences::class)->setLanguage('en');
@@ -170,4 +181,24 @@ it('persists a valid weekly goal and renders the localized weekly summary', func
         ->assertSee('1 de 6 mañanas a tiempo esta semana');
 
     expect(app(AppPreferences::class)->weeklyGoal())->toBe(6);
+});
+
+it('labels the historical hardest weekday as a recent-weeks result in both languages', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
+
+    foreach (['2026-08-17', '2026-08-24'] as $date) {
+        AlarmExecution::factory()->create([
+            'status' => 'missed',
+            'scheduled_for' => CarbonImmutable::parse("{$date} 07:00:00", 'America/Managua')->utc(),
+        ]);
+    }
+
+    app()->setLocale('en');
+    app(AppPreferences::class)->setLanguage('es_NI');
+    Native::visit('/settings/habits')
+        ->assertSee('Día más difícil en las últimas semanas: Lunes');
+
+    app(AppPreferences::class)->setLanguage('en');
+    Native::visit('/settings/habits')
+        ->assertSee('Most difficult day in recent weeks: Monday');
 });

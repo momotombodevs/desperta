@@ -83,7 +83,7 @@ return [
     'weekly_share_footer' => 'Sin horarios ni etiquetas privadas',
     'share_weekly_progress' => 'Compartir progreso semanal',
     'weekly_summary_metrics' => ':rate% a tiempo · :snoozes posposiciones · :failures tardías o perdidas',
-    'weekly_hardest_day' => 'Día más difícil: :day',
+    'weekly_hardest_day' => 'Día más difícil en las últimas semanas: :day',
     'habits_recommendation_more_data' => 'Completá algunas alarmas más para recibir una sugerencia útil.',
     'habits_recommendation_adjust' => 'Probá adelantar una alarma o reducir las posposiciones.',
     'habits_recommendation_keep' => 'Estás atendiendo tus alarmas a tiempo. Mantené esta rutina.',

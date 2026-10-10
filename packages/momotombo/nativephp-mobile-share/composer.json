@@ -1,0 +1,26 @@
+{
+    "name": "nativephp/mobile-share",
+    "version": "1.1.0",
+    "description": "Native share sheet plugin for NativePHP Mobile with SVG MIME support",
+    "type": "nativephp-plugin",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "nativephp/mobile": "^3.0 || ^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Native\\Mobile\\Providers\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Native\\Mobile\\Providers\\ShareServiceProvider"
+            ]
+        },
+        "nativephp": {
+            "manifest": "nativephp.json"
+        }
+    }
+}

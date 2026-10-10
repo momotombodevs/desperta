@@ -83,7 +83,7 @@ return [
     'weekly_share_footer' => 'Shared without alarm times or private labels',
     'share_weekly_progress' => 'Share weekly progress',
     'weekly_summary_metrics' => ':rate% on time · :snoozes snoozes · :failures late or missed',
-    'weekly_hardest_day' => 'Toughest day: :day',
+    'weekly_hardest_day' => 'Most difficult day in recent weeks: :day',
     'habits_recommendation_more_data' => 'Complete a few more alarms to get a useful suggestion.',
     'habits_recommendation_adjust' => 'Try moving an alarm earlier or reducing snoozes.',
     'habits_recommendation_keep' => 'You are meeting your alarms on time. Keep this routine.',
