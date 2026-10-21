@@ -3,11 +3,12 @@
 namespace App\Application\PlayerProgress;
 
 use App\Application\AlarmAnalytics\AlarmHabitsAnalytics;
+use App\Application\Challenges\ChallengeTheme;
 use App\Application\Challenges\ChallengeType;
+use App\Application\MorningRoutine\MorningRoutineManager;
 use App\Application\Preferences\AppPreferences;
 use App\Models\AlarmChallengeAttempt;
 use App\Models\AlarmExecution;
-use App\Models\AlarmExecutionRoutineStep;
 use App\Models\DailyQuestion;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -15,6 +16,8 @@ use Illuminate\Support\Collection;
 /**
  * Derives experience, levels and achievements from the local alarm history,
  * so progress is retroactive and never drifts from what actually happened.
+ *
+ * The history is loaded once per instance; resolve a fresh instance to see new results.
  */
 final class PlayerProgress
 {
@@ -35,9 +38,13 @@ final class PlayerProgress
     /** @var list<int> Minimum XP for each level; index 0 is level 1. */
     public const array LevelThresholds = [0, 100, 250, 500, 900, 1400, 2000];
 
+    /** @var array{executions: Collection<int, AlarmExecution>, perfect_execution_ids: Collection<int, string>, routine_execution_ids: Collection<int, string>, correct_daily_questions: int}|null */
+    private ?array $history = null;
+
     public function __construct(
         private readonly AlarmHabitsAnalytics $analytics,
         private readonly AppPreferences $preferences,
+        private readonly MorningRoutineManager $routines,
     ) {}
 
     /** @return array{xp: int, level: int, title: string, level_floor: int, next_level_xp: ?int, progress: float} */
@@ -78,41 +85,43 @@ final class PlayerProgress
 
     public function totalXp(): int
     {
-        $perfectExecutionIds = $this->perfectAttempts()->pluck('alarm_execution_id');
-        $routineExecutionIds = $this->completedRoutineExecutionIds();
-        $executionXp = $this->completedExecutions()
-            ->sum(fn (AlarmExecution $execution): int => $this->executionXp($execution, $perfectExecutionIds, $routineExecutionIds));
+        $history = $this->history();
 
-        return $executionXp + DailyQuestion::query()->where('correct', true)->count() * self::DailyQuestionXp;
+        return $history['executions']->sum(fn (AlarmExecution $execution): int => $this->executionXp($execution))
+            + $history['correct_daily_questions'] * self::DailyQuestionXp;
     }
 
     public function xpForExecution(AlarmExecution $execution): int
     {
-        return $this->executionXp($execution, $this->perfectAttempts()->pluck('alarm_execution_id'), $this->completedRoutineExecutionIds());
+        return $this->executionXp($execution);
     }
 
     /** @return list<array{achievement: Achievement, progress: int, goal: int, unlocked: bool}> */
     public function achievements(): array
     {
-        $completed = $this->completedExecutions();
-        $bestStreak = $this->analytics->summarize()['best_streak'];
+        $history = $this->history();
+        $completed = $history['executions'];
+        $bestStreak = $this->analytics->bestStreak();
+        $passedTriviaThemes = AlarmChallengeAttempt::query()
+            ->where('passed', true)
+            ->where('challenge_type', ChallengeType::Trivia->value)
+            ->whereIn('challenge_theme', array_column(ChallengeTheme::packs(), 'value'))
+            ->distinct()
+            ->count('challenge_theme');
         $progress = [
             Achievement::FirstWake->value => $completed->count(),
             Achievement::Streak3->value => $bestStreak,
             Achievement::Streak7->value => $bestStreak,
             Achievement::Streak30->value => $bestStreak,
-            Achievement::NoSnooze10->value => $completed->where('snooze_count', 0)->count(),
+            Achievement::NoSnoozeWeek->value => $this->analytics->bestNoSnoozeRun(),
             Achievement::Lightning->value => $completed->filter(fn (AlarmExecution $execution): bool => $execution->started_at !== null
                 && $execution->started_at->diffInSeconds($execution->finished_at) <= self::LightningSeconds)->count(),
-            Achievement::Perfect10->value => $this->perfectAttempts()->count(),
+            Achievement::Perfect10->value => $history['perfect_execution_ids']->count(),
             Achievement::Combo5->value => (int) AlarmChallengeAttempt::query()->max('best_combo'),
-            Achievement::Explorer5->value => AlarmChallengeAttempt::query()
-                ->where('passed', true)
-                ->where('challenge_type', ChallengeType::Trivia->value)
-                ->distinct()
-                ->count('challenge_theme'),
-            Achievement::Routine5->value => $this->completedRoutineExecutionIds()->count(),
-            Achievement::DailyQuestion7->value => DailyQuestion::query()->where('correct', true)->count(),
+            Achievement::Explorer5->value => $passedTriviaThemes,
+            Achievement::AllTopics->value => $passedTriviaThemes,
+            Achievement::Routine5->value => $history['routine_execution_ids']->count(),
+            Achievement::DailyQuestion7->value => $history['correct_daily_questions'],
         ];
 
         return array_map(fn (Achievement $achievement): array => [
@@ -134,64 +143,68 @@ final class PlayerProgress
         ));
     }
 
+    /**
+     * Returns the achievements unlocked since they were last shown and remembers them as shown.
+     *
+     * @return list<Achievement>
+     */
+    public function announceNewAchievements(): array
+    {
+        $unlocked = $this->unseenAchievements();
+        $this->markSeen($unlocked);
+
+        return $unlocked;
+    }
+
     /** @param list<Achievement> $achievements */
     public function markSeen(array $achievements): void
     {
         $this->preferences->rememberSeenAchievements(array_map(fn (Achievement $achievement): string => $achievement->value, $achievements));
     }
 
-    /**
-     * @param  Collection<int, string>  $perfectExecutionIds
-     * @param  Collection<int, string>  $routineExecutionIds
-     */
-    private function executionXp(AlarmExecution $execution, Collection $perfectExecutionIds, Collection $routineExecutionIds): int
+    private function executionXp(AlarmExecution $execution): int
     {
         if ($execution->status !== 'completed' || $execution->finished_at === null) {
             return 0;
         }
 
-        $xp = $this->analytics->statusFor($execution, CarbonImmutable::now()) === 'on_time' ? self::OnTimeXp : self::LateXp;
+        $history = $this->history();
+        $now = CarbonImmutable::now((string) config('app.alarm_timezone'));
+        $xp = $this->analytics->statusFor($execution, $now) === 'on_time' ? self::OnTimeXp : self::LateXp;
 
         if ($execution->snooze_count === 0) {
             $xp += self::NoSnoozeXp;
         }
 
-        if ($perfectExecutionIds->contains($execution->id)) {
+        if ($history['perfect_execution_ids']->contains($execution->id)) {
             $xp += self::PerfectChallengeXp;
         }
 
-        if ($routineExecutionIds->contains($execution->id)) {
+        if ($history['routine_execution_ids']->contains($execution->id)) {
             $xp += self::RoutineXp;
         }
 
         return $xp;
     }
 
-    /** @return Collection<int, AlarmExecution> */
-    private function completedExecutions(): Collection
+    /** @return array{executions: Collection<int, AlarmExecution>, perfect_execution_ids: Collection<int, string>, routine_execution_ids: Collection<int, string>, correct_daily_questions: int} */
+    private function history(): array
     {
-        return AlarmExecution::query()
-            ->where('status', 'completed')
-            ->whereNotNull('finished_at')
-            ->get();
-    }
-
-    /** @return Collection<int, AlarmChallengeAttempt> */
-    private function perfectAttempts(): Collection
-    {
-        return AlarmChallengeAttempt::query()
-            ->where('passed', true)
-            ->whereColumn('correct_answers', 'question_count')
-            ->get(['id', 'alarm_execution_id']);
-    }
-
-    /** @return Collection<int, string> */
-    private function completedRoutineExecutionIds(): Collection
-    {
-        return AlarmExecutionRoutineStep::query()
-            ->get(['alarm_execution_id', 'completed_at'])
-            ->groupBy('alarm_execution_id')
-            ->filter(fn (Collection $steps): bool => $steps->every(fn (AlarmExecutionRoutineStep $step): bool => $step->completed_at !== null))
-            ->keys();
+        return $this->history ??= [
+            'executions' => AlarmExecution::query()
+                ->where('status', 'completed')
+                ->whereNotNull('finished_at')
+                ->get()
+                ->toBase(),
+            'perfect_execution_ids' => AlarmChallengeAttempt::query()
+                ->where('passed', true)
+                ->whereColumn('correct_answers', 'question_count')
+                ->pluck('alarm_execution_id')
+                ->unique()
+                ->values()
+                ->toBase(),
+            'routine_execution_ids' => $this->routines->routineOutcomes()->filter()->keys(),
+            'correct_daily_questions' => DailyQuestion::query()->where('correct', true)->count(),
+        ];
     }
 }

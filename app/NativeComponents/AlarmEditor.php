@@ -16,6 +16,7 @@ use Illuminate\View\View;
 use Momotombo\NativePHPAlarms\Events\AppResumed;
 use Momotombo\NativePHPAlarms\Events\NotificationAuthorizationChanged;
 use Momotombo\NativePHPAlarms\Exceptions\AlarmException;
+use Native\Mobile\Attributes\Computed;
 use Native\Mobile\Attributes\On;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Edge\Transition;
@@ -76,13 +77,8 @@ class AlarmEditor extends NativeComponent
     /** Localized topic label; the first option follows the theme chosen in settings. */
     public string $challengeTopicDisplay = '';
 
-    public bool $triviaChallenge = true;
-
-    public bool $memoryChallenge = true;
-
-    public bool $sequenceChallenge = true;
-
-    public bool $mentalMathChallenge = true;
+    /** @var list<string> Challenge type values allowed for this alarm. */
+    public array $challengeTypes = ['trivia', 'memory', 'sequence', 'mental_math'];
 
     public function mount(): void
     {
@@ -119,14 +115,22 @@ class AlarmEditor extends NativeComponent
         $this->difficulty = $alarm->difficulty;
         $this->difficultyDisplay = $this->localizedDifficulty($this->difficulty);
         $this->challengeTopicDisplay = $alarm->challengeTheme()?->label() ?? __('app.challenge_topic_default');
-        $allowedTypes = $alarm->allowedChallengeTypes();
-        $this->triviaChallenge = in_array(ChallengeType::Trivia, $allowedTypes, true);
-        $this->memoryChallenge = in_array(ChallengeType::Memory, $allowedTypes, true);
-        $this->sequenceChallenge = in_array(ChallengeType::Sequence, $allowedTypes, true);
-        $this->mentalMathChallenge = in_array(ChallengeType::MentalMath, $allowedTypes, true);
+        $this->challengeTypes = array_map(fn (ChallengeType $type): string => $type->value, $alarm->allowedChallengeTypes());
+    }
+
+    public function toggleChallengeType(string $type, bool $selected): void
+    {
+        if (ChallengeType::tryFrom($type) === null) {
+            return;
+        }
+
+        $this->challengeTypes = $selected
+            ? array_values(array_unique([...$this->challengeTypes, $type]))
+            : array_values(array_diff($this->challengeTypes, [$type]));
     }
 
     /** @return array<string, string> */
+    #[Computed]
     public function challengeTopicOptions(): array
     {
         return ['' => __('app.challenge_topic_default'), ...ChallengeTheme::labels()];
@@ -156,7 +160,9 @@ class AlarmEditor extends NativeComponent
             return;
         }
 
-        if ($this->selectedChallengeTypes() === []) {
+        $challengeTypes = $this->selectedChallengeTypes();
+
+        if ($challengeTypes === []) {
             $this->showErrorToast(__('app.challenge_types_required'));
 
             return;
@@ -176,7 +182,7 @@ class AlarmEditor extends NativeComponent
             'snooze_minutes' => $this->validSnoozeMinutes(),
             'difficulty' => $this->difficulty,
             'challenge_theme' => $this->selectedChallengeTheme(),
-            'challenge_types' => count($this->selectedChallengeTypes()) === count(ChallengeType::playable()) ? null : $this->selectedChallengeTypes(),
+            'challenge_types' => count($challengeTypes) === count(ChallengeType::playable()) ? null : $challengeTypes,
             'enabled' => $this->enabled,
             'scheduling_status' => $this->enabled ? 'pending' : 'not_scheduled',
         ]);
@@ -379,20 +385,18 @@ class AlarmEditor extends NativeComponent
 
     private function selectedChallengeTheme(): ?string
     {
-        $theme = array_search($this->challengeTopicDisplay, $this->challengeTopicOptions(), true);
+        $theme = array_search($this->challengeTopicDisplay, $this->challengeTopicOptions, true);
 
         return is_string($theme) && $theme !== '' ? $theme : null;
     }
 
-    /** @return list<string> */
+    /** @return list<string> Selected types in their canonical order. */
     private function selectedChallengeTypes(): array
     {
-        return collect([
-            ChallengeType::Trivia->value => $this->triviaChallenge,
-            ChallengeType::Memory->value => $this->memoryChallenge,
-            ChallengeType::Sequence->value => $this->sequenceChallenge,
-            ChallengeType::MentalMath->value => $this->mentalMathChallenge,
-        ])->filter()->keys()->values()->all();
+        return array_values(array_map(
+            fn (ChallengeType $type): string => $type->value,
+            array_filter(ChallengeType::playable(), fn (ChallengeType $type): bool => in_array($type->value, $this->challengeTypes, true)),
+        ));
     }
 
     private function localizedDifficulty(string $difficulty): string

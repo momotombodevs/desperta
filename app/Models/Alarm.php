@@ -104,7 +104,13 @@ class Alarm extends Model
 
     public function displayTime(): string
     {
-        [$hour, $minute] = array_map('intval', explode(':', $this->time));
+        return self::formatClock($this->time);
+    }
+
+    /** Formats a 24-hour `H:i` time as a localized 12-hour clock, e.g. `6:30 a. m.`. */
+    public static function formatClock(string $time): string
+    {
+        [$hour, $minute] = array_map('intval', explode(':', $time));
 
         return sprintf(
             '%d:%02d %s',

@@ -34,6 +34,7 @@ final class Progress extends NativeComponent
     }
 
     /** @return array<string, int> */
+    #[Computed]
     public function xpRules(): array
     {
         return [

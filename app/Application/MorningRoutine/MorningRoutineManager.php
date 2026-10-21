@@ -5,7 +5,10 @@ namespace App\Application\MorningRoutine;
 use App\Models\AlarmExecution;
 use App\Models\AlarmExecutionRoutineStep;
 use App\Models\MorningRoutineStep;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -109,6 +112,25 @@ class MorningRoutineManager
         if ($step->completed_at === null) {
             $step->update(['completed_at' => now()]);
         }
+    }
+
+    /**
+     * Whether each routine that was started has every step done, keyed by execution id.
+     * Optionally limited to executions scheduled within a window.
+     *
+     * @return SupportCollection<string, bool>
+     */
+    public function routineOutcomes(?CarbonImmutable $from = null, ?CarbonImmutable $until = null): SupportCollection
+    {
+        return AlarmExecutionRoutineStep::query()
+            ->when($from !== null && $until !== null, fn (Builder $query): Builder => $query->whereHas(
+                'execution',
+                fn (Builder $execution): Builder => $execution->whereBetween('scheduled_for', [$from->utc(), $until->utc()]),
+            ))
+            ->get(['alarm_execution_id', 'completed_at'])
+            ->groupBy('alarm_execution_id')
+            ->map(fn (Collection $steps): bool => $steps->every(fn (AlarmExecutionRoutineStep $step): bool => $step->completed_at !== null))
+            ->toBase();
     }
 
     public function executionStatus(AlarmExecution $execution): string

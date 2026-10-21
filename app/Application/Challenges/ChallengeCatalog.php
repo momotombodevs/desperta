@@ -108,6 +108,16 @@ class ChallengeCatalog
         ];
     }
 
+    /**
+     * Looks a question up by id in the current language; mixed-topic ids carry their pack as a prefix.
+     *
+     * @return array{id: string, question: string, options: list<string>, answer: string, fact?: string, level?: string}|null
+     */
+    public function findQuestion(string $themeName, string $questionId): ?array
+    {
+        return collect($this->localizedQuestions($themeName))->firstWhere('id', $questionId);
+    }
+
     /** @param list<array{id: string, question: string, options: list<string>, answer: string}> $questions */
     public function fingerprint(array $questions): string
     {
@@ -188,7 +198,7 @@ class ChallengeCatalog
             && is_string($question['answer'] ?? null)
             && in_array($question['answer'], $question['options'], true)
             && (! array_key_exists('fact', $question) || is_string($question['fact']))
-            && (! array_key_exists('level', $question) || in_array($question['level'], ['easy', 'normal', 'hard'], true));
+            && (! array_key_exists('level', $question) || ChallengeDifficulty::tryFrom($question['level']) !== null);
     }
 
     /** @return array{id: string, question: string, options: list<string>, answer: string, instruction: string, memory_sequence: ?string, explanation: ?string} */

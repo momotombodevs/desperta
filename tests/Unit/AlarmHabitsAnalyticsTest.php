@@ -1,6 +1,7 @@
 <?php
 
 use App\Application\AlarmAnalytics\AlarmHabitsAnalytics;
+use App\Application\Preferences\BedtimeReminderSettings;
 use App\Models\AlarmExecution;
 use App\Models\AlarmExecutionRoutineStep;
 use Carbon\CarbonImmutable;
@@ -169,7 +170,7 @@ function wakeUpOn(string $date, bool $onTime): void
     ]);
 }
 
-it('forgives only the first failed day of each week with the streak protector', function () {
+it('forgives one failed day and recharges the protector seven days later', function () {
     $this->travelTo(CarbonImmutable::parse('2026-09-12 18:00:00', 'UTC'));
     wakeUpOn('2026-08-31', true);
     wakeUpOn('2026-09-01', false);
@@ -200,22 +201,22 @@ it('does not spend the protector before a streak has started', function () {
     ]);
 });
 
-it('lays out the last five weeks as a Monday-first calendar', function () {
+it('lays out a month as whole Monday-first weeks', function () {
     $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
     wakeUpOn('2026-09-01', true);
     wakeUpOn('2026-09-02', false);
 
-    $calendar = app(AlarmHabitsAnalytics::class)->calendar();
+    $calendar = app(AlarmHabitsAnalytics::class)->calendar(CarbonImmutable::parse('2026-09-15'));
     $days = collect($calendar)->keyBy('date');
 
     expect($calendar)->toHaveCount(35)
-        ->and($calendar[0]['date'])->toBe('2026-08-03')
-        ->and($days['2026-09-01'])->toMatchArray(['day' => 1, 'status' => 'on_time', 'protected' => false])
+        ->and($calendar[0]['date'])->toBe('2026-08-31')
+        ->and($calendar[34]['date'])->toBe('2026-10-04')
+        ->and($days['2026-08-31']['in_month'])->toBeFalse()
+        ->and($days['2026-09-01'])->toMatchArray(['day' => 1, 'status' => 'on_time', 'protected' => false, 'in_month' => true])
         ->and($days['2026-09-02'])->toMatchArray(['status' => 'late', 'protected' => true])
-        ->and($days['2026-09-04']['future'])->toBeTrue()
-        ->and($days['2026-08-20']['status'])->toBe('none');
+        ->and($days['2026-09-04']['future'])->toBeTrue();
 });
-
 it('reports how long it takes to turn alarms off over two weeks', function () {
     $this->travelTo(CarbonImmutable::parse('2026-09-10 18:00:00', 'UTC'));
 
@@ -246,4 +247,41 @@ it('counts finished morning routines from the last seven days', function () {
     AlarmExecutionRoutineStep::query()->create(['alarm_execution_id' => $old->id, 'label' => 'Agua', 'position' => 0, 'completed_at' => now()]);
 
     expect(app(AlarmHabitsAnalytics::class)->routineCompletion())->toBe(['started' => 2, 'completed' => 1]);
+});
+
+it('does not forgive back-to-back failures across a week boundary', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-08 18:00:00', 'UTC'));
+    wakeUpOn('2026-09-04', true);
+    wakeUpOn('2026-09-05', true);
+    wakeUpOn('2026-09-06', false);
+    wakeUpOn('2026-09-07', false);
+
+    expect(app(AlarmHabitsAnalytics::class)->summarize())->toMatchArray([
+        'current_streak' => 0,
+        'best_streak' => 2,
+        'protected_days' => ['2026-09-06'],
+    ]);
+});
+
+it('measures the longest run of days without snoozing', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-12 18:00:00', 'UTC'));
+    foreach (['2026-09-01' => 0, '2026-09-02' => 0, '2026-09-03' => 1, '2026-09-05' => 0, '2026-09-06' => 0, '2026-09-08' => 0] as $date => $snoozes) {
+        $scheduledFor = CarbonImmutable::parse("{$date} 07:00:00", 'America/Managua')->utc();
+        AlarmExecution::factory()->create([
+            'status' => 'completed', 'scheduled_for' => $scheduledFor, 'finished_at' => $scheduledFor->addMinutes(3), 'snooze_count' => $snoozes,
+        ]);
+    }
+
+    expect(app(AlarmHabitsAnalytics::class)->bestNoSnoozeRun())->toBe(3);
+});
+
+it('estimates sleep only on nights the bedtime reminder applies', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-10 18:00:00', 'UTC'));
+    app(BedtimeReminderSettings::class)->save(true, '22:30', [1, 2, 3, 4, 5]);
+    $analytics = app(AlarmHabitsAnalytics::class);
+
+    expect($analytics->plannedSleep(CarbonImmutable::parse('2026-09-11 06:00', 'America/Managua')))->toBe(450)
+        ->and($analytics->plannedSleep(CarbonImmutable::parse('2026-09-13 06:00', 'America/Managua')))->toBeNull()
+        ->and($analytics->plannedSleep(CarbonImmutable::parse('2026-09-11 21:00', 'America/Managua')))->toBeNull()
+        ->and($analytics->actualSleep())->toBeNull();
 });

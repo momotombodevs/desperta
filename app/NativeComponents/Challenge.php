@@ -53,7 +53,7 @@ class Challenge extends NativeComponent
         'questions', 'usedQuestionIds', 'questionIndex', 'selectedAnswerIndex',
         'correctAnswers', 'questionCount', 'requiredCorrectAnswers', 'attemptNumber',
         'completed', 'passed', 'challengeTheme', 'challengeType', 'difficulty', 'showRetryHint', 'memoryPhase',
-        'answerRevealed', 'comboCount', 'bestCombo', 'memoryDeadline',
+        'answerRevealed', 'comboCount', 'bestCombo', 'memoryDeadline', 'answeredCount',
     ];
 
     public bool $snoozeAvailable = false;
@@ -94,6 +94,9 @@ class Challenge extends NativeComponent
     public int $memoryDeadline = 0;
 
     public bool $alarmStopped = false;
+
+    /** Questions answered when the attempt ended; lower than the total when it ended early. */
+    public int $answeredCount = 0;
 
     public int $earnedXp = 0;
 
@@ -193,10 +196,12 @@ class Challenge extends NativeComponent
                 return;
             }
 
+            $finishesAttempt = $this->finishesAttempt();
             $this->selectedAnswerIndex = null;
             $this->answerRevealed = false;
 
-            if ($this->finishesAttempt()) {
+            if ($finishesAttempt) {
+                $this->answeredCount = $this->questionIndex + 1;
                 $this->completed = true;
                 $this->passed = $this->correctAnswers >= $this->requiredCorrectAnswers;
                 $this->recordAttempt();
@@ -228,7 +233,7 @@ class Challenge extends NativeComponent
             $this->selectedAnswerIndex = $answerIndex;
             $this->answerRevealed = true;
 
-            if ($this->selectedAnswerIsCorrect()) {
+            if ($this->isSelectedAnswerCorrect()) {
                 $this->correctAnswers++;
                 $this->comboCount++;
                 $this->bestCombo = max($this->bestCombo, $this->comboCount);
@@ -238,7 +243,7 @@ class Challenge extends NativeComponent
 
             $this->saveProgress();
 
-            return $this->selectedAnswerIsCorrect();
+            return $this->isSelectedAnswerCorrect();
         });
 
         if ($answeredCorrectly === false) {
@@ -301,13 +306,25 @@ class Challenge extends NativeComponent
         return $remainingQuestions === 0 || $this->correctAnswers + $remainingQuestions < $this->requiredCorrectAnswers;
     }
 
-    public function selectedAnswerIsCorrect(): bool
+    #[Computed]
+    public function answeredCorrectly(): bool
     {
-        $question = $this->questions[$this->questionIndex] ?? null;
+        return $this->answerRevealed && $this->isSelectedAnswerCorrect();
+    }
 
-        return $question !== null
-            && $this->selectedAnswerIndex !== null
-            && ($question['options'][$this->selectedAnswerIndex] ?? null) === $question['answer'];
+    /** A cheer for a correct answer that changes from question to question. */
+    #[Computed]
+    public function praise(): string
+    {
+        $praises = trans('app.answer_praise');
+
+        return $praises[($this->questionIndex + $this->attemptNumber) % count($praises)];
+    }
+
+    #[Computed]
+    public function endedEarly(): bool
+    {
+        return $this->completed && $this->answeredCount > 0 && $this->answeredCount < count($this->questions);
     }
 
     public function retry(): void
@@ -319,6 +336,7 @@ class Challenge extends NativeComponent
         $this->attemptNumber++;
         $this->showRetryHint = $this->attemptNumber >= 2;
         $this->questionIndex = 0;
+        $this->answeredCount = 0;
         $this->selectedAnswerIndex = null;
         $this->answerRevealed = false;
         $this->correctAnswers = 0;
@@ -386,17 +404,15 @@ class Challenge extends NativeComponent
             $alarm->update(['enabled' => false, 'scheduling_status' => 'not_scheduled']);
         }
 
-        $progress = app(PlayerProgress::class);
-        $levelBefore = $progress->summary()['level'];
+        $levelBefore = app(PlayerProgress::class)->summary()['level'];
         $execution = AlarmExecution::query()->find($this->executionId);
         if ($execution !== null) {
             app(AlarmExecutionLifecycle::class)->complete($execution);
-            $this->earnedXp = $progress->xpForExecution($execution->fresh());
         }
 
         $this->alarmStopped = true;
         $this->prepareMorningRoutine();
-        $this->celebrateProgress($progress, $levelBefore);
+        $this->celebrateProgress($levelBefore);
     }
 
     public function returnHome(): void
@@ -433,7 +449,18 @@ class Challenge extends NativeComponent
             return;
         }
 
-        app(MorningRoutineManager::class)->completeStep($execution, $stepId);
+        $routine = app(MorningRoutineManager::class);
+        $finishesRoutine = $routine->executionSteps($execution)
+            ->whereNull('completed_at')
+            ->pluck('id')
+            ->all() === [$stepId];
+        $levelBefore = $finishesRoutine ? app(PlayerProgress::class)->summary()['level'] : 0;
+
+        $routine->completeStep($execution, $stepId);
+
+        if ($finishesRoutine) {
+            $this->celebrateProgress($levelBefore);
+        }
     }
 
     /** @return Collection<int, AlarmExecutionRoutineStep> */
@@ -463,13 +490,18 @@ class Challenge extends NativeComponent
         ]);
     }
 
-    private function celebrateProgress(PlayerProgress $progress, int $levelBefore): void
+    /** Refreshes the XP, level-up and newly unlocked achievements shown after waking up or finishing the routine. */
+    private function celebrateProgress(int $levelBefore): void
     {
+        $progress = app(PlayerProgress::class);
+        $execution = AlarmExecution::query()->find($this->executionId);
+        $this->earnedXp = $execution === null ? 0 : $progress->xpForExecution($execution);
         $levelAfter = $progress->summary()['level'];
-        $this->reachedLevel = $levelAfter > $levelBefore ? $levelAfter : null;
-        $unlocked = $progress->unseenAchievements();
-        $progress->markSeen($unlocked);
-        $this->unlockedAchievements = array_map(fn (Achievement $achievement): string => $achievement->value, $unlocked);
+        $this->reachedLevel = $levelAfter > $levelBefore ? $levelAfter : $this->reachedLevel;
+        $this->unlockedAchievements = array_values(array_unique([
+            ...$this->unlockedAchievements,
+            ...array_map(fn (Achievement $achievement): string => $achievement->value, $progress->announceNewAchievements()),
+        ]));
     }
 
     private function prepareMorningRoutine(): void
@@ -501,6 +533,15 @@ class Challenge extends NativeComponent
         }
 
         $this->questions = $catalog->questionsForType($type, $this->questionCount, $difficulty);
+    }
+
+    private function isSelectedAnswerCorrect(): bool
+    {
+        $question = $this->questions[$this->questionIndex] ?? null;
+
+        return $question !== null
+            && $this->selectedAnswerIndex !== null
+            && ($question['options'][$this->selectedAnswerIndex] ?? null) === $question['answer'];
     }
 
     private function startMemorizing(): void

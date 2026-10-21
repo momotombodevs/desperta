@@ -121,7 +121,7 @@ it('shows the level, XP and achievements on the progress screen', function () {
         ->assertSee('Nivel 1')
         ->assertSee('Dormilón')
         ->assertSee('Te faltan 70 XP para el nivel 2')
-        ->assertSee('2 de 11 desbloqueados')
+        ->assertSee('2 de 12 desbloqueados')
         ->assertSee('Primer despertar')
         ->assertSee('0 / 7')
         ->assertSee('Acertar la pregunta del día: +5 XP')
@@ -149,4 +149,26 @@ it('adds the attempt combo column without touching existing attempts', function 
     $migration->up();
 
     expect($attempt->fresh())->best_combo->toBe(0)->passed->toBeTrue();
+});
+
+it('counts trivia topics without the mixed topic towards the explorer achievements', function () {
+    foreach (['nicaragua', 'football', 'mix', 'animals'] as $theme) {
+        AlarmChallengeAttempt::factory()->create(['challenge_theme' => $theme, 'challenge_type' => 'trivia', 'passed' => true]);
+    }
+
+    $achievements = collect(app(PlayerProgress::class)->achievements())->keyBy(fn (array $entry): string => $entry['achievement']->value);
+
+    expect($achievements['explorer_5'])->toMatchArray(['progress' => 3, 'goal' => 5])
+        ->and($achievements['all_topics'])->toMatchArray(['progress' => 3, 'goal' => 11, 'unlocked' => false]);
+});
+
+it('unlocks the no-excuses week after seven days in a row without snoozing', function () {
+    foreach (range(1, 7) as $day) {
+        $scheduledFor = CarbonImmutable::parse("2026-10-0{$day} 07:00:00", 'America/Managua')->utc();
+        AlarmExecution::factory()->create([
+            'status' => 'completed', 'scheduled_for' => $scheduledFor, 'finished_at' => $scheduledFor->addMinutes(2), 'snooze_count' => 0,
+        ]);
+    }
+
+    expect(app(PlayerProgress::class)->unseenAchievements())->toContain(Achievement::NoSnoozeWeek);
 });

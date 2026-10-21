@@ -24,17 +24,9 @@
             </native:text>
         </native:column>
 
-        <native:pressable ref="open-daily-question" class="w-full rounded-2xl border border-theme-outline bg-theme-surface p-4"
-                          @navigate="'/settings/daily-question'" :press-scale="0.98" :a11y-label="__('progress.daily_question.title')">
-            <native:row class="w-full items-center gap-3">
-                <native:icon :android="Android::Quiz" name="quiz" class="text-theme-primary" size="28"/>
-                <native:column class="flex-1 gap-1">
-                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('progress.daily_question.title') }}</native:text>
-                    <native:text class="text-sm text-theme-on-surface-variant">{{ __('progress.daily_question.reward', ['xp' => PlayerProgress::DailyQuestionXp]) }}</native:text>
-                </native:column>
-                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
-            </native:row>
-        </native:pressable>
+        <native:navigation-row key="open-daily-question" target="open-daily-question" url="/settings/daily-question"
+                               :icon="Android::Quiz->value" :title="__('progress.daily_question.title')"
+                               :subtitle="__('progress.daily_question.reward', ['xp' => PlayerProgress::DailyQuestionXp])"/>
 
         @php($unlockedCount = count(array_filter($this->achievements, fn (array $entry): bool => $entry['unlocked'])))
         <native:column class="w-full gap-3">
@@ -70,7 +62,7 @@
 
         <native:column class="w-full gap-2 rounded-2xl border border-theme-outline bg-theme-surface p-4">
             <native:text font="accent" class="text-lg text-theme-on-surface">{{ __('progress.how_to_earn') }}</native:text>
-            @foreach ($this->xpRules() as $rule => $xp)
+            @foreach ($this->xpRules as $rule => $xp)
                 <native:row key="xp-rule-{{ $rule }}" class="w-full items-center gap-2">
                     <native:icon :android="Android::Star" name="star" class="text-theme-sunrise" size="16"/>
                     <native:text class="flex-1 text-sm text-theme-on-surface-variant">{{ __('progress.rules.'.$rule, ['xp' => $xp]) }}</native:text>

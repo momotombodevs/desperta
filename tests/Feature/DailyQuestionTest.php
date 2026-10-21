@@ -86,3 +86,31 @@ it('opens the question of the day from settings and clears its reward badge once
     Native::visit('/settings')
         ->assertDontSee('+5 XP');
 });
+
+it('shows the question of the day in the current language without changing its options', function () {
+    app(AppPreferences::class)->setChallengeTheme('animals');
+    $spanish = app(DailyQuestionPicker::class)->today();
+    $question = app(DailyQuestionPicker::class)->presented($spanish);
+
+    app(AppPreferences::class)->setLanguage('en');
+    $english = app(DailyQuestionPicker::class)->presented($spanish->fresh());
+    $englishPack = collect(trans('challenges.animals.questions', [], 'en'))->firstWhere('id', $question['id']);
+
+    expect($english['question'])->toBe($englishPack['question'])
+        ->and($english['answer'])->toBe($englishPack['answer'])
+        ->and(array_search($english['answer'], $english['options'], true))->toBe(array_search($question['answer'], $question['options'], true));
+});
+
+it('announces the daily curiosity achievement on the seventh correct answer', function () {
+    foreach (range(13, 18) as $day) {
+        DailyQuestion::factory()->answered()->create(['date' => "2026-10-{$day}"]);
+    }
+    $question = app(DailyQuestionPicker::class)->today()->question;
+    $correct = array_search($question['answer'], $question['options'], true);
+
+    Native::test(DailyQuestionCard::class)
+        ->tap("daily-answer-{$correct}")
+        ->assertSet('unlockedAchievements', ['daily_question_7'])
+        ->assertSee('Logro desbloqueado')
+        ->assertSee('Curiosidad diaria');
+});
