@@ -20,8 +20,9 @@ enum ChallengeDifficulty: string
     public function questionCount(): int
     {
         return match ($this) {
+            self::Easy => 3,
+            self::Normal => 4,
             self::Hard => 5,
-            default => 3,
         };
     }
 
@@ -30,6 +31,15 @@ enum ChallengeDifficulty: string
         return match ($this) {
             self::Easy => 2,
             self::Normal => 3,
+            self::Hard => 4,
+        };
+    }
+
+    public function memorizeSeconds(): int
+    {
+        return match ($this) {
+            self::Easy => 10,
+            self::Normal => 7,
             self::Hard => 5,
         };
     }

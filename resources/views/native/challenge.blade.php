@@ -2,64 +2,135 @@
 
 <native:top-bar :title="__('app.challenge')" :subtitle="__('app.challenge_subtitle', ['required' => $requiredCorrectAnswers, 'total' => count($questions)])" display-mode="inline"/>
 
-<native:column ref="challenge-screen" class="w-full h-full gap-4 bg-theme-background p-5">
+<native:scroll-view class="w-full h-full bg-theme-background">
+<native:column ref="challenge-screen" class="w-full gap-4 p-5">
     @if (! $unavailable)
         @php($challengeTypeName = __('challenges.types.'.$challengeType.'.name'))
-        <native:text class="text-sm text-theme-on-surface-variant">
-            {{ $challengeType === 'trivia'
-                ? __('app.challenge_type_with_topic', ['type' => $challengeTypeName, 'topic' => __('challenges.'.$challengeTheme.'.name')])
-                : __('app.challenge_type_label', ['type' => $challengeTypeName]) }}
-        </native:text>
+        <native:row class="w-full items-center gap-2">
+            <native:text class="flex-1 text-sm text-theme-on-surface-variant">
+                {{ $challengeType === 'trivia'
+                    ? __('app.challenge_type_with_topic', ['type' => $challengeTypeName, 'topic' => __('challenges.'.$challengeTheme.'.name')])
+                    : __('app.challenge_type_label', ['type' => $challengeTypeName]) }}
+            </native:text>
+            @if (! $completed && $comboCount >= 2)
+                <native:row ref="combo-badge" key="combo-badge" class="items-center gap-1 rounded-full bg-theme-sunrise px-3 py-1"
+                            :scale="1.08" animate-loop="true" :animate-duration="650" animate-easing="ease-in-out"
+                            :a11y-label="__('app.challenge_combo', ['count' => $comboCount])">
+                    <native:icon :android="Android::LocalFireDepartment" name="local_fire_department" class="text-theme-on-sunrise" size="16"/>
+                    <native:text font="accent" class="text-sm text-theme-on-sunrise">{{ __('app.challenge_combo', ['count' => $comboCount]) }}</native:text>
+                </native:row>
+            @endif
+        </native:row>
     @endif
     @if ($unavailable)
         <native:activity-indicator />
     @elseif (! $completed)
-        @if ($challengeType === 'memory' && $memoryPhase === 'memorize')
-            <native:column class="w-full items-center gap-4 rounded-2xl border border-theme-outline bg-theme-surface p-5">
+        @if ($this->memorizing)
+            <native:column ref="memory-sequence" key="memory-{{ $questions[$questionIndex]['id'] }}" native:poll="1s"
+                           class="w-full items-center gap-4 rounded-2xl border border-theme-outline bg-theme-surface p-5">
                 <native:text font="accent" class="text-lg text-center text-theme-primary">{{ $questions[$questionIndex]['instruction'] }}</native:text>
-                <native:text class="text-3xl text-center text-theme-on-surface">{{ $questions[$questionIndex]['memory_sequence'] }}</native:text>
+                <native:text font="accent" class="text-4xl text-center text-theme-on-surface">{{ $questions[$questionIndex]['memory_sequence'] }}</native:text>
+                @if ($memoryDeadline > 0)
+                    <native:row class="items-center gap-2" :a11y-label="__('app.memory_seconds_left', ['seconds' => $this->memorySecondsLeft])">
+                        <native:icon :android="Android::Timer" name="timer" class="text-theme-sunrise" size="24"/>
+                        <native:text ref="memory-countdown" key="memory-countdown" font="accent" content-transition="numeric"
+                                     class="text-2xl text-theme-sunrise">{{ $this->memorySecondsLeft }}</native:text>
+                    </native:row>
+                @endif
                 <native:button ref="show-memory-question" variant="primary" class="w-full" size="lg" @tap="showMemoryQuestion"
                                :a11y-label="__('app.ready_to_answer')">{{ __('app.ready_to_answer') }}</native:button>
             </native:column>
         @else
+            @php($question = $questions[$questionIndex])
+            @php($answeredCorrectly = $answerRevealed && $this->selectedAnswerIsCorrect())
             <native:column class="w-full gap-4 rounded-2xl border border-theme-outline bg-theme-sunrise/15 p-5">
-            <native:text font="accent" class="text-sm text-theme-sunrise">{{ __('app.question_of', ['current' => $questionIndex + 1, 'total' => count($questions)]) }}</native:text>
-            <native:progress-bar :value="($questionIndex + 1) / count($questions)"/>
-            <native:text class="text-sm text-theme-on-surface-variant">{{ $questions[$questionIndex]['instruction'] }}</native:text>
-            <native:text font="accent"
-                         class="text-3xl leading-tight text-theme-on-surface">{{ $questions[$questionIndex]['question'] }}</native:text>
-        </native:column>
+                <native:text font="accent" class="text-sm text-theme-sunrise">{{ __('app.question_of', ['current' => $questionIndex + 1, 'total' => count($questions)]) }}</native:text>
+                <native:progress-bar :value="($questionIndex + ($answerRevealed ? 1 : 0)) / count($questions)"/>
+                <native:text class="text-sm text-theme-on-surface-variant">{{ $question['instruction'] }}</native:text>
+                <native:text font="accent" class="text-3xl leading-tight text-theme-on-surface">{{ $question['question'] }}</native:text>
+            </native:column>
 
-        <native:column class="w-full gap-3" :a11y-label="__('app.answer_options')">
-            @foreach ($questions[$questionIndex]['options'] as $option)
-                <native:pressable
-                    ref="answer-{{ $loop->index }}"
-                    key="question-{{ $questions[$questionIndex]['id'] }}-answer-{{ $loop->index }}"
-                    class="w-full flex-row items-center gap-3 rounded-xl border p-4 {{ $selectedAnswerIndex === $loop->index ? 'border-theme-primary bg-theme-primary/15' : 'border-theme-outline bg-theme-surface' }}"
-                    @tap="selectAnswer({{ $loop->index }})"
-                    :a11y-label="$option"
-                >
-                    @if ($selectedAnswerIndex === $loop->index)
-                        <native:icon name="check" class="text-theme-primary" size="20" a11y-label="{{ __('app.selected_answer') }}"/>
-                    @else
-                        <native:icon name="circle" class="text-theme-on-surface-variant" size="20"/>
+            <native:column class="w-full gap-3" :a11y-label="__('app.answer_options')">
+                @foreach ($question['options'] as $option)
+                    @php($optionState = ! $answerRevealed ? ($selectedAnswerIndex === $loop->index ? 'selected' : 'idle')
+                        : ($option === $question['answer'] ? 'correct' : ($selectedAnswerIndex === $loop->index ? 'wrong' : 'dimmed')))
+                    <native:pressable
+                        ref="answer-{{ $loop->index }}"
+                        key="question-{{ $question['id'] }}-answer-{{ $loop->index }}"
+                        class="w-full flex-row items-center gap-3 rounded-xl border p-4 {{ match ($optionState) {
+                            'correct' => 'border-theme-success bg-theme-success/15',
+                            'wrong' => 'border-theme-destructive bg-theme-destructive/15',
+                            'selected' => 'border-theme-primary bg-theme-primary/15',
+                            default => 'border-theme-outline bg-theme-surface',
+                        } }}"
+                        :opacity="$optionState === 'dimmed' ? 0.45 : 1"
+                        :scale="$optionState === 'correct' ? 1.03 : 1"
+                        :animate-duration="220"
+                        animate-easing="ease-out"
+                        :press-scale="$answerRevealed ? 1 : 0.96"
+                        @tap="selectAnswer({{ $loop->index }})"
+                        :a11y-label="$option"
+                    >
+                        @if ($optionState === 'correct')
+                            <native:icon :android="Android::CheckCircle" name="check_circle" class="text-theme-success" size="22" :a11y-label="__('app.correct_answer')"/>
+                        @elseif ($optionState === 'wrong')
+                            <native:icon :android="Android::Cancel" name="cancel" class="text-theme-destructive" size="22" :a11y-label="__('app.wrong_answer')"/>
+                        @elseif ($optionState === 'selected')
+                            <native:icon name="check" class="text-theme-primary" size="20" a11y-label="{{ __('app.selected_answer') }}"/>
+                        @else
+                            <native:icon name="circle" class="text-theme-on-surface-variant" size="20"/>
+                        @endif
+                        <native:text class="flex-1 text-lg text-theme-on-surface">{{ $option }}</native:text>
+                    </native:pressable>
+                @endforeach
+            </native:column>
+
+            @if ($answerRevealed)
+                <native:column ref="answer-feedback" key="feedback-{{ $question['id'] }}"
+                               class="w-full gap-2 rounded-2xl p-4 {{ $answeredCorrectly ? 'bg-theme-success/15' : 'bg-theme-destructive/15' }}">
+                    <native:row class="w-full items-center gap-2">
+                        <native:icon :android="$answeredCorrectly ? Android::Celebration : Android::Lightbulb"
+                                     :name="$answeredCorrectly ? 'celebration' : 'lightbulb'"
+                                     class="{{ $answeredCorrectly ? 'text-theme-success' : 'text-theme-destructive' }}" size="24"/>
+                        <native:text font="accent" class="flex-1 text-lg text-theme-on-surface">
+                            {{ $answeredCorrectly
+                                ? __('app.answer_praise')[($questionIndex + $attemptNumber) % count(__('app.answer_praise'))]
+                                : __('app.answer_wrong_title') }}
+                        </native:text>
+                    </native:row>
+                    @unless ($answeredCorrectly)
+                        <native:text class="text-base text-theme-on-surface">{{ __('app.correct_answer_was', ['answer' => $question['answer']]) }}</native:text>
+                    @endunless
+                    @if (filled($question['explanation'] ?? null))
+                        <native:text class="text-sm text-theme-on-surface-variant">
+                            {{ $challengeType === 'trivia' ? __('app.did_you_know', ['fact' => $question['explanation']]) : $question['explanation'] }}
+                        </native:text>
                     @endif
-                    <native:text class="flex-1 text-lg text-theme-on-surface">{{ $option }}</native:text>
-                </native:pressable>
-            @endforeach
-        </native:column>
+                </native:column>
+            @endif
 
-        <native:button ref="continue-challenge" variant="primary" class="w-full" size="lg" @tap="continueChallenge"
-                       :disabled="$selectedAnswerIndex === null" :a11y-label="$questionIndex === count($questions) - 1 ? __('app.check_answers') : __('app.continue')">{{ $questionIndex === count($questions) - 1 ? __('app.check_answers') : __('app.continue') }}</native:button>
+            @php($finishesAttempt = $this->finishesAttempt)
+            <native:button ref="continue-challenge" variant="primary" class="w-full" size="lg" @tap="continueChallenge"
+                           :disabled="! $answerRevealed" :a11y-label="$finishesAttempt ? __('app.check_answers') : __('app.continue')">{{ $finishesAttempt ? __('app.check_answers') : __('app.continue') }}</native:button>
         @endif
         @if ($snoozeAvailable)
             <native:button ref="snooze-alarm" variant="secondary" class="w-full" size="lg" @tap="snoozeAlarm"
                            :a11y-label="__('app.snooze_for_minutes', ['minutes' => $this->snoozeMinutes])">{{ __('app.snooze_for_minutes', ['minutes' => $this->snoozeMinutes]) }}</native:button>
         @endif
     @elseif ($passed)
-        <native:column class="w-full items-center gap-5 rounded-2xl bg-theme-success/15 p-6">
+        <native:column ref="challenge-passed" class="w-full items-center gap-5 rounded-2xl bg-theme-success/15 p-6">
+            <native:icon :android="Android::WbSunny" name="wb_sunny" class="text-theme-sunrise" size="72"
+                         :scale="1.12" animate-loop="true" :animate-duration="900" animate-easing="ease-in-out"
+                         :a11y-label="__('app.challenge_completed')"/>
             <native:text font="accent" class="text-3xl text-center text-theme-on-background">{{ __('app.challenge_completed') }}</native:text>
-            <native:text class="text-lg text-center text-theme-on-surface-variant">{{ __('app.complete_alarm') }}</native:text>
+            <native:text class="text-lg text-center text-theme-on-surface-variant">{{ __('app.challenge_score', ['correct' => $correctAnswers, 'total' => count($questions)]) }}</native:text>
+            @if ($bestCombo >= 2)
+                <native:row class="items-center gap-2 rounded-full bg-theme-sunrise px-4 py-2">
+                    <native:icon :android="Android::LocalFireDepartment" name="local_fire_department" class="text-theme-on-sunrise" size="18"/>
+                    <native:text font="accent" class="text-sm text-theme-on-sunrise">{{ __('app.challenge_best_combo', ['count' => $bestCombo]) }}</native:text>
+                </native:row>
+            @endif
+            <native:text class="text-base text-center text-theme-on-surface-variant">{{ __('app.complete_alarm') }}</native:text>
             @if (! $alarmStopped)
                 <native:button ref="turn-off-alarm" class="w-full" size="lg" variant="primary" @tap="turnOffAlarm" :a11y-label="__('app.finish_alarm')">{{ __('app.finish_alarm') }}</native:button>
             @else
@@ -71,7 +142,8 @@
             @endif
         </native:column>
     @else
-        <native:column class="w-full items-center gap-5 rounded-2xl bg-theme-warning/15 p-6">
+        <native:column ref="challenge-failed" class="w-full items-center gap-5 rounded-2xl bg-theme-warning/15 p-6">
+            <native:icon :android="Android::Bolt" name="bolt" class="text-theme-warning" size="56" :a11y-label="__('app.try_again')"/>
             <native:text font="accent" class="text-3xl text-center text-theme-on-background">{{ $correctAnswers }} / {{ count($questions) }}
                 {{ __('app.correct') }}
             </native:text>
@@ -121,3 +193,4 @@
     </native:bottom-sheet>
 @endif
 </native:column>
+</native:scroll-view>

@@ -25,6 +25,7 @@ use Momotombo\NativePHPAlarms\Exceptions\NativeAlarmSchedulingFailed;
 use Native\Mobile\Attributes\Computed;
 use Native\Mobile\Attributes\On;
 use Native\Mobile\Edge\NativeComponent;
+use Native\Mobile\Facades\Device;
 
 class Challenge extends NativeComponent
 {
@@ -49,13 +50,14 @@ class Challenge extends NativeComponent
         'questions', 'usedQuestionIds', 'questionIndex', 'selectedAnswerIndex',
         'correctAnswers', 'questionCount', 'requiredCorrectAnswers', 'attemptNumber',
         'completed', 'passed', 'challengeTheme', 'challengeType', 'difficulty', 'showRetryHint', 'memoryPhase',
+        'answerRevealed', 'comboCount', 'bestCombo', 'memoryDeadline',
     ];
 
     public bool $snoozeAvailable = false;
 
     public int $snoozeMinutes = 5;
 
-    /** @var list<array{id: string, question: string, options: list<string>, answer: string, instruction?: string, memory_sequence?: ?string}> */
+    /** @var list<array{id: string, question: string, options: list<string>, answer: string, instruction?: string, memory_sequence?: ?string, explanation?: ?string}> */
     public array $questions = [];
 
     /** @var list<string> */
@@ -78,6 +80,15 @@ class Challenge extends NativeComponent
     public bool $passed = false;
 
     public bool $showRetryHint = false;
+
+    public bool $answerRevealed = false;
+
+    public int $comboCount = 0;
+
+    public int $bestCombo = 0;
+
+    /** Unix timestamp when the memory sequence hides; 0 keeps it visible until the user is ready. */
+    public int $memoryDeadline = 0;
 
     public bool $alarmStopped = false;
 
@@ -118,11 +129,12 @@ class Challenge extends NativeComponent
 
         $difficulty = app(AdaptiveChallengeDifficulty::class)->forAlarm($alarm);
         $this->difficulty = $difficulty->value;
-        $this->challengeTheme = app(AppPreferences::class)->challengeTheme();
-        $this->challengeType = app(ChallengeCatalog::class)->chooseType()->value;
+        $this->challengeTheme = $alarm->challengeTheme()?->value ?? app(AppPreferences::class)->challengeTheme();
+        $this->challengeType = app(ChallengeCatalog::class)->chooseType($alarm->allowedChallengeTypes())->value;
         $this->questionCount = $difficulty->questionCount();
         $this->requiredCorrectAnswers = $difficulty->requiredCorrectAnswers();
         $this->materializeQuestions();
+        $this->startMemorizing();
         $this->usedQuestionIds = array_column($this->questions, 'id');
 
         $this->attemptNumber = AlarmChallengeAttempt::query()
@@ -167,25 +179,20 @@ class Challenge extends NativeComponent
     public function continueChallenge(): void
     {
         DB::transaction(function (): void {
-            if (! $this->refreshProgress() || $this->completed || $this->selectedAnswerIndex === null) {
+            if (! $this->refreshProgress() || $this->completed || ! $this->answerRevealed) {
                 return;
             }
 
-            if ($this->questions[$this->questionIndex]['options'][$this->selectedAnswerIndex] === $this->questions[$this->questionIndex]['answer']) {
-                $this->correctAnswers++;
-            }
-
             $this->selectedAnswerIndex = null;
+            $this->answerRevealed = false;
 
-            if ($this->questionIndex === count($this->questions) - 1) {
+            if ($this->finishesAttempt()) {
                 $this->completed = true;
                 $this->passed = $this->correctAnswers >= $this->requiredCorrectAnswers;
                 $this->recordAttempt();
             } else {
                 $this->questionIndex++;
-                if ($this->challengeType === ChallengeType::Memory->value) {
-                    $this->memoryPhase = 'memorize';
-                }
+                $this->startMemorizing();
             }
 
             $this->saveProgress();
@@ -196,16 +203,37 @@ class Challenge extends NativeComponent
         }
     }
 
+    /**
+     * Locks in the answer and grades it immediately so the screen can reveal
+     * the correct option before moving on.
+     */
     public function selectAnswer(int $answerIndex): void
     {
-        if (! $this->refreshProgress() || $this->completed
-            || ($this->challengeType === ChallengeType::Memory->value && $this->memoryPhase === 'memorize')
-            || ! array_key_exists($answerIndex, $this->questions[$this->questionIndex]['options'])) {
-            return;
-        }
+        $answeredCorrectly = DB::transaction(function () use ($answerIndex): ?bool {
+            if (! $this->refreshProgress() || $this->completed || $this->answerRevealed || $this->isMemorizing()
+                || ! array_key_exists($answerIndex, $this->questions[$this->questionIndex]['options'])) {
+                return null;
+            }
 
-        $this->selectedAnswerIndex = $answerIndex;
-        $this->saveProgress();
+            $this->selectedAnswerIndex = $answerIndex;
+            $this->answerRevealed = true;
+
+            if ($this->selectedAnswerIsCorrect()) {
+                $this->correctAnswers++;
+                $this->comboCount++;
+                $this->bestCombo = max($this->bestCombo, $this->comboCount);
+            } else {
+                $this->comboCount = 0;
+            }
+
+            $this->saveProgress();
+
+            return $this->selectedAnswerIsCorrect();
+        });
+
+        if ($answeredCorrectly === false) {
+            Device::vibrate();
+        }
     }
 
     public function showMemoryQuestion(): void
@@ -218,6 +246,36 @@ class Challenge extends NativeComponent
         $this->saveProgress();
     }
 
+    #[Computed]
+    public function memorizing(): bool
+    {
+        return $this->isMemorizing();
+    }
+
+    #[Computed]
+    public function memorySecondsLeft(): int
+    {
+        return max(0, $this->memoryDeadline - now()->timestamp);
+    }
+
+    /** Whether continuing from the current question ends the attempt, either because it is the last one or the score can no longer pass. */
+    #[Computed]
+    public function finishesAttempt(): bool
+    {
+        $remainingQuestions = count($this->questions) - $this->questionIndex - 1;
+
+        return $remainingQuestions === 0 || $this->correctAnswers + $remainingQuestions < $this->requiredCorrectAnswers;
+    }
+
+    public function selectedAnswerIsCorrect(): bool
+    {
+        $question = $this->questions[$this->questionIndex] ?? null;
+
+        return $question !== null
+            && $this->selectedAnswerIndex !== null
+            && ($question['options'][$this->selectedAnswerIndex] ?? null) === $question['answer'];
+    }
+
     public function retry(): void
     {
         if (! $this->refreshProgress() || ! $this->completed || $this->passed) {
@@ -226,15 +284,17 @@ class Challenge extends NativeComponent
 
         $this->attemptNumber++;
         $this->showRetryHint = $this->attemptNumber >= 2;
-        $this->memoryPhase = 'memorize';
         $this->questionIndex = 0;
         $this->selectedAnswerIndex = null;
+        $this->answerRevealed = false;
         $this->correctAnswers = 0;
+        $this->comboCount = 0;
         $this->completed = false;
         $this->passed = false;
         $this->alarmStopped = false;
         $this->materializeQuestions($this->usedQuestionIds);
         $this->usedQuestionIds = array_merge($this->usedQuestionIds, array_column($this->questions, 'id'));
+        $this->startMemorizing();
         $this->saveProgress();
     }
 
@@ -386,17 +446,32 @@ class Challenge extends NativeComponent
         $difficulty = ChallengeDifficulty::fromStored($this->difficulty);
         if ($type === ChallengeType::Trivia) {
             $questions = $catalog->questions($this->questionCount, $excludedQuestionIds, $preferences->lastChallengeOrder($theme), $theme);
-            $this->questions = array_map(fn (array $question): array => [
-                ...$question,
-                'instruction' => trans('challenges.types.trivia.instruction'),
-                'memory_sequence' => null,
-            ], $questions);
+            $this->questions = array_map(fn (array $question): array => $catalog->triviaQuestion($question), $questions);
             $preferences->rememberChallengeOrder($theme, $catalog->fingerprint($this->questions));
 
             return;
         }
 
         $this->questions = $catalog->questionsForType($type, $this->questionCount, $difficulty);
+    }
+
+    private function startMemorizing(): void
+    {
+        if ($this->challengeType !== ChallengeType::Memory->value) {
+            $this->memoryDeadline = 0;
+
+            return;
+        }
+
+        $this->memoryPhase = 'memorize';
+        $this->memoryDeadline = now()->timestamp + ChallengeDifficulty::fromStored($this->difficulty)->memorizeSeconds();
+    }
+
+    private function isMemorizing(): bool
+    {
+        return $this->challengeType === ChallengeType::Memory->value
+            && $this->memoryPhase === 'memorize'
+            && ($this->memoryDeadline === 0 || now()->timestamp < $this->memoryDeadline);
     }
 
     private function currentOccurrence(): ?ActiveAlarmOccurrence
