@@ -173,7 +173,8 @@ final class AlarmHabitsAnalytics
         return $statuses->contains('on_time');
     }
 
-    private function statusFor(AlarmExecution $execution, CarbonImmutable $now): string
+    /** Classifies an execution as on_time, late, missed or pending relative to now. */
+    public function statusFor(AlarmExecution $execution, CarbonImmutable $now): string
     {
         if ($execution->status === 'completed' && $execution->finished_at !== null) {
             return $execution->finished_at->lessThanOrEqualTo($execution->scheduled_for->addMinutes(self::OnTimeMinutes)) ? 'on_time' : 'late';

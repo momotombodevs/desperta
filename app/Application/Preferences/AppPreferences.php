@@ -20,6 +20,8 @@ class AppPreferences
 
     private const string WeeklyGoalKey = 'weekly_goal';
 
+    private const string SeenAchievementsKey = 'seen_achievements';
+
     /** @var list<string> */
     private const array Appearances = ['system', 'light', 'dark'];
 
@@ -59,6 +61,23 @@ class AppPreferences
         AppPreference::query()->updateOrCreate(
             ['key' => self::WeeklyGoalKey],
             ['value' => (string) $goal],
+        );
+    }
+
+    /** @return list<string> */
+    public function seenAchievements(): array
+    {
+        $seen = json_decode($this->value(self::SeenAchievementsKey, '[]'), true);
+
+        return is_array($seen) ? array_values(array_filter($seen, 'is_string')) : [];
+    }
+
+    /** @param list<string> $achievements */
+    public function rememberSeenAchievements(array $achievements): void
+    {
+        AppPreference::query()->updateOrCreate(
+            ['key' => self::SeenAchievementsKey],
+            ['value' => json_encode(array_values(array_unique([...$this->seenAchievements(), ...$achievements])), JSON_THROW_ON_ERROR)],
         );
     }
 

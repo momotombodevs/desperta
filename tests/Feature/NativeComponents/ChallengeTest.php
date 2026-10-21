@@ -6,6 +6,7 @@ use App\Application\Challenges\ChallengeCatalog;
 use App\Application\Challenges\ChallengeTheme;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
+use App\Models\AlarmExecution;
 use App\Models\MorningRoutineStep;
 use App\NativeComponents\Challenge;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -462,4 +463,45 @@ it('labels a mixed trivia question with the pack it came from and its level', fu
     $challenge->assertSee('Trivia · '.$pack->label())
         ->assertSee('Nivel Fácil')
         ->assertSet('challengeTheme', 'mix');
+});
+
+it('celebrates the XP and achievements earned when the alarm turns off', function () {
+    $this->travelTo('2026-09-03 07:01:00');
+    $alarm = Alarm::factory()->create(['difficulty' => 'easy', 'challenge_types' => ['mental_math'], 'scheduling_status' => 'scheduled']);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+    $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    $challenge = Native::test(Challenge::class);
+    completeChallenge($challenge);
+
+    $challenge->assertSet('alarmStopped', true)
+        ->assertSet('earnedXp', 20 + 10 + 15)
+        ->assertSet('unlockedAchievements', ['first_wake', 'lightning'])
+        ->assertSee('+45 XP')
+        ->assertSee('Logro desbloqueado')
+        ->assertSee('Primer despertar')
+        ->assertSee('Rayo');
+
+    $this->assertDatabaseHas('alarm_challenge_attempts', ['alarm_execution_id' => 'execution-1', 'best_combo' => 3]);
+    expect(app(AppPreferences::class)->seenAchievements())->toBe(['first_wake', 'lightning']);
+});
+
+it('announces a level up when the wake-up crosses the next threshold', function () {
+    $this->travelTo('2026-09-03 07:01:00');
+    $alarm = Alarm::factory()->create(['difficulty' => 'easy', 'challenge_types' => ['sequence'], 'scheduling_status' => 'scheduled']);
+    AlarmExecution::factory()->for($alarm)->count(3)->create([
+        'scheduled_for' => '2026-09-01 07:00:00', 'started_at' => '2026-09-01 07:00:00', 'finished_at' => '2026-09-01 07:03:00',
+    ]);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+    $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    $challenge = Native::test(Challenge::class);
+    completeChallenge($challenge);
+
+    $challenge->assertSet('reachedLevel', 2)
+        ->assertSee('¡Subiste al nivel 2: Madrugador!');
 });
