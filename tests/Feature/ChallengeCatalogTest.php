@@ -2,6 +2,7 @@
 
 use App\Application\Challenges\ChallengeCatalog;
 use App\Application\Challenges\ChallengeDifficulty;
+use App\Application\Challenges\ChallengeTheme;
 use App\Application\Challenges\ChallengeType;
 use App\Application\Preferences\AppPreferences;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -43,12 +44,12 @@ it('returns five questions for a hard challenge', function () {
     expect($catalog->questions(5))->toHaveCount(5);
 });
 
-it('keeps localized question identifiers aligned across Spanish and English', function () {
-    $spanish = trans('challenges.nicaragua.questions', [], 'es_NI');
-    $english = trans('challenges.nicaragua.questions', [], 'en');
+it('keeps localized question identifiers aligned across Spanish and English', function (ChallengeTheme $theme) {
+    $spanish = trans("challenges.{$theme->value}.questions", [], 'es_NI');
+    $english = trans("challenges.{$theme->value}.questions", [], 'en');
 
     expect(array_column($spanish, 'id'))->toBe(array_column($english, 'id'));
-});
+})->with(ChallengeTheme::packs());
 
 it('uses the INETER volcanic-chain count in the Nicaragua package in both locales', function () {
     $spanish = collect(trans('challenges.nicaragua.questions', [], 'es_NI'))
@@ -64,20 +65,23 @@ it('uses the INETER volcanic-chain count in the Nicaragua package in both locale
         ->and($english['options'])->toContain($english['answer']);
 });
 
-it('keeps every localized package question unique and its answer selectable', function () {
-    foreach (['nicaragua', 'math', 'general_knowledge'] as $theme) {
-        foreach (['es_NI', 'en'] as $locale) {
-            $questions = trans("challenges.{$theme}.questions", [], $locale);
-            $ids = array_column($questions, 'id');
+it('keeps every localized package question unique, leveled and answerable', function (ChallengeTheme $theme) {
+    foreach (['es_NI', 'en'] as $locale) {
+        $questions = trans("challenges.{$theme->value}.questions", [], $locale);
+        $ids = array_column($questions, 'id');
+        $levels = array_count_values(array_column($questions, 'level'));
 
-            expect(array_unique($ids))->toHaveCount(count($ids));
+        expect($questions)->toHaveCount(30)
+            ->and(array_unique($ids))->toHaveCount(30)
+            ->and($levels)->toBe(['easy' => 10, 'normal' => 10, 'hard' => 10]);
 
-            foreach ($questions as $question) {
-                expect($question['options'])->toContain($question['answer']);
-            }
+        foreach ($questions as $question) {
+            expect($question['options'])->toHaveCount(4)
+                ->and(array_unique($question['options']))->toHaveCount(4)
+                ->and($question['options'])->toContain($question['answer']);
         }
     }
-});
+})->with(ChallengeTheme::packs());
 
 it('builds valid memory, sequence, and mental math questions at each difficulty', function () {
     $catalog = new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937(29)));
@@ -150,10 +154,42 @@ it('turns a trivia fact into the answer explanation', function () {
 });
 
 it('keeps trivia facts aligned across Spanish and English', function () {
-    foreach (['nicaragua', 'math', 'general_knowledge'] as $theme) {
-        $spanish = array_column(trans("challenges.{$theme}.questions", [], 'es_NI'), 'fact', 'id');
-        $english = array_column(trans("challenges.{$theme}.questions", [], 'en'), 'fact', 'id');
+    foreach (ChallengeTheme::packs() as $theme) {
+        $spanish = array_column(trans("challenges.{$theme->value}.questions", [], 'es_NI'), 'fact', 'id');
+        $english = array_column(trans("challenges.{$theme->value}.questions", [], 'en'), 'fact', 'id');
 
         expect(array_keys($spanish))->toBe(array_keys($english));
     }
+});
+
+it('draws questions from the level that matches the difficulty', function (ChallengeDifficulty $difficulty, string $level) {
+    $catalog = new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937(14)));
+
+    $questions = $catalog->questions(5, themeName: 'nicaragua', difficulty: $difficulty);
+
+    expect(array_unique(array_column($questions, 'level')))->toBe([$level]);
+})->with([
+    'easy' => [ChallengeDifficulty::Easy, 'easy'],
+    'normal' => [ChallengeDifficulty::Normal, 'normal'],
+    'hard' => [ChallengeDifficulty::Hard, 'hard'],
+]);
+
+it('falls back to the nearest level once the preferred questions are used up', function () {
+    $catalog = new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937(15)));
+    $hardIds = array_column(array_filter(trans('challenges.nicaragua.questions'), fn (array $question): bool => $question['level'] === 'hard'), 'id');
+
+    $questions = $catalog->questions(5, $hardIds, themeName: 'nicaragua', difficulty: ChallengeDifficulty::Hard);
+
+    expect(array_unique(array_column($questions, 'level')))->toBe(['normal']);
+});
+
+it('mixes questions from every pack without id collisions', function () {
+    $catalog = new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937(16)));
+
+    $questions = $catalog->questions(60, themeName: 'mix');
+    $packs = array_unique(array_map(fn (string $id): string => strstr($id, '.', true), array_column($questions, 'id')));
+
+    expect(array_unique(array_column($questions, 'id')))->toHaveCount(60)
+        ->and(count($packs))->toBeGreaterThan(5)
+        ->and(array_diff($packs, array_column(ChallengeTheme::packs(), 'value')))->toBeEmpty();
 });

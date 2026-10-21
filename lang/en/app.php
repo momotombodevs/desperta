@@ -130,6 +130,7 @@ return [
     'challenge_adaptive_hint' => 'Take a breath and read each option carefully. The next challenge will adapt to your recent results.',
     'challenge_combo' => 'Streak x:count',
     'challenge_best_combo' => 'Best streak: :count in a row',
+    'question_level' => 'Level: :level',
     'challenge_score' => ':correct of :total correct',
     'answer_praise' => ['That\'s it!', 'Wide awake!', 'Exactly!', 'Nailed it!', 'On fire!'],
     'answer_wrong_title' => 'Almost… keep going',

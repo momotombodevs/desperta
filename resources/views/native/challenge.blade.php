@@ -6,10 +6,14 @@
 <native:column ref="challenge-screen" class="w-full gap-4 p-5">
     @if (! $unavailable)
         @php($challengeTypeName = __('challenges.types.'.$challengeType.'.name'))
+        @php($topic = $challengeType === 'trivia' ? $this->currentTopic : null)
         <native:row class="w-full items-center gap-2">
+            @if ($topic !== null)
+                <native:icon :android="$topic->icon()" class="text-theme-primary" size="18"/>
+            @endif
             <native:text class="flex-1 text-sm text-theme-on-surface-variant">
-                {{ $challengeType === 'trivia'
-                    ? __('app.challenge_type_with_topic', ['type' => $challengeTypeName, 'topic' => __('challenges.'.$challengeTheme.'.name')])
+                {{ $topic !== null
+                    ? __('app.challenge_type_with_topic', ['type' => $challengeTypeName, 'topic' => $topic->label()])
                     : __('app.challenge_type_label', ['type' => $challengeTypeName]) }}
             </native:text>
             @if (! $completed && $comboCount >= 2)
@@ -44,7 +48,14 @@
             @php($question = $questions[$questionIndex])
             @php($answeredCorrectly = $answerRevealed && $this->selectedAnswerIsCorrect())
             <native:column class="w-full gap-4 rounded-2xl border border-theme-outline bg-theme-sunrise/15 p-5">
-                <native:text font="accent" class="text-sm text-theme-sunrise">{{ __('app.question_of', ['current' => $questionIndex + 1, 'total' => count($questions)]) }}</native:text>
+                <native:row class="w-full items-center gap-2">
+                    <native:text font="accent" class="flex-1 text-sm text-theme-sunrise">{{ __('app.question_of', ['current' => $questionIndex + 1, 'total' => count($questions)]) }}</native:text>
+                    @if (isset($question['level']))
+                        <native:row ref="question-level" class="items-center rounded-full bg-theme-primary/15 px-3 py-1">
+                            <native:text class="text-xs text-theme-primary">{{ __('app.question_level', ['level' => __('app.'.$question['level'])]) }}</native:text>
+                        </native:row>
+                    @endif
+                </native:row>
                 <native:progress-bar :value="($questionIndex + ($answerRevealed ? 1 : 0)) / count($questions)"/>
                 <native:text class="text-sm text-theme-on-surface-variant">{{ $question['instruction'] }}</native:text>
                 <native:text font="accent" class="text-3xl leading-tight text-theme-on-surface">{{ $question['question'] }}</native:text>
