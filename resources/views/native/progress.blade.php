@@ -1,3 +1,4 @@
+@use('App\Application\PlayerProgress\PlayerProgress')
 @use('App\Icons\Android')
 
 <native:top-bar :title="__('progress.title')" show-navigation-icon />
@@ -22,6 +23,18 @@
                     : __('progress.xp_to_next', ['xp' => $this->summary['next_level_xp'] - $this->summary['xp'], 'level' => $this->summary['level'] + 1]) }}
             </native:text>
         </native:column>
+
+        <native:pressable ref="open-daily-question" class="w-full rounded-2xl border border-theme-outline bg-theme-surface p-4"
+                          @navigate="'/settings/daily-question'" :press-scale="0.98" :a11y-label="__('progress.daily_question.title')">
+            <native:row class="w-full items-center gap-3">
+                <native:icon :android="Android::Quiz" name="quiz" class="text-theme-primary" size="28"/>
+                <native:column class="flex-1 gap-1">
+                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('progress.daily_question.title') }}</native:text>
+                    <native:text class="text-sm text-theme-on-surface-variant">{{ __('progress.daily_question.reward', ['xp' => PlayerProgress::DailyQuestionXp]) }}</native:text>
+                </native:column>
+                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
+            </native:row>
+        </native:pressable>
 
         @php($unlockedCount = count(array_filter($this->achievements, fn (array $entry): bool => $entry['unlocked'])))
         <native:column class="w-full gap-3">

@@ -117,20 +117,20 @@
                     <native:progress-bar :value="$this->routineCompletion['completed'] / $this->routineCompletion['started']"/>
                 </native:column>
             @endif
-            @if ($this->wakeConsistency !== null)
+            @if ($this->wakeConsistency !== null || $this->sleepWindow !== null)
                 <native:column ref="wake-consistency" class="w-full gap-2 rounded-2xl border border-theme-outline bg-theme-surface p-4">
                     <native:row class="w-full items-center gap-2">
                         <native:icon :android="Android::Bedtime" name="bedtime" class="text-theme-primary" size="22"/>
                         <native:text font="accent" class="flex-1 text-lg text-theme-on-surface">{{ __('app.wake_consistency_title') }}</native:text>
-                        <native:text font="accent" class="text-base text-theme-primary">{{ __('app.wake_consistency_variation', ['minutes' => $this->wakeConsistency['variation_minutes']]) }}</native:text>
+                        @if ($this->wakeConsistency !== null)
+                            <native:text font="accent" class="text-base text-theme-primary">{{ __('app.wake_consistency_variation', ['minutes' => $this->wakeConsistency['variation_minutes']]) }}</native:text>
+                        @endif
                     </native:row>
-                    <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.wake_consistency_average', ['time' => $this->wakeConsistency['average_time']]) }}</native:text>
-                    @if ($this->wakeConsistency['bedtime'] !== null)
-                        <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.wake_consistency_sleep', [
-                            'bedtime' => $this->wakeConsistency['bedtime'],
-                            'hours' => $this->wakeConsistency['sleep_hours'],
-                            'minutes' => $this->wakeConsistency['sleep_minutes'],
-                        ]) }}</native:text>
+                    @if ($this->wakeConsistency !== null)
+                        <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.wake_consistency_average', ['minutes' => $this->wakeConsistency['average_delay_minutes']]) }}</native:text>
+                    @endif
+                    @if ($this->sleepWindow !== null)
+                        <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.wake_consistency_sleep', $this->sleepWindow) }}</native:text>
                     @endif
                 </native:column>
             @endif

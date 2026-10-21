@@ -50,6 +50,6 @@ class AlarmExecution extends Model
 
     public function displayTimestamp(): string
     {
-        return $this->scheduled_for->locale(app()->getLocale())->isoFormat('D MMM, h:mm a');
+        return $this->scheduled_for->setTimezone((string) config('app.alarm_timezone'))->locale(app()->getLocale())->isoFormat('D MMM, h:mm a');
     }
 }

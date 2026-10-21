@@ -229,9 +229,10 @@ it('shows the streak protector, the five-week calendar and the routine completio
         ->assertAccessible();
 });
 
-it('estimates sleep from the bedtime reminder and the usual wake-up time', function () {
+it('shows how fast alarms are turned off and the sleep window before the next alarm', function () {
     $this->travelTo(CarbonImmutable::parse('2026-09-10 18:00:00', 'UTC'));
     app(BedtimeReminderSettings::class)->save(true, '22:00', [1, 2, 3, 4, 5]);
+    Alarm::factory()->create(['time' => '06:30', 'weekdays' => [1, 2, 3, 4, 5, 6, 7], 'enabled' => true]);
     foreach (['2026-09-07', '2026-09-08', '2026-09-09'] as $date) {
         $scheduledFor = CarbonImmutable::parse("{$date} 06:00:00", 'America/Managua')->utc();
         AlarmExecution::factory()->create([
@@ -244,6 +245,21 @@ it('estimates sleep from the bedtime reminder and the usual wake-up time', funct
     Native::visit('/settings/habits')
         ->assertSee('Regularidad al despertar')
         ->assertSee('Variación: ±0 min')
-        ->assertSee('Te levantás en promedio a las 6:30 a. m.')
-        ->assertSee('Con tu recordatorio de las 10:00 p. m. dormís unas 8 h 30 min');
+        ->assertSee('Apagás la alarma en promedio 30 min después de que suena')
+        ->assertSee('Entre tu recordatorio de las 10:00 p. m. y tu próxima alarma de las 6:30 a. m. tenés 8 h 30 min para dormir');
+});
+
+it('hides the sleep window when the next alarm does not leave a plausible night', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-10 18:00:00', 'UTC'));
+    app(BedtimeReminderSettings::class)->save(true, '21:30', [1, 2, 3, 4, 5, 6, 7]);
+    Alarm::factory()->create(['time' => '21:00', 'weekdays' => [1, 2, 3, 4, 5, 6, 7], 'enabled' => true]);
+    AlarmExecution::factory()->create([
+        'status' => 'completed',
+        'scheduled_for' => CarbonImmutable::parse('2026-09-09 21:00:00', 'America/Managua')->utc(),
+        'finished_at' => CarbonImmutable::parse('2026-09-09 21:02:00', 'America/Managua')->utc(),
+    ]);
+
+    Native::visit('/settings/habits')
+        ->assertDontSee('para dormir')
+        ->assertDontSee('Regularidad al despertar');
 });

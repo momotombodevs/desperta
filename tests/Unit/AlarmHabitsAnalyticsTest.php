@@ -216,13 +216,13 @@ it('lays out the last five weeks as a Monday-first calendar', function () {
         ->and($days['2026-08-20']['status'])->toBe('none');
 });
 
-it('reports how regular wake-up times were over two weeks', function () {
+it('reports how long it takes to turn alarms off over two weeks', function () {
     $this->travelTo(CarbonImmutable::parse('2026-09-10 18:00:00', 'UTC'));
 
     expect(app(AlarmHabitsAnalytics::class)->wakeConsistency())->toBeNull();
 
-    foreach (['2026-09-07' => 0, '2026-09-08' => 10, '2026-09-09' => 20] as $date => $offset) {
-        $scheduledFor = CarbonImmutable::parse("{$date} 06:30:00", 'America/Managua')->utc();
+    foreach (['2026-09-07 06:30' => 0, '2026-09-08 21:00' => 10, '2026-09-09 05:15' => 20] as $time => $offset) {
+        $scheduledFor = CarbonImmutable::parse($time, 'America/Managua')->utc();
         AlarmExecution::factory()->create([
             'status' => 'completed',
             'scheduled_for' => $scheduledFor,
@@ -232,7 +232,7 @@ it('reports how regular wake-up times were over two weeks', function () {
 
     expect(app(AlarmHabitsAnalytics::class)->wakeConsistency())->toBe([
         'samples' => 3,
-        'average_minutes' => 6 * 60 + 40,
+        'average_delay_minutes' => 10,
         'variation_minutes' => 8,
     ]);
 });

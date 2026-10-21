@@ -5,7 +5,10 @@ namespace App\NativeComponents;
 use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\Challenges\ChallengeTheme;
 use App\Application\Preferences\AppPreferences;
+use App\Models\DailyQuestion;
+use Carbon\CarbonImmutable;
 use Illuminate\View\View;
+use Native\Mobile\Attributes\Computed;
 use Native\Mobile\Edge\NativeComponent;
 use Native\Mobile\Facades\Browser;
 
@@ -60,6 +63,15 @@ final class Settings extends NativeComponent
         $this->challengeThemePreference = $theme;
 
         app(AppPreferences::class)->setChallengeTheme($theme);
+    }
+
+    #[Computed]
+    public function dailyQuestionAnswered(): bool
+    {
+        return DailyQuestion::query()
+            ->where('date', CarbonImmutable::now((string) config('app.alarm_timezone'))->toDateString())
+            ->whereNotNull('answered_at')
+            ->exists();
     }
 
     public function openMomotomboDevs(): void

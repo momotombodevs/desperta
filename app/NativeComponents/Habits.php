@@ -6,8 +6,10 @@ use App\AlarmScheduling\AlarmOccurrenceReconciler;
 use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmAnalytics\AlarmHabitsAnalytics;
 use App\Application\AlarmAnalytics\WeeklyProgressImage;
+use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\Preferences\AppPreferences;
 use App\Application\Preferences\BedtimeReminderSettings;
+use App\Models\Alarm;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Str;
@@ -19,6 +21,10 @@ use Native\Mobile\Facades\Share;
 final class Habits extends NativeComponent
 {
     use ResumesActiveAlarm;
+
+    private const int MinimumSleepWindowMinutes = 180;
+
+    private const int MaximumSleepWindowMinutes = 840;
 
     public string $weeklyGoalSelection = '4';
 
@@ -172,36 +178,58 @@ final class Habits extends NativeComponent
         return app(AlarmHabitsAnalytics::class)->routineCompletion();
     }
 
-    /** @return array{average_time: string, variation_minutes: int, bedtime: ?string, sleep_hours: ?int, sleep_minutes: ?int}|null */
+    /** @return array{samples: int, average_delay_minutes: int, variation_minutes: int}|null */
     #[Computed]
     public function wakeConsistency(): ?array
     {
-        $consistency = app(AlarmHabitsAnalytics::class)->wakeConsistency();
+        return app(AlarmHabitsAnalytics::class)->wakeConsistency();
+    }
 
-        if ($consistency === null) {
+    /**
+     * Time between the bedtime reminder and the next alarm, shown only when it is a plausible night.
+     *
+     * @return array{bedtime: string, alarm: string, hours: int, minutes: int}|null
+     */
+    #[Computed]
+    public function sleepWindow(): ?array
+    {
+        $bedtime = app(BedtimeReminderSettings::class)->get();
+        $nextAlarm = Alarm::query()
+            ->where('enabled', true)
+            ->get()
+            ->sortBy(fn (Alarm $alarm): int => app(AlarmExecutionLifecycle::class)->nextScheduledFor($alarm)->getTimestamp())
+            ->first();
+
+        if (! $bedtime['enabled'] || $nextAlarm === null) {
             return null;
         }
 
-        $bedtime = app(BedtimeReminderSettings::class)->get();
-        $sleepMinutes = null;
+        $bedtimeMinutes = $this->minutesOfDay($bedtime['time']);
+        $alarmMinutes = $this->minutesOfDay($nextAlarm->time);
+        $window = ($alarmMinutes - $bedtimeMinutes + 1440) % 1440;
 
-        if ($bedtime['enabled']) {
-            [$hour, $minute] = array_map('intval', explode(':', $bedtime['time']));
-            $sleepMinutes = ($consistency['average_minutes'] - ($hour * 60 + $minute) + 1440) % 1440;
+        if ($window < self::MinimumSleepWindowMinutes || $window > self::MaximumSleepWindowMinutes) {
+            return null;
         }
 
         return [
-            'average_time' => $this->clockTime($consistency['average_minutes']),
-            'variation_minutes' => $consistency['variation_minutes'],
-            'bedtime' => $bedtime['enabled'] ? $this->clockTime($hour * 60 + $minute) : null,
-            'sleep_hours' => $sleepMinutes === null ? null : intdiv($sleepMinutes, 60),
-            'sleep_minutes' => $sleepMinutes === null ? null : $sleepMinutes % 60,
+            'bedtime' => $this->clockTime($bedtimeMinutes),
+            'alarm' => $nextAlarm->displayTime(),
+            'hours' => intdiv($window, 60),
+            'minutes' => $window % 60,
         ];
     }
 
     public function render(): View
     {
         return view('native.habits');
+    }
+
+    private function minutesOfDay(string $time): int
+    {
+        [$hour, $minute] = array_map('intval', explode(':', $time));
+
+        return $hour * 60 + $minute;
     }
 
     private function clockTime(int $minutesOfDay): string

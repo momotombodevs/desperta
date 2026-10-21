@@ -141,34 +141,31 @@ final class AlarmHabitsAnalytics
     }
 
     /**
-     * How regular wake-up times were over the last two weeks; null until there are enough mornings.
+     * How long it takes to turn alarms off after they ring, over the last two weeks.
+     * Measured relative to each alarm so mornings with different alarm times compare fairly.
      *
-     * @return array{samples: int, average_minutes: int, variation_minutes: int}|null
+     * @return array{samples: int, average_delay_minutes: int, variation_minutes: int}|null Null until there are three mornings.
      */
     public function wakeConsistency(): ?array
     {
         $now = CarbonImmutable::now($this->alarmTimezone());
-        $minutes = AlarmExecution::query()
+        $delays = AlarmExecution::query()
             ->where('status', 'completed')
             ->whereNotNull('finished_at')
             ->whereBetween('scheduled_for', [$now->startOfDay()->subDays(13)->utc(), $now->endOfDay()->utc()])
             ->get()
-            ->map(function (AlarmExecution $execution): int {
-                $finishedAt = $execution->finished_at->setTimezone($this->alarmTimezone());
+            ->map(fn (AlarmExecution $execution): float => max(0, $execution->scheduled_for->diffInSeconds($execution->finished_at, false)) / 60);
 
-                return $finishedAt->hour * 60 + $finishedAt->minute;
-            });
-
-        if ($minutes->count() < 3) {
+        if ($delays->count() < 3) {
             return null;
         }
 
-        $average = $minutes->avg();
-        $variance = $minutes->map(fn (int $minute): float => ($minute - $average) ** 2)->avg();
+        $average = $delays->avg();
+        $variance = $delays->map(fn (float $delay): float => ($delay - $average) ** 2)->avg();
 
         return [
-            'samples' => $minutes->count(),
-            'average_minutes' => (int) round($average),
+            'samples' => $delays->count(),
+            'average_delay_minutes' => (int) round($average),
             'variation_minutes' => (int) round(sqrt($variance)),
         ];
     }
