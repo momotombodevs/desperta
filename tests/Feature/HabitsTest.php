@@ -3,8 +3,10 @@
 use App\AlarmScheduling\NativeAlarmOccurrenceEvent;
 use App\Application\AlarmScheduling\NativeAlarmGateway;
 use App\Application\Preferences\AppPreferences;
+use App\Application\Preferences\BedtimeReminderSettings;
 use App\Models\Alarm;
 use App\Models\AlarmExecution;
+use App\Models\AlarmExecutionRoutineStep;
 use App\NativeComponents\Habits;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -201,4 +203,47 @@ it('labels the historical hardest weekday as a recent-weeks result in both langu
     app(AppPreferences::class)->setLanguage('en');
     Native::visit('/settings/habits')
         ->assertSee('Most difficult day in recent weeks: Monday');
+});
+
+it('shows the streak protector, the five-week calendar and the routine completion', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
+    foreach (['2026-08-31' => 4, '2026-09-01' => 30, '2026-09-02' => 5] as $date => $minutesLate) {
+        $scheduledFor = CarbonImmutable::parse("{$date} 07:00:00", 'America/Managua')->utc();
+        $execution = AlarmExecution::factory()->create([
+            'status' => 'completed',
+            'scheduled_for' => $scheduledFor,
+            'finished_at' => $scheduledFor->addMinutes($minutesLate),
+        ]);
+        AlarmExecutionRoutineStep::query()->create([
+            'alarm_execution_id' => $execution->id, 'label' => 'Agua', 'position' => 0,
+            'completed_at' => $minutesLate < 10 ? $scheduledFor->addMinutes(20) : null,
+        ]);
+    }
+
+    Native::visit('/settings/habits')
+        ->assertSee('2 días')
+        ->assertSee('Protector de racha usado esta semana')
+        ->assertSee('Últimas 5 semanas')
+        ->assertElement('column', fn (array $node): bool => ($node['a11y_label'] ?? $node['props']['a11y_label'] ?? null) === '1: Día salvado por el protector')
+        ->assertSee('2 de 3 rutinas completas · 7 días')
+        ->assertAccessible();
+});
+
+it('estimates sleep from the bedtime reminder and the usual wake-up time', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-10 18:00:00', 'UTC'));
+    app(BedtimeReminderSettings::class)->save(true, '22:00', [1, 2, 3, 4, 5]);
+    foreach (['2026-09-07', '2026-09-08', '2026-09-09'] as $date) {
+        $scheduledFor = CarbonImmutable::parse("{$date} 06:00:00", 'America/Managua')->utc();
+        AlarmExecution::factory()->create([
+            'status' => 'completed',
+            'scheduled_for' => $scheduledFor,
+            'finished_at' => $scheduledFor->addMinutes(30),
+        ]);
+    }
+
+    Native::visit('/settings/habits')
+        ->assertSee('Regularidad al despertar')
+        ->assertSee('Variación: ±0 min')
+        ->assertSee('Te levantás en promedio a las 6:30 a. m.')
+        ->assertSee('Con tu recordatorio de las 10:00 p. m. dormís unas 8 h 30 min');
 });

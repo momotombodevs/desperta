@@ -7,6 +7,7 @@ use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmAnalytics\AlarmHabitsAnalytics;
 use App\Application\AlarmAnalytics\WeeklyProgressImage;
 use App\Application\Preferences\AppPreferences;
+use App\Application\Preferences\BedtimeReminderSettings;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Str;
@@ -40,6 +41,8 @@ final class Habits extends NativeComponent
      *     current_streak_label: string,
      *     best_streak: int,
      *     best_streak_label: string,
+     *     protected_days: list<string>,
+     *     protector_available: bool,
      *     on_time_count: int,
      *     resolved_count: int,
      *     on_time_rate: int,
@@ -146,9 +149,66 @@ final class Habits extends NativeComponent
         ];
     }
 
+    /** @return list<list<array{date: string, day: int, status: string, protected: bool, future: bool}>> */
+    #[Computed]
+    public function calendarWeeks(): array
+    {
+        return array_chunk(app(AlarmHabitsAnalytics::class)->calendar(), 7);
+    }
+
+    /** @return list<string> */
+    public function weekdayInitials(): array
+    {
+        return array_map(
+            fn (string $day): string => __("app.weekdays.{$day}.short"),
+            ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+        );
+    }
+
+    /** @return array{started: int, completed: int} */
+    #[Computed]
+    public function routineCompletion(): array
+    {
+        return app(AlarmHabitsAnalytics::class)->routineCompletion();
+    }
+
+    /** @return array{average_time: string, variation_minutes: int, bedtime: ?string, sleep_hours: ?int, sleep_minutes: ?int}|null */
+    #[Computed]
+    public function wakeConsistency(): ?array
+    {
+        $consistency = app(AlarmHabitsAnalytics::class)->wakeConsistency();
+
+        if ($consistency === null) {
+            return null;
+        }
+
+        $bedtime = app(BedtimeReminderSettings::class)->get();
+        $sleepMinutes = null;
+
+        if ($bedtime['enabled']) {
+            [$hour, $minute] = array_map('intval', explode(':', $bedtime['time']));
+            $sleepMinutes = ($consistency['average_minutes'] - ($hour * 60 + $minute) + 1440) % 1440;
+        }
+
+        return [
+            'average_time' => $this->clockTime($consistency['average_minutes']),
+            'variation_minutes' => $consistency['variation_minutes'],
+            'bedtime' => $bedtime['enabled'] ? $this->clockTime($hour * 60 + $minute) : null,
+            'sleep_hours' => $sleepMinutes === null ? null : intdiv($sleepMinutes, 60),
+            'sleep_minutes' => $sleepMinutes === null ? null : $sleepMinutes % 60,
+        ];
+    }
+
     public function render(): View
     {
         return view('native.habits');
+    }
+
+    private function clockTime(int $minutesOfDay): string
+    {
+        $hour = intdiv($minutesOfDay, 60);
+
+        return sprintf('%d:%02d %s', $hour % 12 ?: 12, $minutesOfDay % 60, $hour < 12 ? __('app.time_am') : __('app.time_pm'));
     }
 
     /** @return array{id: string, name: string, color: string, points: list<array{id: string, label: string, value: int}>} */

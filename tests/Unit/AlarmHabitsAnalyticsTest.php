@@ -2,6 +2,7 @@
 
 use App\Application\AlarmAnalytics\AlarmHabitsAnalytics;
 use App\Models\AlarmExecution;
+use App\Models\AlarmExecutionRoutineStep;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 
@@ -32,8 +33,9 @@ it('summarizes punctual wake-ups, snoozes, and daily outcomes in Managua', funct
     $summary = app(AlarmHabitsAnalytics::class)->summarize();
 
     expect($summary)->toMatchArray([
-        'current_streak' => 1,
-        'best_streak' => 1,
+        'current_streak' => 2,
+        'best_streak' => 2,
+        'protected_days' => ['2026-08-31'],
         'on_time_count' => 2,
         'resolved_count' => 3,
         'on_time_rate' => 67,
@@ -153,4 +155,95 @@ it('counts an on-time execution once toward the daily streak when another alarm 
     ]);
 
     expect(app(AlarmHabitsAnalytics::class)->summarize()['current_streak'])->toBe(1);
+});
+
+function wakeUpOn(string $date, bool $onTime): void
+{
+    $scheduledFor = CarbonImmutable::parse("{$date} 07:00:00", 'America/Managua')->utc();
+
+    AlarmExecution::factory()->create([
+        'status' => 'completed',
+        'scheduled_for' => $scheduledFor,
+        'started_at' => $scheduledFor,
+        'finished_at' => $scheduledFor->addMinutes($onTime ? 4 : 30),
+    ]);
+}
+
+it('forgives only the first failed day of each week with the streak protector', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-12 18:00:00', 'UTC'));
+    wakeUpOn('2026-08-31', true);
+    wakeUpOn('2026-09-01', false);
+    wakeUpOn('2026-09-02', true);
+    wakeUpOn('2026-09-03', false);
+    wakeUpOn('2026-09-04', true);
+    wakeUpOn('2026-09-07', true);
+    wakeUpOn('2026-09-08', false);
+    wakeUpOn('2026-09-09', true);
+
+    expect(app(AlarmHabitsAnalytics::class)->summarize())->toMatchArray([
+        'current_streak' => 3,
+        'best_streak' => 3,
+        'protected_days' => ['2026-09-01', '2026-09-08'],
+        'protector_available' => false,
+    ]);
+});
+
+it('does not spend the protector before a streak has started', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-04 18:00:00', 'UTC'));
+    wakeUpOn('2026-08-31', false);
+    wakeUpOn('2026-09-01', true);
+
+    expect(app(AlarmHabitsAnalytics::class)->summarize())->toMatchArray([
+        'current_streak' => 1,
+        'protected_days' => [],
+        'protector_available' => true,
+    ]);
+});
+
+it('lays out the last five weeks as a Monday-first calendar', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
+    wakeUpOn('2026-09-01', true);
+    wakeUpOn('2026-09-02', false);
+
+    $calendar = app(AlarmHabitsAnalytics::class)->calendar();
+    $days = collect($calendar)->keyBy('date');
+
+    expect($calendar)->toHaveCount(35)
+        ->and($calendar[0]['date'])->toBe('2026-08-03')
+        ->and($days['2026-09-01'])->toMatchArray(['day' => 1, 'status' => 'on_time', 'protected' => false])
+        ->and($days['2026-09-02'])->toMatchArray(['status' => 'late', 'protected' => true])
+        ->and($days['2026-09-04']['future'])->toBeTrue()
+        ->and($days['2026-08-20']['status'])->toBe('none');
+});
+
+it('reports how regular wake-up times were over two weeks', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-10 18:00:00', 'UTC'));
+
+    expect(app(AlarmHabitsAnalytics::class)->wakeConsistency())->toBeNull();
+
+    foreach (['2026-09-07' => 0, '2026-09-08' => 10, '2026-09-09' => 20] as $date => $offset) {
+        $scheduledFor = CarbonImmutable::parse("{$date} 06:30:00", 'America/Managua')->utc();
+        AlarmExecution::factory()->create([
+            'status' => 'completed',
+            'scheduled_for' => $scheduledFor,
+            'finished_at' => $scheduledFor->addMinutes($offset),
+        ]);
+    }
+
+    expect(app(AlarmHabitsAnalytics::class)->wakeConsistency())->toBe([
+        'samples' => 3,
+        'average_minutes' => 6 * 60 + 40,
+        'variation_minutes' => 8,
+    ]);
+});
+
+it('counts finished morning routines from the last seven days', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-10 18:00:00', 'UTC'));
+    $recent = AlarmExecution::factory()->count(2)->create(['scheduled_for' => CarbonImmutable::parse('2026-09-09 13:00:00', 'UTC')]);
+    $old = AlarmExecution::factory()->create(['scheduled_for' => CarbonImmutable::parse('2026-08-20 13:00:00', 'UTC')]);
+    AlarmExecutionRoutineStep::query()->create(['alarm_execution_id' => $recent[0]->id, 'label' => 'Agua', 'position' => 0, 'completed_at' => now()]);
+    AlarmExecutionRoutineStep::query()->create(['alarm_execution_id' => $recent[1]->id, 'label' => 'Agua', 'position' => 0]);
+    AlarmExecutionRoutineStep::query()->create(['alarm_execution_id' => $old->id, 'label' => 'Agua', 'position' => 0, 'completed_at' => now()]);
+
+    expect(app(AlarmHabitsAnalytics::class)->routineCompletion())->toBe(['started' => 2, 'completed' => 1]);
 });
