@@ -6,7 +6,10 @@ use App\AlarmScheduling\AlarmOccurrenceReconciler;
 use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmAnalytics\AlarmHabitsAnalytics;
 use App\Application\AlarmAnalytics\WeeklyProgressImage;
+use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\Preferences\AppPreferences;
+use App\Application\Preferences\BedtimeReminderSettings;
+use App\Models\Alarm;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Str;
@@ -18,6 +21,10 @@ use Native\Mobile\Facades\Share;
 final class Habits extends NativeComponent
 {
     use ResumesActiveAlarm;
+
+    private const int MinimumSleepWindowMinutes = 180;
+
+    private const int MaximumSleepWindowMinutes = 840;
 
     public string $weeklyGoalSelection = '4';
 
@@ -40,6 +47,8 @@ final class Habits extends NativeComponent
      *     current_streak_label: string,
      *     best_streak: int,
      *     best_streak_label: string,
+     *     protected_days: list<string>,
+     *     protector_available: bool,
      *     on_time_count: int,
      *     resolved_count: int,
      *     on_time_rate: int,
@@ -146,9 +155,88 @@ final class Habits extends NativeComponent
         ];
     }
 
+    /** @return list<list<array{date: string, day: int, status: string, protected: bool, future: bool}>> */
+    #[Computed]
+    public function calendarWeeks(): array
+    {
+        return array_chunk(app(AlarmHabitsAnalytics::class)->calendar(), 7);
+    }
+
+    /** @return list<string> */
+    public function weekdayInitials(): array
+    {
+        return array_map(
+            fn (string $day): string => __("app.weekdays.{$day}.short"),
+            ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+        );
+    }
+
+    /** @return array{started: int, completed: int} */
+    #[Computed]
+    public function routineCompletion(): array
+    {
+        return app(AlarmHabitsAnalytics::class)->routineCompletion();
+    }
+
+    /** @return array{samples: int, average_delay_minutes: int, variation_minutes: int}|null */
+    #[Computed]
+    public function wakeConsistency(): ?array
+    {
+        return app(AlarmHabitsAnalytics::class)->wakeConsistency();
+    }
+
+    /**
+     * Time between the bedtime reminder and the next alarm, shown only when it is a plausible night.
+     *
+     * @return array{bedtime: string, alarm: string, hours: int, minutes: int}|null
+     */
+    #[Computed]
+    public function sleepWindow(): ?array
+    {
+        $bedtime = app(BedtimeReminderSettings::class)->get();
+        $nextAlarm = Alarm::query()
+            ->where('enabled', true)
+            ->get()
+            ->sortBy(fn (Alarm $alarm): int => app(AlarmExecutionLifecycle::class)->nextScheduledFor($alarm)->getTimestamp())
+            ->first();
+
+        if (! $bedtime['enabled'] || $nextAlarm === null) {
+            return null;
+        }
+
+        $bedtimeMinutes = $this->minutesOfDay($bedtime['time']);
+        $alarmMinutes = $this->minutesOfDay($nextAlarm->time);
+        $window = ($alarmMinutes - $bedtimeMinutes + 1440) % 1440;
+
+        if ($window < self::MinimumSleepWindowMinutes || $window > self::MaximumSleepWindowMinutes) {
+            return null;
+        }
+
+        return [
+            'bedtime' => $this->clockTime($bedtimeMinutes),
+            'alarm' => $nextAlarm->displayTime(),
+            'hours' => intdiv($window, 60),
+            'minutes' => $window % 60,
+        ];
+    }
+
     public function render(): View
     {
         return view('native.habits');
+    }
+
+    private function minutesOfDay(string $time): int
+    {
+        [$hour, $minute] = array_map('intval', explode(':', $time));
+
+        return $hour * 60 + $minute;
+    }
+
+    private function clockTime(int $minutesOfDay): string
+    {
+        $hour = intdiv($minutesOfDay, 60);
+
+        return sprintf('%d:%02d %s', $hour % 12 ?: 12, $minutesOfDay % 60, $hour < 12 ? __('app.time_am') : __('app.time_pm'));
     }
 
     /** @return array{id: string, name: string, color: string, points: list<array{id: string, label: string, value: int}>} */

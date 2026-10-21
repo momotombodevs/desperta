@@ -47,3 +47,14 @@ it('renders the empty state in English when English is selected', function () {
         ->assertSee('Complete an alarm to see its execution history here.')
         ->assertAccessible();
 });
+
+it('shows execution times in the alarm time zone instead of UTC', function () {
+    AlarmExecution::factory()->create([
+        'alarm_label' => 'Noche',
+        'scheduled_for' => '2026-10-21 03:00:00',
+    ]);
+
+    Native::visit('/settings/history')
+        ->assertSee('20 Oct, 9:00 pm')
+        ->assertDontSee('3:00 am');
+});

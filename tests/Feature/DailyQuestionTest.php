@@ -66,13 +66,23 @@ it('reveals the right answer and vibrates after a miss', function () {
     expect(DailyQuestion::query()->sole()->correct)->toBeFalse();
 });
 
-it('updates the level card on home after answering the question of the day', function () {
+it('opens the question of the day from settings and clears its reward badge once answered', function () {
+    Native::visit('/')
+        ->assertDontSee('Pregunta del día');
+
+    Native::visit('/settings')
+        ->assertSee('+5 XP')
+        ->tap('open-daily-question')
+        ->assertNavigatedTo('/settings/daily-question');
+
     $question = app(DailyQuestionPicker::class)->today()->question;
     $correct = array_search($question['answer'], $question['options'], true);
-
-    Native::visit('/')
-        ->assertSee('0 XP')
+    Native::visit('/settings/daily-question')
+        ->assertSee($question['question'])
         ->tap("daily-answer-{$correct}")
-        ->assertSee('5 XP')
-        ->assertSee('¡Correcto! +5 XP');
+        ->assertSee('¡Correcto! +5 XP')
+        ->assertAccessible();
+
+    Native::visit('/settings')
+        ->assertDontSee('+5 XP');
 });

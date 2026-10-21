@@ -128,15 +128,17 @@ it('shows the level, XP and achievements on the progress screen', function () {
         ->assertAccessible();
 });
 
-it('opens the progress screen from home and settings', function () {
+it('keeps home focused on alarms and opens progress from settings', function () {
     Native::visit('/')
-        ->assertSee('Nivel 1 · Dormilón')
-        ->tap('open-progress')
-        ->assertNavigatedTo('/settings/progress');
+        ->assertDontSee('Nivel 1 · Dormilón');
 
     Native::visit('/settings')
         ->tap('open-progress')
         ->assertNavigatedTo('/settings/progress');
+
+    Native::visit('/settings/progress')
+        ->tap('open-daily-question')
+        ->assertNavigatedTo('/settings/daily-question');
 });
 
 it('adds the attempt combo column without touching existing attempts', function () {

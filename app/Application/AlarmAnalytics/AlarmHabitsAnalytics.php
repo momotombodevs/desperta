@@ -3,6 +3,7 @@
 namespace App\Application\AlarmAnalytics;
 
 use App\Models\AlarmExecution;
+use App\Models\AlarmExecutionRoutineStep;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -12,7 +13,7 @@ final class AlarmHabitsAnalytics
     private const int OnTimeMinutes = 10;
 
     /**
-     * @return array{current_streak: int, best_streak: int, on_time_count: int, resolved_count: int, on_time_rate: int, without_snooze_count: int, without_snooze_rate: int, weekly_summary: array{on_time_mornings: int, resolved_count: int, on_time_count: int, late_count: int, missed_count: int, snooze_count: int, hardest_weekday: ?int, recommendation: string}, days: list<array{date: string, status: string, on_time: int, late: int, missed: int, pending: int}>}
+     * @return array{current_streak: int, best_streak: int, protected_days: list<string>, protector_available: bool, on_time_count: int, resolved_count: int, on_time_rate: int, without_snooze_count: int, without_snooze_rate: int, weekly_summary: array{on_time_mornings: int, resolved_count: int, on_time_count: int, late_count: int, missed_count: int, snooze_count: int, hardest_weekday: ?int, recommendation: string}, days: list<array{date: string, status: string, on_time: int, late: int, missed: int, pending: int}>}
      */
     public function summarize(): array
     {
@@ -99,10 +100,80 @@ final class AlarmHabitsAnalytics
         ];
     }
 
-    /** @return list<array{date: string, status: string, on_time: int, late: int, missed: int, pending: int}> */
-    private function dayResults(Collection $executions, CarbonImmutable $start, CarbonImmutable $now): array
+    /**
+     * Day-by-day results for the last few weeks, aligned to start on a Monday so the
+     * screen can lay them out as a calendar.
+     *
+     * @return list<array{date: string, day: int, status: string, protected: bool, future: bool}>
+     */
+    public function calendar(int $weeks = 5): array
     {
-        $days = collect(range(0, 6))->mapWithKeys(fn (int $offset): array => [
+        $now = CarbonImmutable::now($this->alarmTimezone());
+        $start = $now->startOfWeek(CarbonInterface::MONDAY)->subWeeks($weeks - 1)->startOfDay();
+        $executions = AlarmExecution::query()
+            ->where('status', '!=', 'cancelled')
+            ->whereBetween('scheduled_for', [$start->utc(), $now->endOfDay()->utc()])
+            ->get();
+        $protectedDays = $this->streaks($now)['protected_days'];
+
+        return array_map(fn (array $day): array => [
+            'date' => $day['date'],
+            'day' => (int) CarbonImmutable::parse($day['date'])->day,
+            'status' => $day['status'],
+            'protected' => in_array($day['date'], $protectedDays, true),
+            'future' => $day['date'] > $now->toDateString(),
+        ], $this->dayResults($executions, $start, $now, $weeks * 7));
+    }
+
+    /** @return array{started: int, completed: int} Morning routines begun and fully finished in the last 7 days. */
+    public function routineCompletion(): array
+    {
+        $now = CarbonImmutable::now($this->alarmTimezone());
+        $routines = AlarmExecutionRoutineStep::query()
+            ->whereHas('execution', fn ($query) => $query->whereBetween('scheduled_for', [$now->startOfDay()->subDays(6)->utc(), $now->endOfDay()->utc()]))
+            ->get(['alarm_execution_id', 'completed_at'])
+            ->groupBy('alarm_execution_id');
+
+        return [
+            'started' => $routines->count(),
+            'completed' => $routines->filter(fn (Collection $steps): bool => $steps->every(fn (AlarmExecutionRoutineStep $step): bool => $step->completed_at !== null))->count(),
+        ];
+    }
+
+    /**
+     * How long it takes to turn alarms off after they ring, over the last two weeks.
+     * Measured relative to each alarm so mornings with different alarm times compare fairly.
+     *
+     * @return array{samples: int, average_delay_minutes: int, variation_minutes: int}|null Null until there are three mornings.
+     */
+    public function wakeConsistency(): ?array
+    {
+        $now = CarbonImmutable::now($this->alarmTimezone());
+        $delays = AlarmExecution::query()
+            ->where('status', 'completed')
+            ->whereNotNull('finished_at')
+            ->whereBetween('scheduled_for', [$now->startOfDay()->subDays(13)->utc(), $now->endOfDay()->utc()])
+            ->get()
+            ->map(fn (AlarmExecution $execution): float => max(0, $execution->scheduled_for->diffInSeconds($execution->finished_at, false)) / 60);
+
+        if ($delays->count() < 3) {
+            return null;
+        }
+
+        $average = $delays->avg();
+        $variance = $delays->map(fn (float $delay): float => ($delay - $average) ** 2)->avg();
+
+        return [
+            'samples' => $delays->count(),
+            'average_delay_minutes' => (int) round($average),
+            'variation_minutes' => (int) round(sqrt($variance)),
+        ];
+    }
+
+    /** @return list<array{date: string, status: string, on_time: int, late: int, missed: int, pending: int}> */
+    private function dayResults(Collection $executions, CarbonImmutable $start, CarbonImmutable $now, int $dayCount = 7): array
+    {
+        $days = collect(range(0, $dayCount - 1))->mapWithKeys(fn (int $offset): array => [
             $start->addDays($offset)->toDateString() => [
                 'date' => $start->addDays($offset)->toDateString(),
                 'status' => 'none',
@@ -130,7 +201,12 @@ final class AlarmHabitsAnalytics
         }, $days));
     }
 
-    /** @return array{current_streak: int, best_streak: int} */
+    /**
+     * Counts consecutive on-time days. A streak protector forgives the first failed
+     * day of each ISO week, so a single bad morning does not wipe out the run.
+     *
+     * @return array{current_streak: int, best_streak: int, protected_days: list<string>, protector_available: bool}
+     */
     private function streaks(CarbonImmutable $now): array
     {
         $outcomes = AlarmExecution::query()
@@ -139,27 +215,33 @@ final class AlarmHabitsAnalytics
             ->get()
             ->groupBy(fn (AlarmExecution $execution): string => $execution->scheduled_for->setTimezone($this->alarmTimezone())->toDateString())
             ->map(fn (Collection $executions): ?bool => $this->dayOutcome($executions, $now))
-            ->filter(fn (?bool $outcome): bool => $outcome !== null)
-            ->values();
+            ->filter(fn (?bool $outcome): bool => $outcome !== null);
         $best = 0;
         $running = 0;
+        $protectedDays = [];
+        $protectedWeeks = [];
 
-        foreach ($outcomes as $outcome) {
-            $running = $outcome ? $running + 1 : 0;
+        foreach ($outcomes as $date => $outcome) {
+            $week = CarbonImmutable::parse($date)->format('o-W');
+
+            if ($outcome) {
+                $running++;
+            } elseif ($running > 0 && ! in_array($week, $protectedWeeks, true)) {
+                $protectedWeeks[] = $week;
+                $protectedDays[] = (string) $date;
+            } else {
+                $running = 0;
+            }
+
             $best = max($best, $running);
         }
 
-        $current = 0;
-
-        foreach ($outcomes->reverse() as $outcome) {
-            if (! $outcome) {
-                break;
-            }
-
-            $current++;
-        }
-
-        return ['current_streak' => $current, 'best_streak' => $best];
+        return [
+            'current_streak' => $running,
+            'best_streak' => $best,
+            'protected_days' => $protectedDays,
+            'protector_available' => ! in_array($now->setTimezone($this->alarmTimezone())->format('o-W'), $protectedWeeks, true),
+        ];
     }
 
     private function dayOutcome(Collection $executions, CarbonImmutable $now): ?bool

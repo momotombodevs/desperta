@@ -13,7 +13,7 @@
             <native:date-picker :label="__('app.bedtime_reminder_time')" mode="time" hour-format="12"
                                 native:model="time" :title="__('app.bedtime_reminder_time')"
                                 :confirm-label="__('app.accept')" :cancel-label="__('app.cancel')" />
-            <native:row class="w-full gap-2">
+            <native:row class="w-full flex-wrap gap-2">
                 <native:chip :label="__('app.weekday_abbreviations.1')" native:model="monday" :a11y-label="__('app.weekday_names.1')" />
                 <native:chip :label="__('app.weekday_abbreviations.2')" native:model="tuesday" :a11y-label="__('app.weekday_names.2')" />
                 <native:chip :label="__('app.weekday_abbreviations.3')" native:model="wednesday" :a11y-label="__('app.weekday_names.3')" />

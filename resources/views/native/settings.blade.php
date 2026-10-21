@@ -1,4 +1,5 @@
 @use('App\Application\Challenges\ChallengeTheme')
+@use('App\Application\PlayerProgress\PlayerProgress')
 @use('App\Icons\Android')
 
 <native:top-bar :title="__('app.settings')" show-navigation-icon />
@@ -17,6 +18,22 @@
                 <native:column class="flex-1 gap-1">
                     <native:text font="accent" class="text-base text-theme-on-surface">{{ __('progress.title') }}</native:text>
                 </native:column>
+                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
+            </native:row>
+        </native:pressable>
+
+        <native:pressable ref="open-daily-question" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
+                          @navigate="'/settings/daily-question'" :a11y-label="__('progress.daily_question.title')">
+            <native:row class="w-full items-center gap-3">
+                <native:icon :android="Android::Quiz" class="text-theme-primary" size="24"/>
+                <native:column class="flex-1 gap-1">
+                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('progress.daily_question.title') }}</native:text>
+                </native:column>
+                @unless ($this->dailyQuestionAnswered)
+                    <native:row class="items-center rounded-full bg-theme-primary/15 px-3 py-1">
+                        <native:text class="text-xs text-theme-primary">{{ __('progress.xp_gained', ['xp' => PlayerProgress::DailyQuestionXp]) }}</native:text>
+                    </native:row>
+                @endunless
                 <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
             </native:row>
         </native:pressable>
