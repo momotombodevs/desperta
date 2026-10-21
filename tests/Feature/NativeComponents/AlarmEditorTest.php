@@ -353,3 +353,58 @@ it('discards editor changes when cancelling an existing alarm', function () {
         'label' => 'Sin cambios',
     ]);
 });
+
+it('saves the challenge types and trivia topic chosen for the alarm', function () {
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldNotReceive('schedule');
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    Native::visit('/alarms/new')
+        ->assertSee('Igual que en Ajustes')
+        ->set('memoryChallenge', false)
+        ->set('sequenceChallenge', false)
+        ->select('challengeTopicDisplay', 'Matemáticas')
+        ->toggle('enabled', false)
+        ->tap('save-alarm')
+        ->assertReplacedWith('/');
+
+    expect(Alarm::query()->sole())
+        ->challenge_theme->toBe('math')
+        ->challenge_types->toBe(['trivia', 'mental_math']);
+});
+
+it('keeps following the settings when every challenge type stays selected', function () {
+    $alarm = Alarm::factory()->create(['challenge_theme' => 'math', 'challenge_types' => ['memory'], 'enabled' => false, 'scheduling_status' => 'not_scheduled']);
+    app()->instance(NativeAlarmScheduler::class, mock(NativeAlarmScheduler::class));
+
+    Native::visit("/alarms/{$alarm->id}/edit")
+        ->assertSet('memoryChallenge', true)
+        ->assertSet('triviaChallenge', false)
+        ->assertSet('challengeTopicDisplay', 'Matemáticas')
+        ->set('triviaChallenge', true)
+        ->set('sequenceChallenge', true)
+        ->set('mentalMathChallenge', true)
+        ->select('challengeTopicDisplay', 'Igual que en Ajustes')
+        ->tap('save-alarm')
+        ->assertReplacedWith('/');
+
+    expect($alarm->fresh())
+        ->challenge_theme->toBeNull()
+        ->challenge_types->toBeNull();
+});
+
+it('requires at least one challenge type before saving', function () {
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldNotReceive('schedule');
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+
+    Native::visit('/alarms/new')
+        ->set('triviaChallenge', false)
+        ->set('memoryChallenge', false)
+        ->set('sequenceChallenge', false)
+        ->set('mentalMathChallenge', false)
+        ->tap('save-alarm')
+        ->assertToastShownWithMessage('Elegí al menos un tipo de reto.');
+
+    $this->assertDatabaseCount('alarms', 0);
+});

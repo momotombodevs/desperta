@@ -3,6 +3,7 @@
 namespace App\NativeComponents;
 
 use App\AlarmScheduling\ResumesActiveAlarm;
+use App\Application\Challenges\ChallengeTheme;
 use App\Application\Preferences\AppPreferences;
 use Illuminate\View\View;
 use Native\Mobile\Edge\NativeComponent;
@@ -50,7 +51,7 @@ final class Settings extends NativeComponent
 
     public function selectChallengeTheme(string $label): void
     {
-        $theme = array_search($label, $this->challengeThemeOptions(), true);
+        $theme = array_search($label, ChallengeTheme::labels(), true);
 
         if ($theme === false) {
             return;
@@ -82,15 +83,5 @@ final class Settings extends NativeComponent
         $selection = array_search($value, $options, true);
 
         return $selection === false ? 0 : $selection;
-    }
-
-    /** @return array<string, string> */
-    private function challengeThemeOptions(): array
-    {
-        return [
-            'nicaragua' => __('challenges.nicaragua.name'),
-            'math' => __('challenges.math.name'),
-            'general_knowledge' => __('challenges.general_knowledge.name'),
-        ];
     }
 }

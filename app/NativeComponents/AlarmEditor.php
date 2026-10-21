@@ -6,6 +6,8 @@ use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Challenges\ChallengeDifficulty;
+use App\Application\Challenges\ChallengeTheme;
+use App\Application\Challenges\ChallengeType;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use Carbon\CarbonImmutable;
@@ -71,11 +73,23 @@ class AlarmEditor extends NativeComponent
 
     public string $difficultyDisplay = 'Normal';
 
+    /** Localized topic label; the first option follows the theme chosen in settings. */
+    public string $challengeTopicDisplay = '';
+
+    public bool $triviaChallenge = true;
+
+    public bool $memoryChallenge = true;
+
+    public bool $sequenceChallenge = true;
+
+    public bool $mentalMathChallenge = true;
+
     public function mount(): void
     {
         $preferences = app(AppPreferences::class);
         $preferences->applyLanguage();
         $this->difficultyDisplay = $this->localizedDifficulty($this->difficulty);
+        $this->challengeTopicDisplay = __('app.challenge_topic_default');
         $this->alarmDate = CarbonImmutable::now(config('app.alarm_timezone'))->toDateString();
         $alarmId = (string) $this->param('alarm', '');
 
@@ -104,6 +118,18 @@ class AlarmEditor extends NativeComponent
         $this->enabled = $alarm->enabled;
         $this->difficulty = $alarm->difficulty;
         $this->difficultyDisplay = $this->localizedDifficulty($this->difficulty);
+        $this->challengeTopicDisplay = $alarm->challengeTheme()?->label() ?? __('app.challenge_topic_default');
+        $allowedTypes = $alarm->allowedChallengeTypes();
+        $this->triviaChallenge = in_array(ChallengeType::Trivia, $allowedTypes, true);
+        $this->memoryChallenge = in_array(ChallengeType::Memory, $allowedTypes, true);
+        $this->sequenceChallenge = in_array(ChallengeType::Sequence, $allowedTypes, true);
+        $this->mentalMathChallenge = in_array(ChallengeType::MentalMath, $allowedTypes, true);
+    }
+
+    /** @return array<string, string> */
+    public function challengeTopicOptions(): array
+    {
+        return ['' => __('app.challenge_topic_default'), ...ChallengeTheme::labels()];
     }
 
     public function updatedDifficultyDisplay(): void
@@ -130,6 +156,12 @@ class AlarmEditor extends NativeComponent
             return;
         }
 
+        if ($this->selectedChallengeTypes() === []) {
+            $this->showErrorToast(__('app.challenge_types_required'));
+
+            return;
+        }
+
         $scheduler = app(NativeAlarmScheduler::class);
         $alarm = $this->alarmId === '' ? new Alarm : Alarm::query()->findOrFail($this->alarmId);
         $wasScheduled = $alarm->exists && $alarm->scheduling_status === 'scheduled';
@@ -143,6 +175,8 @@ class AlarmEditor extends NativeComponent
             'snooze_enabled' => $this->snoozeEnabled,
             'snooze_minutes' => $this->validSnoozeMinutes(),
             'difficulty' => $this->difficulty,
+            'challenge_theme' => $this->selectedChallengeTheme(),
+            'challenge_types' => count($this->selectedChallengeTypes()) === count(ChallengeType::playable()) ? null : $this->selectedChallengeTypes(),
             'enabled' => $this->enabled,
             'scheduling_status' => $this->enabled ? 'pending' : 'not_scheduled',
         ]);
@@ -341,6 +375,24 @@ class AlarmEditor extends NativeComponent
             6 => $this->saturday,
             7 => $this->sunday,
         ])->filter()->keys()->map(fn (int $weekday): int => $weekday)->values()->all();
+    }
+
+    private function selectedChallengeTheme(): ?string
+    {
+        $theme = array_search($this->challengeTopicDisplay, $this->challengeTopicOptions(), true);
+
+        return is_string($theme) && $theme !== '' ? $theme : null;
+    }
+
+    /** @return list<string> */
+    private function selectedChallengeTypes(): array
+    {
+        return collect([
+            ChallengeType::Trivia->value => $this->triviaChallenge,
+            ChallengeType::Memory->value => $this->memoryChallenge,
+            ChallengeType::Sequence->value => $this->sequenceChallenge,
+            ChallengeType::MentalMath->value => $this->mentalMathChallenge,
+        ])->filter()->keys()->values()->all();
     }
 
     private function localizedDifficulty(string $difficulty): string

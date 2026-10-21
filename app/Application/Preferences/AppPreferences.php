@@ -2,6 +2,7 @@
 
 namespace App\Application\Preferences;
 
+use App\Application\Challenges\ChallengeTheme;
 use App\Models\AppPreference;
 use Illuminate\Contracts\Translation\Translator;
 use InvalidArgumentException;
@@ -25,9 +26,6 @@ class AppPreferences
     /** @var list<string> */
     private const array Languages = ['es_NI', 'en'];
 
-    /** @var list<string> */
-    private const array ChallengeThemes = ['nicaragua', 'math', 'general_knowledge'];
-
     public function __construct(private readonly Translator $translator) {}
 
     public function appearance(): string
@@ -42,7 +40,7 @@ class AppPreferences
 
     public function challengeTheme(): string
     {
-        return $this->value(self::ChallengeThemeKey, 'nicaragua');
+        return $this->value(self::ChallengeThemeKey, ChallengeTheme::Nicaragua->value);
     }
 
     public function weeklyGoal(): int
@@ -78,7 +76,7 @@ class AppPreferences
 
     public function setChallengeTheme(string $challengeTheme): void
     {
-        $this->store(self::ChallengeThemeKey, $challengeTheme, self::ChallengeThemes);
+        $this->store(self::ChallengeThemeKey, $challengeTheme, ChallengeTheme::values());
     }
 
     public function lastChallengeOrder(string $theme): ?string

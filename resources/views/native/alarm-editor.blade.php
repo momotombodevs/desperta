@@ -52,8 +52,23 @@
             @endif
         @endandroid
         <native:toggle :label="__('app.alarm_active')" native:model="enabled"/>
-        <native:select :label="__('app.difficulty')" :options="[__('app.easy'), __('app.normal'), __('app.hard')]"
-                       native:model="difficultyDisplay"/>
+
+        <native:column class="w-full gap-3 rounded-2xl border border-theme-outline bg-theme-surface p-4">
+            <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.challenge_settings') }}</native:text>
+            <native:select :label="__('app.difficulty')" :options="[__('app.easy'), __('app.normal'), __('app.hard')]"
+                           native:model="difficultyDisplay"/>
+            <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.challenge_types') }}</native:text>
+            <native:row class="w-full flex-wrap gap-2">
+                <native:chip ref="challenge-type-trivia" :label="__('challenges.types.trivia.name')" native:model="triviaChallenge"/>
+                <native:chip ref="challenge-type-memory" :label="__('challenges.types.memory.name')" native:model="memoryChallenge"/>
+                <native:chip ref="challenge-type-sequence" :label="__('challenges.types.sequence.name')" native:model="sequenceChallenge"/>
+                <native:chip ref="challenge-type-mental-math" :label="__('challenges.types.mental_math.name')" native:model="mentalMathChallenge"/>
+            </native:row>
+            @if ($triviaChallenge)
+                <native:select ref="challenge-topic" :label="__('app.challenge_topic')" :options="array_values($this->challengeTopicOptions())"
+                               native:model="challengeTopicDisplay" :a11y-label="__('app.challenge_topic')"/>
+            @endif
+        </native:column>
 
         <native:row class="w-full gap-3">
             @if ($isEditing)
