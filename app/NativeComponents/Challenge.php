@@ -13,6 +13,8 @@ use App\Application\Challenges\ChallengeDifficulty;
 use App\Application\Challenges\ChallengeTheme;
 use App\Application\Challenges\ChallengeType;
 use App\Application\MorningRoutine\MorningRoutineManager;
+use App\Application\PlayerProgress\Achievement;
+use App\Application\PlayerProgress\PlayerProgress;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use App\Models\AlarmChallengeAttempt;
@@ -92,6 +94,13 @@ class Challenge extends NativeComponent
     public int $memoryDeadline = 0;
 
     public bool $alarmStopped = false;
+
+    public int $earnedXp = 0;
+
+    public ?int $reachedLevel = null;
+
+    /** @var list<string> Achievement values unlocked by this wake-up. */
+    public array $unlockedAchievements = [];
 
     public bool $routineSheetVisible = false;
 
@@ -259,6 +268,19 @@ class Challenge extends NativeComponent
         return max(0, $this->memoryDeadline - now()->timestamp);
     }
 
+    /** @return list<Achievement> */
+    #[Computed]
+    public function newAchievements(): array
+    {
+        return array_values(array_filter(array_map(fn (string $value): ?Achievement => Achievement::tryFrom($value), $this->unlockedAchievements)));
+    }
+
+    #[Computed]
+    public function reachedLevelTitle(): string
+    {
+        return $this->reachedLevel === null ? '' : app(PlayerProgress::class)->levelTitle($this->reachedLevel);
+    }
+
     /** The pack the current trivia question comes from; mixed questions carry it as their id prefix. */
     #[Computed]
     public function currentTopic(): ?ChallengeTheme
@@ -364,13 +386,17 @@ class Challenge extends NativeComponent
             $alarm->update(['enabled' => false, 'scheduling_status' => 'not_scheduled']);
         }
 
+        $progress = app(PlayerProgress::class);
+        $levelBefore = $progress->summary()['level'];
         $execution = AlarmExecution::query()->find($this->executionId);
         if ($execution !== null) {
             app(AlarmExecutionLifecycle::class)->complete($execution);
+            $this->earnedXp = $progress->xpForExecution($execution->fresh());
         }
 
         $this->alarmStopped = true;
         $this->prepareMorningRoutine();
+        $this->celebrateProgress($progress, $levelBefore);
     }
 
     public function returnHome(): void
@@ -433,7 +459,17 @@ class Challenge extends NativeComponent
             'question_count' => count($this->questions),
             'required_correct_answers' => $this->requiredCorrectAnswers,
             'passed' => $this->passed,
+            'best_combo' => $this->bestCombo,
         ]);
+    }
+
+    private function celebrateProgress(PlayerProgress $progress, int $levelBefore): void
+    {
+        $levelAfter = $progress->summary()['level'];
+        $this->reachedLevel = $levelAfter > $levelBefore ? $levelAfter : null;
+        $unlocked = $progress->unseenAchievements();
+        $progress->markSeen($unlocked);
+        $this->unlockedAchievements = array_map(fn (Achievement $achievement): string => $achievement->value, $unlocked);
     }
 
     private function prepareMorningRoutine(): void

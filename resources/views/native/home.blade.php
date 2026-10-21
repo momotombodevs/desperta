@@ -25,6 +25,23 @@
         <native:spacer :height="24"/>
     @endif
 
+    <native:pressable ref="open-progress" class="w-full rounded-2xl border border-theme-outline bg-theme-surface p-4"
+                      @tap="openProgress" :press-scale="0.98"
+                      :a11y-label="__('progress.level_with_title', ['level' => $this->playerProgress['level'], 'title' => $this->playerProgress['title']])">
+        <native:row class="w-full items-center gap-3">
+            <native:icon :android="Android::EmojiEvents" name="emoji_events" class="text-theme-sunrise" size="32"/>
+            <native:column class="flex-1 gap-1">
+                <native:text font="accent" class="text-base text-theme-on-surface">{{ __('progress.level_with_title', ['level' => $this->playerProgress['level'], 'title' => $this->playerProgress['title']]) }}</native:text>
+                <native:progress-bar :value="$this->playerProgress['progress']"/>
+            </native:column>
+            <native:text ref="home-xp" font="accent" content-transition="numeric" class="text-base text-theme-sunrise">{{ __('progress.xp', ['xp' => $this->playerProgress['xp']]) }}</native:text>
+            <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
+        </native:row>
+    </native:pressable>
+    <native:spacer :height="12"/>
+    <native:daily-question-card key="daily-question-card"/>
+    <native:spacer :height="24"/>
+
     @if ($this->alarms->isEmpty())
             <native:column ref="home-screen" class="w-full h-full items-center justify-center gap-3 px-8">
             <native:icon

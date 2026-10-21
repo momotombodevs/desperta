@@ -23,6 +23,7 @@ class AlarmChallengeAttempt extends Model
         'question_count',
         'required_correct_answers',
         'passed',
+        'best_combo',
     ];
 
     protected function casts(): array
@@ -33,6 +34,7 @@ class AlarmChallengeAttempt extends Model
             'question_count' => 'integer',
             'required_correct_answers' => 'integer',
             'passed' => 'boolean',
+            'best_combo' => 'integer',
         ];
     }
 

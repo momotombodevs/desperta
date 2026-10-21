@@ -141,6 +141,29 @@
                     <native:text font="accent" class="text-sm text-theme-on-sunrise">{{ __('app.challenge_best_combo', ['count' => $bestCombo]) }}</native:text>
                 </native:row>
             @endif
+            @if ($alarmStopped && $earnedXp > 0)
+                <native:row ref="earned-xp" class="items-center gap-2 rounded-full bg-theme-primary px-4 py-2"
+                            :scale="1.06" animate-loop="true" :animate-duration="800" animate-easing="ease-in-out">
+                    <native:icon :android="Android::Star" name="star" class="text-theme-on-primary" size="18"/>
+                    <native:text font="accent" class="text-base text-theme-on-primary">{{ __('progress.xp_gained', ['xp' => $earnedXp]) }}</native:text>
+                </native:row>
+            @endif
+            @if ($reachedLevel !== null)
+                <native:text ref="level-up" font="accent" class="text-lg text-center text-theme-sunrise">
+                    {{ __('progress.level_up', ['level' => $reachedLevel, 'title' => $this->reachedLevelTitle]) }}
+                </native:text>
+            @endif
+            @foreach ($this->newAchievements as $achievement)
+                <native:row ref="unlocked-{{ $achievement->value }}" key="unlocked-{{ $achievement->value }}"
+                            class="w-full items-center gap-3 rounded-xl border border-theme-sunrise bg-theme-surface p-3"
+                            :a11y-label="__('progress.achievement_unlocked').': '.$achievement->title()">
+                    <native:icon :android="$achievement->icon()" class="text-theme-sunrise" size="28"/>
+                    <native:column class="flex-1 gap-1">
+                        <native:text class="text-xs text-theme-on-surface-variant">{{ __('progress.achievement_unlocked') }}</native:text>
+                        <native:text font="accent" class="text-base text-theme-on-surface">{{ $achievement->title() }}</native:text>
+                    </native:column>
+                </native:row>
+            @endforeach
             <native:text class="text-base text-center text-theme-on-surface-variant">{{ __('app.complete_alarm') }}</native:text>
             @if (! $alarmStopped)
                 <native:button ref="turn-off-alarm" class="w-full" size="lg" variant="primary" @tap="turnOffAlarm" :a11y-label="__('app.finish_alarm')">{{ __('app.finish_alarm') }}</native:button>

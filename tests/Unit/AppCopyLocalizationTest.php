@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Arr;
+
 it('keeps application translation keys aligned across supported locales', function () {
     $spanish = require lang_path('es_NI/app.php');
     $english = require lang_path('en/app.php');
@@ -17,4 +19,11 @@ it('keeps native accessibility copy in translation catalogs', function () {
         ->not->toContain('a11y-label="Opciones de respuesta"')
         ->not->toContain('a11y-label="Alarma activa"')
         ->not->toContain('a11y-label="Lunes"');
+});
+
+it('keeps progress translation keys aligned across supported locales', function () {
+    $spanish = require lang_path('es_NI/progress.php');
+    $english = require lang_path('en/progress.php');
+
+    expect(array_keys(Arr::dot($spanish)))->toBe(array_keys(Arr::dot($english)));
 });

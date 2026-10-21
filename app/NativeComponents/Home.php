@@ -5,6 +5,7 @@ namespace App\NativeComponents;
 use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
+use App\Application\PlayerProgress\PlayerProgress;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use Illuminate\Database\Eloquent\Collection;
@@ -213,6 +214,22 @@ class Home extends NativeComponent
     }
 
     /** @return Collection<int, Alarm> */
+    /** @return array{xp: int, level: int, title: string, level_floor: int, next_level_xp: ?int, progress: float} */
+    #[Computed]
+    public function playerProgress(): array
+    {
+        return app(PlayerProgress::class)->summary();
+    }
+
+    /** Re-renders the level card after the daily question awards XP. */
+    #[On('daily-question-answered')]
+    public function refreshPlayerProgress(): void {}
+
+    public function openProgress(): void
+    {
+        $this->navigate('/settings/progress');
+    }
+
     #[Computed]
     public function alarms(): Collection
     {

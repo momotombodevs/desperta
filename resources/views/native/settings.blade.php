@@ -10,6 +10,17 @@
                         :alt="__('app.app_name')"/>
         </native:row>
 
+        <native:pressable ref="open-progress" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
+                          @navigate="'/settings/progress'" :a11y-label="__('progress.title')">
+            <native:row class="w-full items-center gap-3">
+                <native:icon :android="Android::EmojiEvents" class="text-theme-primary" size="24"/>
+                <native:column class="flex-1 gap-1">
+                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('progress.title') }}</native:text>
+                </native:column>
+                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
+            </native:row>
+        </native:pressable>
+
         <native:pressable ref="open-habits" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
                           @navigate="'/settings/habits'" :a11y-label="__('app.habits')">
             <native:row class="w-full items-center gap-3">
