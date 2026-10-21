@@ -40,25 +40,29 @@ class ChallengeCatalog
         return $questions;
     }
 
-    public function chooseType(): ChallengeType
+    /** @param list<ChallengeType> $allowedTypes */
+    public function chooseType(array $allowedTypes = []): ChallengeType
     {
-        $types = ChallengeType::playable();
+        $types = array_values(array_filter(
+            ChallengeType::playable(),
+            fn (ChallengeType $type): bool => $allowedTypes === [] || in_array($type, $allowedTypes, true),
+        ));
+
+        if ($types === []) {
+            $types = ChallengeType::playable();
+        }
 
         return $types[$this->randomizer()->getInt(0, count($types) - 1)];
     }
 
     /**
      * @param  list<string>  $excludedQuestionIds
-     * @return list<array{id: string, question: string, options: list<string>, answer: string, instruction: string, memory_sequence: ?string}>
+     * @return list<array{id: string, question: string, options: list<string>, answer: string, instruction: string, memory_sequence: ?string, explanation: ?string}>
      */
     public function questionsForType(ChallengeType $type, int $count, ChallengeDifficulty $difficulty, array $excludedQuestionIds = []): array
     {
         if ($type === ChallengeType::Trivia) {
-            return array_map(fn (array $question): array => [
-                ...$question,
-                'instruction' => trans('challenges.types.trivia.instruction'),
-                'memory_sequence' => null,
-            ], $this->questions($count, $excludedQuestionIds));
+            return array_map(fn (array $question): array => $this->triviaQuestion($question), $this->questions($count, $excludedQuestionIds));
         }
 
         $questions = [];
@@ -73,6 +77,23 @@ class ChallengeCatalog
         }
 
         return $questions;
+    }
+
+    /**
+     * @param  array{id: string, question: string, options: list<string>, answer: string, fact?: string}  $question
+     * @return array{id: string, question: string, options: list<string>, answer: string, instruction: string, memory_sequence: ?string, explanation: ?string}
+     */
+    public function triviaQuestion(array $question): array
+    {
+        $fact = $question['fact'] ?? null;
+        unset($question['fact']);
+
+        return [
+            ...$question,
+            'instruction' => trans('challenges.types.trivia.instruction'),
+            'memory_sequence' => null,
+            'explanation' => is_string($fact) && trim($fact) !== '' ? $fact : null,
+        ];
     }
 
     /** @param list<array{id: string, question: string, options: list<string>, answer: string}> $questions */
@@ -126,10 +147,11 @@ class ChallengeCatalog
             && count($question['options']) >= 2
             && count(array_filter($question['options'], 'is_string')) === count($question['options'])
             && is_string($question['answer'] ?? null)
-            && in_array($question['answer'], $question['options'], true);
+            && in_array($question['answer'], $question['options'], true)
+            && (! array_key_exists('fact', $question) || is_string($question['fact']));
     }
 
-    /** @return array{id: string, question: string, options: list<string>, answer: string, instruction: string, memory_sequence: ?string} */
+    /** @return array{id: string, question: string, options: list<string>, answer: string, instruction: string, memory_sequence: ?string, explanation: ?string} */
     private function memoryQuestion(int $index, ChallengeDifficulty $difficulty): array
     {
         $length = match ($difficulty) {
@@ -148,10 +170,11 @@ class ChallengeCatalog
             'answer' => $answer,
             'instruction' => trans('challenges.types.memory.instruction'),
             'memory_sequence' => implode('  ·  ', $sequence),
+            'explanation' => trans('challenges.types.memory.explanation', ['sequence' => implode(' · ', $sequence)]),
         ];
     }
 
-    /** @return array{id: string, question: string, options: list<string>, answer: string, instruction: string, memory_sequence: ?string} */
+    /** @return array{id: string, question: string, options: list<string>, answer: string, instruction: string, memory_sequence: ?string, explanation: ?string} */
     private function sequenceQuestion(int $index, ChallengeDifficulty $difficulty): array
     {
         $start = $this->randomizer()->getInt(1, 20);
@@ -171,10 +194,11 @@ class ChallengeCatalog
             'answer' => $answer,
             'instruction' => trans('challenges.types.sequence.instruction'),
             'memory_sequence' => null,
+            'explanation' => trans('challenges.types.sequence.explanation', ['step' => $step]),
         ];
     }
 
-    /** @return array{id: string, question: string, options: list<string>, answer: string, instruction: string, memory_sequence: ?string} */
+    /** @return array{id: string, question: string, options: list<string>, answer: string, instruction: string, memory_sequence: ?string, explanation: ?string} */
     private function mentalMathQuestion(int $index, ChallengeDifficulty $difficulty): array
     {
         $maxOperand = match ($difficulty) {
@@ -203,6 +227,7 @@ class ChallengeCatalog
             'answer' => (string) $answer,
             'instruction' => trans('challenges.types.mental_math.instruction'),
             'memory_sequence' => null,
+            'explanation' => "{$left} {$symbol} {$right} = {$answer}",
         ];
     }
 

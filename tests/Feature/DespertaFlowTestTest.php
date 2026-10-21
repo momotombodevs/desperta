@@ -35,7 +35,7 @@ it('opens the challenge directly for a ringing alarm', function () {
 
     Native::visit('/challenge', ['alarmId' => $alarm->id])
         ->assertSet('alarmId', $alarm->id)
-        ->assertSee('Pregunta 1 de 3');
+        ->assertSee('Pregunta 1 de 4');
 });
 
 it('persists and schedules an alarm created in the editor', function () {
@@ -107,17 +107,18 @@ it('waits for notification authorization before scheduling a locked-screen alarm
     ])->assertReplacedWith('/');
 });
 
-it('requires every answer to be correct before the alarm can be turned off', function () {
+it('ends a normal attempt as soon as three of four correct answers are out of reach', function () {
     $alarm = Alarm::factory()->create();
     $scheduler = mock(NativeAlarmScheduler::class);
     $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00Z'));
 
     answerChallenge(Native::visit('/challenge'), false)
-        ->assertSee('Necesitás 3 de 3.');
+        ->assertSet('questionIndex', 1)
+        ->assertSee('Necesitás 3 de 4.');
 
     $this->assertDatabaseHas('alarm_challenge_attempts', [
         'correct_answers' => 0,
-        'question_count' => 3,
+        'question_count' => 4,
         'required_correct_answers' => 3,
         'passed' => false,
     ]);
@@ -129,7 +130,7 @@ it('replaces a failed challenge with unused questions and records every attempt'
     $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00Z'));
 
     $challenge = answerChallenge(Native::visit('/challenge'), false)
-        ->assertSee('Necesitás 3 de 3.');
+        ->assertSee('Necesitás 3 de 4.');
 
     $firstQuestionIds = array_column($challenge->get('questions'), 'id');
 
@@ -235,7 +236,7 @@ it('returns home without stopping an alarm missing from the local database', fun
         ->assertReplacedWith('/');
 });
 
-it('shows success after three correct answers, then returns home after the alarm stops', function () {
+it('shows success after a passing score, then returns home after the alarm stops', function () {
     $alarm = Alarm::factory()->create();
     $scheduler = mock(NativeAlarmScheduler::class);
     $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00Z'));
@@ -251,7 +252,7 @@ it('shows success after three correct answers, then returns home after the alarm
 
     $this->assertDatabaseHas('alarm_challenge_attempts', [
         'alarm_id' => $alarm->id,
-        'correct_answers' => 3,
+        'correct_answers' => 4,
         'passed' => true,
     ]);
 });
@@ -259,6 +260,9 @@ it('shows success after three correct answers, then returns home after the alarm
 function answerChallenge($challenge, bool $correct = true)
 {
     foreach ($challenge->get('questions') as $question) {
+        if ($challenge->get('completed')) {
+            break;
+        }
         $answerIndex = array_find_key($question['options'], fn (string $option): bool => $correct
             ? $option === $question['answer']
             : $option !== $question['answer']);

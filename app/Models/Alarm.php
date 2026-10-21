@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Application\Challenges\ChallengeDifficulty;
+use App\Application\Challenges\ChallengeTheme;
+use App\Application\Challenges\ChallengeType;
 use Database\Factories\AlarmFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,6 +26,8 @@ class Alarm extends Model
         'snooze_enabled',
         'snooze_minutes',
         'difficulty',
+        'challenge_theme',
+        'challenge_types',
         'enabled',
         'scheduling_status',
     ];
@@ -36,6 +40,7 @@ class Alarm extends Model
             'vibration' => 'boolean',
             'snooze_enabled' => 'boolean',
             'snooze_minutes' => 'integer',
+            'challenge_types' => 'array',
             'enabled' => 'boolean',
         ];
     }
@@ -63,6 +68,23 @@ class Alarm extends Model
     public function challengeDifficulty(): ChallengeDifficulty
     {
         return ChallengeDifficulty::fromStored($this->difficulty);
+    }
+
+    /** Returns null when the alarm follows the challenge theme chosen in settings. */
+    public function challengeTheme(): ?ChallengeTheme
+    {
+        return ChallengeTheme::tryFrom((string) $this->challenge_theme);
+    }
+
+    /** @return list<ChallengeType> */
+    public function allowedChallengeTypes(): array
+    {
+        $types = array_values(array_filter(
+            array_map(fn (mixed $type): ?ChallengeType => is_string($type) ? ChallengeType::tryFrom($type) : null, $this->challenge_types ?? []),
+            fn (?ChallengeType $type): bool => $type !== null && in_array($type, ChallengeType::playable(), true),
+        ));
+
+        return $types === [] ? ChallengeType::playable() : $types;
     }
 
     public function snoozeMinutes(): int

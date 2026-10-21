@@ -130,6 +130,6 @@ it('starts the next challenge at the policy-selected difficulty', function () {
 
     Native::test(Challenge::class)
         ->assertSet('difficulty', 'normal')
-        ->assertSet('questionCount', 3)
+        ->assertSet('questionCount', 4)
         ->assertSet('requiredCorrectAnswers', 3);
 });

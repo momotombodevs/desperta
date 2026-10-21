@@ -120,3 +120,40 @@ it('falls back to the local general knowledge package when selected content is i
     expect($questions)->toHaveCount(3)
         ->and(array_diff(array_column($questions, 'id'), array_column(trans('challenges.general_knowledge.questions'), 'id')))->toBeEmpty();
 });
+
+it('only chooses among the challenge types allowed for an alarm', function () {
+    $catalog = new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937(4)));
+
+    $types = array_map(fn (): ChallengeType => $catalog->chooseType([ChallengeType::Memory, ChallengeType::Sequence]), range(1, 20));
+
+    expect(array_values(array_unique(array_map(fn (ChallengeType $type): string => $type->value, $types))))
+        ->toEqualCanonicalizing(['memory', 'sequence']);
+});
+
+it('explains the answer of every challenge type', function (ChallengeType $type) {
+    $catalog = new ChallengeCatalog(app(AppPreferences::class), new Randomizer(new Mt19937(9)));
+
+    $questions = $catalog->questionsForType($type, 3, ChallengeDifficulty::Normal);
+
+    expect($questions)->each(fn ($question) => $question->explanation->toBeString()->not->toBeEmpty());
+})->with([ChallengeType::Memory, ChallengeType::Sequence, ChallengeType::MentalMath]);
+
+it('turns a trivia fact into the answer explanation', function () {
+    $catalog = app(ChallengeCatalog::class);
+
+    $withFact = $catalog->triviaQuestion(trans('challenges.nicaragua.questions')[0]);
+    $withoutFact = $catalog->triviaQuestion(['id' => 'plain', 'question' => '¿?', 'options' => ['A', 'B'], 'answer' => 'A']);
+
+    expect($withFact['explanation'])->toContain('1852')
+        ->and($withFact)->not->toHaveKey('fact')
+        ->and($withoutFact['explanation'])->toBeNull();
+});
+
+it('keeps trivia facts aligned across Spanish and English', function () {
+    foreach (['nicaragua', 'math', 'general_knowledge'] as $theme) {
+        $spanish = array_column(trans("challenges.{$theme}.questions", [], 'es_NI'), 'fact', 'id');
+        $english = array_column(trans("challenges.{$theme}.questions", [], 'en'), 'fact', 'id');
+
+        expect(array_keys($spanish))->toBe(array_keys($english));
+    }
+});

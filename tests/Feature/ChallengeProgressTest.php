@@ -25,7 +25,8 @@ it('restores the same questions selection and score after reopening through the 
     $questions = $challenge->get('questions');
     $correct = array_search($questions[0]['answer'], $questions[0]['options'], true);
     selectProgressChallengeOption($challenge, $correct)->tap('continue-challenge');
-    selectProgressChallengeOption($challenge, 1);
+    $wrong = array_find_key($questions[1]['options'], fn (string $option): bool => $option !== $questions[1]['answer']);
+    selectProgressChallengeOption($challenge, $wrong);
     $this->travel(10)->minutes();
     $alarm->update(['difficulty' => 'hard']);
     app(AppPreferences::class)->setChallengeTheme('math');
@@ -34,7 +35,8 @@ it('restores the same questions selection and score after reopening through the 
         ->assertSet('questions', $questions)
         ->assertSet('usedQuestionIds', array_column($questions, 'id'))
         ->assertSet('questionIndex', 1)
-        ->assertSet('selectedAnswerIndex', 1)
+        ->assertSet('selectedAnswerIndex', $wrong)
+        ->assertSet('answerRevealed', true)
         ->assertSet('correctAnswers', 1)
         ->assertSet('difficulty', 'easy')
         ->assertSet('requiredCorrectAnswers', 2)
@@ -69,6 +71,9 @@ it('preserves a failed attempt and saves the retry without duplicating history',
     $challenge = Native::test(Challenge::class);
     $firstQuestions = $challenge->get('questions');
     foreach ($firstQuestions as $question) {
+        if ($challenge->get('completed')) {
+            break;
+        }
         $wrong = array_find_key($question['options'], fn (string $answer): bool => $answer !== $question['answer']);
         selectProgressChallengeOption($challenge, $wrong)->tap('continue-challenge');
     }

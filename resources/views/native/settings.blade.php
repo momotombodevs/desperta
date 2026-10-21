@@ -1,3 +1,4 @@
+@use('App\Application\Challenges\ChallengeTheme')
 @use('App\Icons\Android')
 
 <native:top-bar :title="__('app.settings')" show-navigation-icon />
@@ -91,11 +92,7 @@
 
         <native:column class="w-full gap-2">
             <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.challenge_theme') }}</native:text>
-            @php($challengeThemes = [
-                'nicaragua' => __('challenges.nicaragua.name'),
-                'math' => __('challenges.math.name'),
-                'general_knowledge' => __('challenges.general_knowledge.name'),
-            ])
+            @php($challengeThemes = ChallengeTheme::labels())
             <native:select ref="challenge-theme-selector" :label="__('app.challenge_theme')"
                            :options="array_values($challengeThemes)" :value="$challengeThemes[$challengeThemePreference]"
                            @change="selectChallengeTheme" :a11y-label="__('app.challenge_theme')"/>

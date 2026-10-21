@@ -8,6 +8,7 @@ use App\Models\Alarm;
 use App\Models\MorningRoutineStep;
 use App\NativeComponents\Challenge;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Native\Mobile\Facades\Device;
 use Native\Mobile\Testing\Native;
 use Native\Mobile\Testing\TestableComponent;
 use Random\Engine\Mt19937;
@@ -141,7 +142,7 @@ it('keeps a failed challenge ringing until the user retries', function () {
         ->assertSet('completed', true)
         ->assertSet('passed', false)
         ->assertSet('alarmStopped', false)
-        ->assertSee('Necesitás 3 de 3. Probá con otras preguntas.');
+        ->assertSee('Necesitás 3 de 4. Probá con otras preguntas.');
 
     $this->assertDatabaseHas('alarm_challenge_attempts', [
         'alarm_id' => $alarm->id,
@@ -198,7 +199,7 @@ it('allows an easy challenge to stop after two correct answers', function () {
     ]);
 });
 
-it('requires five correct answers for a hard challenge', function () {
+it('allows a hard challenge to stop after four of five correct answers', function () {
     $alarm = Alarm::factory()->create(['difficulty' => 'hard']);
     $scheduler = mock(NativeAlarmScheduler::class);
     $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
@@ -206,18 +207,18 @@ it('requires five correct answers for a hard challenge', function () {
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
     $challenge = Native::test(Challenge::class, data: ['alarmId' => $alarm->id]);
-    completeChallenge($challenge);
+    answerQuestions($challenge, [true, false, true, true, true]);
 
     $challenge
         ->assertSet('questionCount', 5)
-        ->assertSet('requiredCorrectAnswers', 5)
+        ->assertSet('requiredCorrectAnswers', 4)
         ->assertSet('passed', true);
 
     $this->assertDatabaseHas('alarm_challenge_attempts', [
         'alarm_id' => $alarm->id,
         'question_count' => 5,
-        'required_correct_answers' => 5,
-        'correct_answers' => 5,
+        'required_correct_answers' => 4,
+        'correct_answers' => 4,
         'passed' => true,
     ]);
 });
@@ -353,3 +354,97 @@ function selectChallengeAnswer($challenge, int $answerIndex): void
 
     $challenge->call('selectAnswer', $answerIndex);
 }
+
+it('reveals the correct answer and its explanation as soon as a wrong answer is chosen', function () {
+    $alarm = Alarm::factory()->create(['challenge_types' => ['mental_math']]);
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
+        ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+    Device::shouldReceive('vibrate')->once()->andReturnTrue();
+    $challenge = Native::test(Challenge::class);
+    $question = $challenge->get('questions')[0];
+    $wrong = array_find_key($question['options'], fn (string $option): bool => $option !== $question['answer']);
+    $correct = array_search($question['answer'], $question['options'], true);
+
+    $challenge->call('selectAnswer', $wrong)
+        ->assertSet('answerRevealed', true)
+        ->assertSet('correctAnswers', 0)
+        ->assertSee('La respuesta correcta era: '.$question['answer'])
+        ->assertSee($question['explanation'])
+        ->call('selectAnswer', $correct)
+        ->assertSet('selectedAnswerIndex', $wrong)
+        ->assertSet('correctAnswers', 0);
+});
+
+it('counts a combo for consecutive correct answers and resets it after a mistake', function () {
+    $alarm = Alarm::factory()->create(['difficulty' => 'hard', 'challenge_types' => ['mental_math']]);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')
+        ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+    $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
+    $challenge = Native::test(Challenge::class);
+
+    answerQuestions($challenge, [true, true, true, false, true]);
+
+    $challenge->assertSet('comboCount', 1)
+        ->assertSet('bestCombo', 3)
+        ->assertSet('passed', true)
+        ->assertSee('4 de 5 correctas')
+        ->assertSee('Mejor racha: 3 seguidas');
+});
+
+it('shows the combo badge while the streak is alive', function () {
+    $alarm = Alarm::factory()->create(['difficulty' => 'hard', 'challenge_types' => ['sequence']]);
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
+        ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+    $challenge = Native::test(Challenge::class);
+    $questions = $challenge->get('questions');
+
+    foreach ([0, 1] as $index) {
+        $challenge->call('selectAnswer', array_search($questions[$index]['answer'], $questions[$index]['options'], true));
+        if ($index === 0) {
+            $challenge->call('continueChallenge');
+        }
+    }
+
+    $challenge->assertSet('comboCount', 2)
+        ->assertSee('Racha x2')
+        ->assertElement('row', fn (array $node): bool => ($node['ref'] ?? null) === 'combo-badge');
+});
+
+it('uses the challenge types and topic configured on the alarm', function () {
+    app(AppPreferences::class)->setChallengeTheme('nicaragua');
+    $alarm = Alarm::factory()->create(['challenge_theme' => 'math', 'challenge_types' => ['trivia']]);
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
+        ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+
+    $challenge = Native::test(Challenge::class)
+        ->assertSet('challengeType', 'trivia')
+        ->assertSet('challengeTheme', 'math')
+        ->assertSee('Trivia · Matemáticas');
+
+    expect(array_diff(array_column($challenge->get('questions'), 'id'), array_column(trans('challenges.math.questions'), 'id')))->toBeEmpty();
+});
+
+it('hides the memory sequence once the memorize time runs out', function () {
+    $this->travelTo('2026-09-03 07:00:00');
+    $alarm = Alarm::factory()->create(['difficulty' => 'easy', 'challenge_types' => ['memory']]);
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
+        ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+    $challenge = Native::test(Challenge::class);
+    $question = $challenge->get('questions')[0];
+    $visibleSequence = str_replace('  ·  ', ' · ', $question['memory_sequence']);
+
+    $challenge->assertSet('memoryDeadline', now()->timestamp + 10)
+        ->assertSee($visibleSequence)
+        ->assertSee('10')
+        ->call('selectAnswer', 0)
+        ->assertSet('answerRevealed', false);
+
+    $this->travel(11)->seconds();
+
+    Native::test(Challenge::class)
+        ->assertDontSee($visibleSequence)
+        ->assertSee($question['question'])
+        ->call('selectAnswer', 0)
+        ->assertSet('answerRevealed', true);
+});
