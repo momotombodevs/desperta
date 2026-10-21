@@ -130,6 +130,7 @@ return [
     'challenge_adaptive_hint' => 'Respirá y leé cada opción con calma. El próximo reto se ajustará a tus resultados recientes.',
     'challenge_combo' => 'Racha x:count',
     'challenge_best_combo' => 'Mejor racha: :count seguidas',
+    'question_level' => 'Nivel :level',
     'challenge_score' => ':correct de :total correctas',
     'answer_praise' => ['¡Eso es!', '¡Bien despierto!', '¡Exacto!', '¡Qué crack!', '¡Vas con todo!'],
     'answer_wrong_title' => 'Casi… seguí intentando',

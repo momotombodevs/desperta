@@ -10,6 +10,7 @@ use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Challenges\AdaptiveChallengeDifficulty;
 use App\Application\Challenges\ChallengeCatalog;
 use App\Application\Challenges\ChallengeDifficulty;
+use App\Application\Challenges\ChallengeTheme;
 use App\Application\Challenges\ChallengeType;
 use App\Application\MorningRoutine\MorningRoutineManager;
 use App\Application\Preferences\AppPreferences;
@@ -258,6 +259,17 @@ class Challenge extends NativeComponent
         return max(0, $this->memoryDeadline - now()->timestamp);
     }
 
+    /** The pack the current trivia question comes from; mixed questions carry it as their id prefix. */
+    #[Computed]
+    public function currentTopic(): ?ChallengeTheme
+    {
+        $questionId = (string) ($this->questions[$this->questionIndex]['id'] ?? '');
+
+        return $this->challengeTheme === ChallengeTheme::Mix->value && str_contains($questionId, '.')
+            ? ChallengeTheme::tryFrom(strstr($questionId, '.', true))
+            : ChallengeTheme::tryFrom($this->challengeTheme);
+    }
+
     /** Whether continuing from the current question ends the attempt, either because it is the last one or the score can no longer pass. */
     #[Computed]
     public function finishesAttempt(): bool
@@ -445,7 +457,7 @@ class Challenge extends NativeComponent
         $type = ChallengeType::from($this->challengeType);
         $difficulty = ChallengeDifficulty::fromStored($this->difficulty);
         if ($type === ChallengeType::Trivia) {
-            $questions = $catalog->questions($this->questionCount, $excludedQuestionIds, $preferences->lastChallengeOrder($theme), $theme);
+            $questions = $catalog->questions($this->questionCount, $excludedQuestionIds, $preferences->lastChallengeOrder($theme), $theme, $difficulty);
             $this->questions = array_map(fn (array $question): array => $catalog->triviaQuestion($question), $questions);
             $preferences->rememberChallengeOrder($theme, $catalog->fingerprint($this->questions));
 

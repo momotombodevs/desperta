@@ -3,6 +3,7 @@
 use App\AlarmScheduling\ActiveAlarmOccurrence;
 use App\Application\AlarmScheduling\NativeAlarmScheduler;
 use App\Application\Challenges\ChallengeCatalog;
+use App\Application\Challenges\ChallengeTheme;
 use App\Application\Preferences\AppPreferences;
 use App\Models\Alarm;
 use App\Models\MorningRoutineStep;
@@ -447,4 +448,18 @@ it('hides the memory sequence once the memorize time runs out', function () {
         ->assertSee($question['question'])
         ->call('selectAnswer', 0)
         ->assertSet('answerRevealed', true);
+});
+
+it('labels a mixed trivia question with the pack it came from and its level', function () {
+    $alarm = Alarm::factory()->create(['difficulty' => 'easy', 'challenge_theme' => 'mix', 'challenge_types' => ['trivia']]);
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
+        ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+
+    $challenge = Native::test(Challenge::class);
+    $question = $challenge->get('questions')[0];
+    $pack = ChallengeTheme::from(strstr($question['id'], '.', true));
+
+    $challenge->assertSee('Trivia · '.$pack->label())
+        ->assertSee('Nivel Fácil')
+        ->assertSet('challengeTheme', 'mix');
 });

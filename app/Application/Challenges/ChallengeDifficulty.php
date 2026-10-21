@@ -35,6 +35,20 @@ enum ChallengeDifficulty: string
         };
     }
 
+    /**
+     * Trivia levels in the order they are drawn; later levels only fill in when earlier ones run out.
+     *
+     * @return list<string>
+     */
+    public function preferredQuestionLevels(): array
+    {
+        return match ($this) {
+            self::Easy => ['easy', 'normal', 'hard'],
+            self::Normal => ['normal', 'easy', 'hard'],
+            self::Hard => ['hard', 'normal', 'easy'],
+        };
+    }
+
     public function memorizeSeconds(): int
     {
         return match ($this) {

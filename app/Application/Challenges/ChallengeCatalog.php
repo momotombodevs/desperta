@@ -12,8 +12,13 @@ class ChallengeCatalog
         private readonly ?Randomizer $randomizer = null,
     ) {}
 
-    /** @param list<string> $excludedQuestionIds @return list<array{id: string, question: string, options: list<string>, answer: string}> */
-    public function questions(int $count, array $excludedQuestionIds = [], ?string $previousFingerprint = null, ?string $themeName = null): array
+    /**
+     * Picks questions from the theme, preferring the levels that match the difficulty.
+     *
+     * @param  list<string>  $excludedQuestionIds
+     * @return list<array{id: string, question: string, options: list<string>, answer: string}>
+     */
+    public function questions(int $count, array $excludedQuestionIds = [], ?string $previousFingerprint = null, ?string $themeName = null, ?ChallengeDifficulty $difficulty = null): array
     {
         $questions = collect($this->localizedQuestions($themeName ?? $this->preferences->challengeTheme()))
             ->reject(fn (array $question): bool => in_array($question['id'], $excludedQuestionIds, true))
@@ -25,6 +30,13 @@ class ChallengeCatalog
 
         /** @var list<array{id: string, question: string, options: list<string>, answer: string}> $questions */
         $questions = $this->shuffle($questions->all());
+
+        if ($difficulty !== null) {
+            $levels = $difficulty->preferredQuestionLevels();
+            usort($questions, fn (array $first, array $second): int => array_search($first['level'] ?? 'normal', $levels, true)
+                <=> array_search($second['level'] ?? 'normal', $levels, true));
+        }
+
         $questions = array_map(
             fn (array $question): array => [
                 ...$question,
@@ -62,7 +74,7 @@ class ChallengeCatalog
     public function questionsForType(ChallengeType $type, int $count, ChallengeDifficulty $difficulty, array $excludedQuestionIds = []): array
     {
         if ($type === ChallengeType::Trivia) {
-            return array_map(fn (array $question): array => $this->triviaQuestion($question), $this->questions($count, $excludedQuestionIds));
+            return array_map(fn (array $question): array => $this->triviaQuestion($question), $this->questions($count, $excludedQuestionIds, difficulty: $difficulty));
         }
 
         $questions = [];
@@ -119,15 +131,42 @@ class ChallengeCatalog
     /** @return list<array{id: string, question: string, options: list<string>, answer: string}> */
     private function localizedQuestions(string $themeName): array
     {
+        if ($themeName === ChallengeTheme::Mix->value) {
+            return $this->mixedQuestions();
+        }
+
+        $questions = $this->packQuestions($themeName);
+
+        return $questions === [] ? $this->packQuestions(ChallengeTheme::GeneralKnowledge->value) : $questions;
+    }
+
+    /** @return list<array{id: string, question: string, options: list<string>, answer: string}> Empty when the pack is missing or invalid. */
+    private function packQuestions(string $themeName): array
+    {
         $theme = trans('challenges.'.$themeName);
         $questions = is_array($theme) ? ($theme['questions'] ?? null) : null;
 
         if (! is_array($questions) || ! $this->hasValidQuestions($questions)) {
-            $fallback = trans('challenges.general_knowledge.questions');
-            $questions = is_array($fallback) && $this->hasValidQuestions($fallback) ? $fallback : [];
+            return [];
         }
 
         return array_values(array_filter($questions, fn (mixed $question): bool => $this->isValidQuestion($question)));
+    }
+
+    /**
+     * Combines every pack, namespacing ids so questions from different packs never collide.
+     *
+     * @return list<array{id: string, question: string, options: list<string>, answer: string}>
+     */
+    private function mixedQuestions(): array
+    {
+        return collect(ChallengeTheme::packs())
+            ->flatMap(fn (ChallengeTheme $theme): array => array_map(
+                fn (array $question): array => [...$question, 'id' => "{$theme->value}.{$question['id']}"],
+                $this->packQuestions($theme->value),
+            ))
+            ->values()
+            ->all();
     }
 
     /** @param array<mixed> $questions */
@@ -148,7 +187,8 @@ class ChallengeCatalog
             && count(array_filter($question['options'], 'is_string')) === count($question['options'])
             && is_string($question['answer'] ?? null)
             && in_array($question['answer'], $question['options'], true)
-            && (! array_key_exists('fact', $question) || is_string($question['fact']));
+            && (! array_key_exists('fact', $question) || is_string($question['fact']))
+            && (! array_key_exists('level', $question) || in_array($question['level'], ['easy', 'normal', 'hard'], true));
     }
 
     /** @return array{id: string, question: string, options: list<string>, answer: string, instruction: string, memory_sequence: ?string, explanation: ?string} */
