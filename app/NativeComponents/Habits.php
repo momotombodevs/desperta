@@ -5,6 +5,7 @@ namespace App\NativeComponents;
 use App\AlarmScheduling\AlarmOccurrenceReconciler;
 use App\AlarmScheduling\ResumesActiveAlarm;
 use App\Application\AlarmAnalytics\AlarmHabitsAnalytics;
+use App\Application\AlarmAnalytics\DayStatus;
 use App\Application\AlarmAnalytics\WeeklyProgressImage;
 use App\Application\AlarmScheduling\AlarmExecutionLifecycle;
 use App\Application\Preferences\AppPreferences;
@@ -22,11 +23,10 @@ final class Habits extends NativeComponent
 {
     use ResumesActiveAlarm;
 
-    private const int MinimumSleepWindowMinutes = 180;
-
-    private const int MaximumSleepWindowMinutes = 840;
-
     public string $weeklyGoalSelection = '4';
+
+    /** Month shown in the calendar, as `Y-m`; empty means the current month. */
+    public string $calendarMonth = '';
 
     public function mount(): void
     {
@@ -138,9 +138,9 @@ final class Habits extends NativeComponent
     public function dailySeries(): array
     {
         return [
-            $this->series('on_time', __('app.on_time'), theme('success')),
-            $this->series('late', __('app.late'), theme('warning')),
-            $this->series('missed', __('app.missed'), theme('destructive')),
+            $this->series(DayStatus::OnTime, __('app.on_time')),
+            $this->series(DayStatus::Late, __('app.late')),
+            $this->series(DayStatus::Missed, __('app.missed')),
         ];
     }
 
@@ -149,33 +149,66 @@ final class Habits extends NativeComponent
     public function outcomeSegments(): array
     {
         return [
-            $this->segment('on_time', __('app.on_time'), theme('success')),
-            $this->segment('late', __('app.late'), theme('warning')),
-            $this->segment('missed', __('app.missed'), theme('destructive')),
+            $this->segment(DayStatus::OnTime, __('app.on_time')),
+            $this->segment(DayStatus::Late, __('app.late')),
+            $this->segment(DayStatus::Missed, __('app.missed')),
         ];
     }
 
-    /** @return list<list<array{date: string, day: int, status: string, protected: bool, future: bool}>> */
+    /** Highest daily count in the bar chart, at least 2 so the axis shows whole numbers. */
+    #[Computed]
+    public function dailyChartMaximum(): int
+    {
+        return max(2, ...array_map(fn (array $day): int => max($day['on_time'], $day['late'], $day['missed']), $this->habits['days']));
+    }
+
+    public function showPreviousMonth(): void
+    {
+        $this->calendarMonth = $this->displayedMonth()->subMonthNoOverflow()->format('Y-m');
+    }
+
+    public function showNextMonth(): void
+    {
+        if ($this->isShowingCurrentMonth) {
+            return;
+        }
+
+        $this->calendarMonth = $this->displayedMonth()->addMonthNoOverflow()->format('Y-m');
+    }
+
+    #[Computed]
+    public function isShowingCurrentMonth(): bool
+    {
+        return $this->displayedMonth()->format('Y-m') === CarbonImmutable::now((string) config('app.alarm_timezone'))->format('Y-m');
+    }
+
+    #[Computed]
+    public function calendarTitle(): string
+    {
+        return Str::ucfirst($this->displayedMonth()->locale(app(AppPreferences::class)->language())->isoFormat('MMMM YYYY'));
+    }
+
+    /** @return list<list<array{date: string, day: int, status: string, protected: bool, future: bool, in_month: bool}>> */
     #[Computed]
     public function calendarWeeks(): array
     {
-        return array_chunk(app(AlarmHabitsAnalytics::class)->calendar(), 7);
+        return array_chunk(app(AlarmHabitsAnalytics::class)->calendar($this->displayedMonth(), $this->habits['protected_days']), 7);
     }
 
-    /** @return list<string> */
+    /** @return array<string, string> Weekday key => one-letter heading, Monday first. */
+    #[Computed]
     public function weekdayInitials(): array
     {
-        return array_map(
-            fn (string $day): string => __("app.weekdays.{$day}.short"),
-            ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
-        );
+        $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+        return array_combine($days, array_map(fn (string $day): string => __("app.weekdays.{$day}.short"), $days));
     }
 
-    /** @return array{started: int, completed: int} */
+    /** @return array{started: int, completed: int, days: int} */
     #[Computed]
     public function routineCompletion(): array
     {
-        return app(AlarmHabitsAnalytics::class)->routineCompletion();
+        return [...app(AlarmHabitsAnalytics::class)->routineCompletion(), 'days' => AlarmHabitsAnalytics::RoutineWindowDays];
     }
 
     /** @return array{samples: int, average_delay_minutes: int, variation_minutes: int}|null */
@@ -185,38 +218,36 @@ final class Habits extends NativeComponent
         return app(AlarmHabitsAnalytics::class)->wakeConsistency();
     }
 
-    /**
-     * Time between the bedtime reminder and the next alarm, shown only when it is a plausible night.
-     *
-     * @return array{bedtime: string, alarm: string, hours: int, minutes: int}|null
-     */
+    /** @return array{nights: int, hours: int, minutes: int}|null Average real sleep from the bedtime reminder to actual wake-ups. */
     #[Computed]
-    public function sleepWindow(): ?array
+    public function actualSleep(): ?array
     {
-        $bedtime = app(BedtimeReminderSettings::class)->get();
+        $sleep = app(AlarmHabitsAnalytics::class)->actualSleep();
+
+        return $sleep === null ? null : [
+            'nights' => $sleep['nights'],
+            'hours' => intdiv($sleep['average_minutes'], 60),
+            'minutes' => $sleep['average_minutes'] % 60,
+        ];
+    }
+
+    /** @return array{bedtime: string, alarm: string, hours: int, minutes: int}|null Sleep available before the next alarm. */
+    #[Computed]
+    public function plannedSleep(): ?array
+    {
+        $lifecycle = app(AlarmExecutionLifecycle::class);
         $nextAlarm = Alarm::query()
             ->where('enabled', true)
             ->get()
-            ->sortBy(fn (Alarm $alarm): int => app(AlarmExecutionLifecycle::class)->nextScheduledFor($alarm)->getTimestamp())
+            ->sortBy(fn (Alarm $alarm): int => $lifecycle->nextScheduledFor($alarm)->getTimestamp())
             ->first();
+        $minutes = $nextAlarm === null ? null : app(AlarmHabitsAnalytics::class)->plannedSleep($lifecycle->nextScheduledFor($nextAlarm));
 
-        if (! $bedtime['enabled'] || $nextAlarm === null) {
-            return null;
-        }
-
-        $bedtimeMinutes = $this->minutesOfDay($bedtime['time']);
-        $alarmMinutes = $this->minutesOfDay($nextAlarm->time);
-        $window = ($alarmMinutes - $bedtimeMinutes + 1440) % 1440;
-
-        if ($window < self::MinimumSleepWindowMinutes || $window > self::MaximumSleepWindowMinutes) {
-            return null;
-        }
-
-        return [
-            'bedtime' => $this->clockTime($bedtimeMinutes),
+        return $minutes === null ? null : [
+            'bedtime' => Alarm::formatClock(app(BedtimeReminderSettings::class)->get()['time']),
             'alarm' => $nextAlarm->displayTime(),
-            'hours' => intdiv($window, 60),
-            'minutes' => $window % 60,
+            'hours' => intdiv($minutes, 60),
+            'minutes' => $minutes % 60,
         ];
     }
 
@@ -225,32 +256,27 @@ final class Habits extends NativeComponent
         return view('native.habits');
     }
 
-    private function minutesOfDay(string $time): int
+    private function displayedMonth(): CarbonImmutable
     {
-        [$hour, $minute] = array_map('intval', explode(':', $time));
+        $timezone = (string) config('app.alarm_timezone');
 
-        return $hour * 60 + $minute;
-    }
-
-    private function clockTime(int $minutesOfDay): string
-    {
-        $hour = intdiv($minutesOfDay, 60);
-
-        return sprintf('%d:%02d %s', $hour % 12 ?: 12, $minutesOfDay % 60, $hour < 12 ? __('app.time_am') : __('app.time_pm'));
+        return $this->calendarMonth === ''
+            ? CarbonImmutable::now($timezone)->startOfMonth()
+            : CarbonImmutable::createFromFormat('!Y-m', $this->calendarMonth, $timezone);
     }
 
     /** @return array{id: string, name: string, color: string, points: list<array{id: string, label: string, value: int}>} */
-    private function series(string $status, string $name, string $color): array
+    private function series(DayStatus $status, string $name): array
     {
         return [
-            'id' => $status,
+            'id' => $status->value,
             'name' => $name,
-            'color' => $color,
+            'color' => theme($status->themeToken()),
             'points' => array_map(
                 fn (array $day): array => [
-                    'id' => "{$status}-{$day['date']}",
+                    'id' => "{$status->value}-{$day['date']}",
                     'label' => $day['label'],
-                    'value' => $day[$status],
+                    'value' => $day[$status->value],
                 ],
                 $this->habits['days'],
             ),
@@ -258,13 +284,13 @@ final class Habits extends NativeComponent
     }
 
     /** @return array{id: string, label: string, value: int, color: string} */
-    private function segment(string $status, string $label, string $color): array
+    private function segment(DayStatus $status, string $label): array
     {
         return [
-            'id' => $status,
+            'id' => $status->value,
             'label' => $label,
-            'value' => array_sum(array_column($this->habits['days'], $status)),
-            'color' => $color,
+            'value' => array_sum(array_column($this->habits['days'], $status->value)),
+            'color' => theme($status->themeToken()),
         ];
     }
 }

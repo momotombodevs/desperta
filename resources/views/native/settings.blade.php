@@ -11,76 +11,19 @@
                         :alt="__('app.app_name')"/>
         </native:row>
 
-        <native:pressable ref="open-progress" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
-                          @navigate="'/settings/progress'" :a11y-label="__('progress.title')">
-            <native:row class="w-full items-center gap-3">
-                <native:icon :android="Android::EmojiEvents" class="text-theme-primary" size="24"/>
-                <native:column class="flex-1 gap-1">
-                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('progress.title') }}</native:text>
-                </native:column>
-                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
-            </native:row>
-        </native:pressable>
-
-        <native:pressable ref="open-daily-question" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
-                          @navigate="'/settings/daily-question'" :a11y-label="__('progress.daily_question.title')">
-            <native:row class="w-full items-center gap-3">
-                <native:icon :android="Android::Quiz" class="text-theme-primary" size="24"/>
-                <native:column class="flex-1 gap-1">
-                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('progress.daily_question.title') }}</native:text>
-                </native:column>
-                @unless ($this->dailyQuestionAnswered)
-                    <native:row class="items-center rounded-full bg-theme-primary/15 px-3 py-1">
-                        <native:text class="text-xs text-theme-primary">{{ __('progress.xp_gained', ['xp' => PlayerProgress::DailyQuestionXp]) }}</native:text>
-                    </native:row>
-                @endunless
-                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
-            </native:row>
-        </native:pressable>
-
-        <native:pressable ref="open-habits" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
-                          @navigate="'/settings/habits'" :a11y-label="__('app.habits')">
-            <native:row class="w-full items-center gap-3">
-                <native:icon :android="Android::BarChart" class="text-theme-primary" size="24"/>
-                <native:column class="flex-1 gap-1">
-                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.habits') }}</native:text>
-                </native:column>
-                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
-            </native:row>
-        </native:pressable>
-
-        <native:pressable ref="open-history" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
-                          @navigate="'/settings/history'" :a11y-label="__('app.view_history')">
-            <native:row class="w-full items-center gap-3">
-                <native:icon :android="Android::History" class="text-theme-primary" size="24"/>
-                <native:column class="flex-1 gap-1">
-                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.alarm_history') }}</native:text>
-                </native:column>
-                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
-            </native:row>
-        </native:pressable>
-
-        <native:pressable ref="open-bedtime-reminder" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
-                          @navigate="'/settings/bedtime-reminder'" :a11y-label="__('app.bedtime_reminder')">
-            <native:row class="w-full items-center gap-3">
-                <native:icon :android="Android::Bedtime" class="text-theme-primary" size="24"/>
-                <native:column class="flex-1 gap-1">
-                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.bedtime_reminder') }}</native:text>
-                </native:column>
-                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
-            </native:row>
-        </native:pressable>
-
-        <native:pressable ref="open-morning-routine" class="w-full rounded-xl border border-theme-outline bg-theme-surface p-4"
-                          @navigate="'/settings/routine'" :a11y-label="__('app.morning_routine')">
-            <native:row class="w-full items-center gap-3">
-                <native:icon :android="Android::Checklist" class="text-theme-primary" size="24"/>
-                <native:column class="flex-1 gap-1">
-                    <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.morning_routine') }}</native:text>
-                </native:column>
-                <native:icon :android="Android::ChevronRight" class="text-theme-on-surface" size="20"/>
-            </native:row>
-        </native:pressable>
+        <native:navigation-row key="open-progress" target="open-progress" url="/settings/progress"
+                               :icon="Android::EmojiEvents->value" :title="__('progress.title')"/>
+        <native:navigation-row key="open-daily-question" target="open-daily-question" url="/settings/daily-question"
+                               :icon="Android::Quiz->value" :title="__('progress.daily_question.title')"
+                               :badge="$this->dailyQuestionAnswered ? '' : __('progress.xp_gained', ['xp' => PlayerProgress::DailyQuestionXp])"/>
+        <native:navigation-row key="open-habits" target="open-habits" url="/settings/habits"
+                               :icon="Android::BarChart->value" :title="__('app.habits')"/>
+        <native:navigation-row key="open-history" target="open-history" url="/settings/history"
+                               :icon="Android::History->value" :title="__('app.alarm_history')"/>
+        <native:navigation-row key="open-bedtime-reminder" target="open-bedtime-reminder" url="/settings/bedtime-reminder"
+                               :icon="Android::Bedtime->value" :title="__('app.bedtime_reminder')"/>
+        <native:navigation-row key="open-morning-routine" target="open-morning-routine" url="/settings/routine"
+                               :icon="Android::Checklist->value" :title="__('app.morning_routine')"/>
 
         <native:column class="w-full gap-2">
             <native:text font="accent" class="text-base text-theme-on-surface">{{ __('app.appearance') }}</native:text>

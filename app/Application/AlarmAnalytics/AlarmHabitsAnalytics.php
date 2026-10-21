@@ -2,8 +2,9 @@
 
 namespace App\Application\AlarmAnalytics;
 
+use App\Application\MorningRoutine\MorningRoutineManager;
+use App\Application\Preferences\BedtimeReminderSettings;
 use App\Models\AlarmExecution;
-use App\Models\AlarmExecutionRoutineStep;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -11,6 +12,23 @@ use Illuminate\Support\Collection;
 final class AlarmHabitsAnalytics
 {
     private const int OnTimeMinutes = 10;
+
+    public const int RoutineWindowDays = 7;
+
+    private const int WakeWindowDays = 14;
+
+    private const int MinimumSamples = 3;
+
+    private const int ProtectorCooldownDays = 7;
+
+    private const int MinimumSleepMinutes = 180;
+
+    private const int MaximumSleepMinutes = 840;
+
+    public function __construct(
+        private readonly MorningRoutineManager $routines,
+        private readonly BedtimeReminderSettings $bedtime,
+    ) {}
 
     /**
      * @return array{current_streak: int, best_streak: int, protected_days: list<string>, protector_available: bool, on_time_count: int, resolved_count: int, on_time_rate: int, without_snooze_count: int, without_snooze_rate: int, weekly_summary: array{on_time_mornings: int, resolved_count: int, on_time_count: int, late_count: int, missed_count: int, snooze_count: int, hardest_weekday: ?int, recommendation: string}, days: list<array{date: string, status: string, on_time: int, late: int, missed: int, pending: int}>}
@@ -101,20 +119,23 @@ final class AlarmHabitsAnalytics
     }
 
     /**
-     * Day-by-day results for the last few weeks, aligned to start on a Monday so the
-     * screen can lay them out as a calendar.
+     * Day-by-day results for one month, padded to whole Monday-first weeks so the
+     * screen can lay them out as a calendar grid.
      *
-     * @return list<array{date: string, day: int, status: string, protected: bool, future: bool}>
+     * @param  list<string>|null  $protectedDays  Pass the summary's protected days to avoid recomputing streaks.
+     * @return list<array{date: string, day: int, status: string, protected: bool, future: bool, in_month: bool}>
      */
-    public function calendar(int $weeks = 5): array
+    public function calendar(CarbonImmutable $month, ?array $protectedDays = null): array
     {
         $now = CarbonImmutable::now($this->alarmTimezone());
-        $start = $now->startOfWeek(CarbonInterface::MONDAY)->subWeeks($weeks - 1)->startOfDay();
+        $month = $month->setTimezone($this->alarmTimezone());
+        $start = $month->startOfMonth()->startOfWeek(CarbonInterface::MONDAY)->startOfDay();
+        $end = $month->endOfMonth()->endOfWeek(CarbonInterface::SUNDAY)->endOfDay();
         $executions = AlarmExecution::query()
             ->where('status', '!=', 'cancelled')
-            ->whereBetween('scheduled_for', [$start->utc(), $now->endOfDay()->utc()])
+            ->whereBetween('scheduled_for', [$start->utc(), $end->utc()])
             ->get();
-        $protectedDays = $this->streaks($now)['protected_days'];
+        $protectedDays ??= $this->streaks($now)['protected_days'];
 
         return array_map(fn (array $day): array => [
             'date' => $day['date'],
@@ -122,22 +143,51 @@ final class AlarmHabitsAnalytics
             'status' => $day['status'],
             'protected' => in_array($day['date'], $protectedDays, true),
             'future' => $day['date'] > $now->toDateString(),
-        ], $this->dayResults($executions, $start, $now, $weeks * 7));
+            'in_month' => str_starts_with($day['date'], $month->format('Y-m')),
+        ], $this->dayResults($executions, $start, $now, (int) $start->diffInDays($end) + 1));
     }
 
-    /** @return array{started: int, completed: int} Morning routines begun and fully finished in the last 7 days. */
+    /** @return array{started: int, completed: int} Morning routines begun and fully finished in the recent window. */
     public function routineCompletion(): array
     {
         $now = CarbonImmutable::now($this->alarmTimezone());
-        $routines = AlarmExecutionRoutineStep::query()
-            ->whereHas('execution', fn ($query) => $query->whereBetween('scheduled_for', [$now->startOfDay()->subDays(6)->utc(), $now->endOfDay()->utc()]))
-            ->get(['alarm_execution_id', 'completed_at'])
-            ->groupBy('alarm_execution_id');
+        $outcomes = $this->routines->routineOutcomes($now->startOfDay()->subDays(self::RoutineWindowDays - 1), $now->endOfDay());
 
         return [
-            'started' => $routines->count(),
-            'completed' => $routines->filter(fn (Collection $steps): bool => $steps->every(fn (AlarmExecutionRoutineStep $step): bool => $step->completed_at !== null))->count(),
+            'started' => $outcomes->count(),
+            'completed' => $outcomes->filter()->count(),
         ];
+    }
+
+    public function bestStreak(): int
+    {
+        return $this->streaks(CarbonImmutable::now($this->alarmTimezone()))['best_streak'];
+    }
+
+    /** Longest run of consecutive alarm days where every alarm was turned off without snoozing. */
+    public function bestNoSnoozeRun(): int
+    {
+        $best = 0;
+        $running = 0;
+
+        $days = AlarmExecution::query()
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('scheduled_for')
+            ->get()
+            ->groupBy(fn (AlarmExecution $execution): string => $execution->scheduled_for->setTimezone($this->alarmTimezone())->toDateString());
+
+        foreach ($days as $executions) {
+            if ($executions->contains(fn (AlarmExecution $execution): bool => in_array($execution->status, ['ringing', 'scheduled', 'snoozed'], true))) {
+                continue;
+            }
+
+            $running = $executions->every(fn (AlarmExecution $execution): bool => $execution->status === 'completed' && $execution->snooze_count === 0)
+                ? $running + 1
+                : 0;
+            $best = max($best, $running);
+        }
+
+        return $best;
     }
 
     /**
@@ -152,11 +202,11 @@ final class AlarmHabitsAnalytics
         $delays = AlarmExecution::query()
             ->where('status', 'completed')
             ->whereNotNull('finished_at')
-            ->whereBetween('scheduled_for', [$now->startOfDay()->subDays(13)->utc(), $now->endOfDay()->utc()])
+            ->whereBetween('scheduled_for', [$now->startOfDay()->subDays(self::WakeWindowDays - 1)->utc(), $now->endOfDay()->utc()])
             ->get()
             ->map(fn (AlarmExecution $execution): float => max(0, $execution->scheduled_for->diffInSeconds($execution->finished_at, false)) / 60);
 
-        if ($delays->count() < 3) {
+        if ($delays->count() < self::MinimumSamples) {
             return null;
         }
 
@@ -168,6 +218,63 @@ final class AlarmHabitsAnalytics
             'average_delay_minutes' => (int) round($average),
             'variation_minutes' => (int) round(sqrt($variance)),
         ];
+    }
+
+    /**
+     * Average real sleep: from the bedtime reminder of the night before to each actual
+     * wake-up over the last two weeks. Nights outside a plausible range are ignored.
+     *
+     * @return array{nights: int, average_minutes: int}|null Null until the reminder is on and there are enough nights.
+     */
+    public function actualSleep(): ?array
+    {
+        $bedtime = $this->bedtime->get();
+
+        if (! $bedtime['enabled']) {
+            return null;
+        }
+
+        $now = CarbonImmutable::now($this->alarmTimezone());
+        $nights = AlarmExecution::query()
+            ->where('status', 'completed')
+            ->whereNotNull('finished_at')
+            ->whereBetween('scheduled_for', [$now->startOfDay()->subDays(self::WakeWindowDays - 1)->utc(), $now->endOfDay()->utc()])
+            ->get()
+            ->map(fn (AlarmExecution $execution): ?int => $this->minutesSinceBedtime($execution->finished_at, $bedtime))
+            ->filter(fn (?int $minutes): bool => $minutes !== null);
+
+        if ($nights->count() < self::MinimumSamples) {
+            return null;
+        }
+
+        return ['nights' => $nights->count(), 'average_minutes' => (int) round($nights->avg())];
+    }
+
+    /** Minutes between the bedtime reminder and the given alarm, when it falls on a reminder night and is plausible. */
+    public function plannedSleep(CarbonImmutable $alarmAt): ?int
+    {
+        $bedtime = $this->bedtime->get();
+
+        return $bedtime['enabled'] ? $this->minutesSinceBedtime($alarmAt, $bedtime) : null;
+    }
+
+    /** @param array{enabled: bool, time: string, weekdays: list<int>} $bedtime */
+    private function minutesSinceBedtime(CarbonImmutable $wakeAt, array $bedtime): ?int
+    {
+        $wakeAt = $wakeAt->setTimezone($this->alarmTimezone());
+        $wentToBed = $wakeAt->setTimeFromTimeString($bedtime['time']);
+
+        if ($wentToBed->greaterThanOrEqualTo($wakeAt)) {
+            $wentToBed = $wentToBed->subDay();
+        }
+
+        if (! in_array($wentToBed->dayOfWeekIso, $bedtime['weekdays'], true)) {
+            return null;
+        }
+
+        $minutes = (int) $wentToBed->diffInMinutes($wakeAt);
+
+        return $minutes >= self::MinimumSleepMinutes && $minutes <= self::MaximumSleepMinutes ? $minutes : null;
     }
 
     /** @return list<array{date: string, status: string, on_time: int, late: int, missed: int, pending: int}> */
@@ -202,8 +309,8 @@ final class AlarmHabitsAnalytics
     }
 
     /**
-     * Counts consecutive on-time days. A streak protector forgives the first failed
-     * day of each ISO week, so a single bad morning does not wipe out the run.
+     * Counts consecutive on-time days. A streak protector forgives one failed day and
+     * recharges seven days later, so a single bad morning does not wipe out the run.
      *
      * @return array{current_streak: int, best_streak: int, protected_days: list<string>, protector_available: bool}
      */
@@ -219,15 +326,11 @@ final class AlarmHabitsAnalytics
         $best = 0;
         $running = 0;
         $protectedDays = [];
-        $protectedWeeks = [];
 
         foreach ($outcomes as $date => $outcome) {
-            $week = CarbonImmutable::parse($date)->format('o-W');
-
             if ($outcome) {
                 $running++;
-            } elseif ($running > 0 && ! in_array($week, $protectedWeeks, true)) {
-                $protectedWeeks[] = $week;
+            } elseif ($running > 0 && $this->protectorReady($protectedDays, (string) $date)) {
                 $protectedDays[] = (string) $date;
             } else {
                 $running = 0;
@@ -240,8 +343,17 @@ final class AlarmHabitsAnalytics
             'current_streak' => $running,
             'best_streak' => $best,
             'protected_days' => $protectedDays,
-            'protector_available' => ! in_array($now->setTimezone($this->alarmTimezone())->format('o-W'), $protectedWeeks, true),
+            'protector_available' => $this->protectorReady($protectedDays, $now->setTimezone($this->alarmTimezone())->toDateString()),
         ];
+    }
+
+    /** @param list<string> $protectedDays */
+    private function protectorReady(array $protectedDays, string $date): bool
+    {
+        $lastUsed = end($protectedDays);
+
+        return $lastUsed === false
+            || CarbonImmutable::parse($lastUsed)->diffInDays(CarbonImmutable::parse($date)) >= self::ProtectorCooldownDays;
     }
 
     private function dayOutcome(Collection $executions, CarbonImmutable $now): ?bool

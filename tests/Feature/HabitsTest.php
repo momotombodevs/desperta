@@ -59,6 +59,11 @@ it('renders punctuality metrics for terminal executions in the selected period',
 
             return array_column($segments, 'id') === ['on_time', 'late', 'missed']
                 && array_column($segments, 'value') === [1, 0, 1];
+        })
+        ->assertElement('bar_chart', function (array $node): bool {
+            $axis = json_decode($node['props']['y_axis_json'] ?? '{}', true);
+
+            return ($axis['minimum'] ?? null) == 0 && ($axis['maximum'] ?? null) == 2 && ($axis['interval'] ?? null) == 1;
         });
 });
 
@@ -222,8 +227,8 @@ it('shows the streak protector, the five-week calendar and the routine completio
 
     Native::visit('/settings/habits')
         ->assertSee('2 días')
-        ->assertSee('Protector de racha usado esta semana')
-        ->assertSee('Últimas 5 semanas')
+        ->assertSee('Protector de racha recargándose')
+        ->assertSee('Septiembre 2026')
         ->assertElement('column', fn (array $node): bool => ($node['a11y_label'] ?? $node['props']['a11y_label'] ?? null) === '1: Día salvado por el protector')
         ->assertSee('2 de 3 rutinas completas · 7 días')
         ->assertAccessible();
@@ -261,5 +266,42 @@ it('hides the sleep window when the next alarm does not leave a plausible night'
 
     Native::visit('/settings/habits')
         ->assertDontSee('para dormir')
+        ->assertDontSee('Dormís en promedio')
         ->assertDontSee('Regularidad al despertar');
+});
+
+it('browses the calendar month by month without going past the current month', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-03 18:00:00', 'UTC'));
+    foreach (['2026-08-12', '2026-09-02'] as $date) {
+        AlarmExecution::factory()->create([
+            'status' => 'completed',
+            'scheduled_for' => CarbonImmutable::parse("{$date} 07:00:00", 'America/Managua')->utc(),
+            'finished_at' => CarbonImmutable::parse("{$date} 07:03:00", 'America/Managua')->utc(),
+        ]);
+    }
+
+    Native::visit('/settings/habits')
+        ->assertSee('Septiembre 2026')
+        ->tap('calendar-next')
+        ->assertSee('Septiembre 2026')
+        ->tap('calendar-previous')
+        ->assertSet('calendarMonth', '2026-08')
+        ->assertSee('Agosto 2026')
+        ->assertElement('column', fn (array $node): bool => ($node['a11y_label'] ?? $node['props']['a11y_label'] ?? null) === '12: Despertaste a tiempo');
+});
+
+it('shows the average real sleep between the bedtime reminder and actual wake-ups', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-10 18:00:00', 'UTC'));
+    app(BedtimeReminderSettings::class)->save(true, '22:00', [1, 2, 3, 4, 5, 6, 7]);
+    foreach (['2026-09-07 06:00', '2026-09-08 06:30', '2026-09-09 07:00'] as $wakeUp) {
+        $finishedAt = CarbonImmutable::parse($wakeUp, 'America/Managua');
+        AlarmExecution::factory()->create([
+            'status' => 'completed',
+            'scheduled_for' => $finishedAt->subMinutes(2)->utc(),
+            'finished_at' => $finishedAt->utc(),
+        ]);
+    }
+
+    Native::visit('/settings/habits')
+        ->assertSee('Dormís en promedio 8 h 30 min, según tu recordatorio y tus despertares reales (3 noches)');
 });

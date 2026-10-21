@@ -1,3 +1,4 @@
+@use('App\Application\AlarmAnalytics\DayStatus')
 @use('App\Icons\Android')
 
 <native:top-bar :title="__('app.habits')" show-navigation-icon />
@@ -63,44 +64,42 @@
                 <native:text font="accent" class="text-lg text-theme-on-surface">{{ __('app.habits_last_7_days') }}</native:text>
                 <native:row class="w-full gap-2">
                     @foreach ($this->habits['days'] as $day)
-                        <native:column class="flex-1 items-center gap-1">
-                            <native:icon name="circle" size="18" class="{{ match ($day['status']) { 'on_time' => 'text-theme-success', 'late' => 'text-theme-warning', 'missed' => 'text-theme-destructive', 'pending' => 'text-theme-secondary', default => 'text-theme-outline' } }}" :a11y-label="__('app.habit_day_'.$day['status'])" />
+                        <native:column key="recent-day-{{ $day['date'] }}" class="flex-1 items-center gap-1">
+                            <native:icon name="circle" size="18" class="{{ DayStatus::from($day['status'])->dotClass() }}" :a11y-label="__('app.habit_day_'.$day['status'])" />
                             <native:text class="text-xs text-theme-on-surface-variant">{{ $day['label'] }}</native:text>
                         </native:column>
                     @endforeach
                 </native:row>
             </native:column>
             <native:column ref="habits-calendar" class="w-full gap-2 rounded-2xl border border-theme-outline bg-theme-surface p-4"
-                           :a11y-label="__('app.habits_calendar_a11y')">
-                <native:text font="accent" class="text-lg text-theme-on-surface">{{ __('app.habits_calendar_title') }}</native:text>
+                           :a11y-label="__('app.habits_calendar_a11y', ['month' => $this->calendarTitle])">
+                <native:row class="w-full items-center gap-2">
+                    <native:pressable ref="calendar-previous" class="rounded-full p-2" @tap="showPreviousMonth" :a11y-label="__('app.previous_month')">
+                        <native:icon :android="Android::ChevronLeft" name="chevron_left" class="text-theme-on-surface" size="22"/>
+                    </native:pressable>
+                    <native:text font="accent" class="flex-1 text-lg text-center text-theme-on-surface">{{ $this->calendarTitle }}</native:text>
+                    <native:pressable ref="calendar-next" class="rounded-full p-2" @tap="showNextMonth"
+                                      :opacity="$this->isShowingCurrentMonth ? 0.3 : 1" :a11y-label="__('app.next_month')">
+                        <native:icon :android="Android::ChevronRight" name="chevron_right" class="text-theme-on-surface" size="22"/>
+                    </native:pressable>
+                </native:row>
                 <native:row class="w-full gap-1">
-                    @foreach ($this->weekdayInitials() as $initial)
-                        <native:text key="calendar-heading-{{ $loop->index }}" class="flex-1 text-xs text-center text-theme-on-surface-variant">{{ $initial }}</native:text>
+                    @foreach ($this->weekdayInitials as $weekday => $initial)
+                        <native:text key="calendar-heading-{{ $weekday }}" class="flex-1 text-xs text-center text-theme-on-surface-variant">{{ $initial }}</native:text>
                     @endforeach
                 </native:row>
                 @foreach ($this->calendarWeeks as $week)
                     <native:row key="calendar-week-{{ $week[0]['date'] }}" class="w-full gap-1">
                         @foreach ($week as $day)
+                            @php($dayStatus = DayStatus::from($day['status']))
                             <native:column key="calendar-day-{{ $day['date'] }}"
-                                           class="flex-1 h-10 items-center justify-center rounded-lg {{ match ($day['status']) {
-                                               'on_time' => 'bg-theme-success',
-                                               'late' => 'bg-theme-warning',
-                                               'missed' => 'bg-theme-destructive',
-                                               'pending' => 'bg-theme-secondary',
-                                               default => 'bg-theme-surface-variant',
-                                           } }}"
-                                           :opacity="$day['future'] ? 0.35 : 1"
+                                           class="flex-1 h-10 items-center justify-center rounded-lg {{ $dayStatus->cellClass() }}"
+                                           :opacity="$day['future'] || ! $day['in_month'] ? 0.35 : 1"
                                            :a11y-label="$day['day'].': '.($day['protected'] ? __('app.habit_day_protected') : __('app.habit_day_'.$day['status']))">
                                 @if ($day['protected'])
-                                    <native:icon :android="Android::Shield" name="shield" class="text-theme-on-warning" size="16"/>
+                                    <native:icon :android="Android::Shield" name="shield" class="{{ $dayStatus->cellTextClass() }}" size="16"/>
                                 @else
-                                    <native:text class="text-xs {{ match ($day['status']) {
-                                        'on_time' => 'text-theme-on-success',
-                                        'late' => 'text-theme-on-warning',
-                                        'missed' => 'text-theme-on-destructive',
-                                        'pending' => 'text-theme-on-secondary',
-                                        default => 'text-theme-on-surface-variant',
-                                    } }}">{{ $day['day'] }}</native:text>
+                                    <native:text class="text-xs {{ $dayStatus->cellTextClass() }}">{{ $day['day'] }}</native:text>
                                 @endif
                             </native:column>
                         @endforeach
@@ -117,7 +116,7 @@
                     <native:progress-bar :value="$this->routineCompletion['completed'] / $this->routineCompletion['started']"/>
                 </native:column>
             @endif
-            @if ($this->wakeConsistency !== null || $this->sleepWindow !== null)
+            @if ($this->wakeConsistency !== null || $this->actualSleep !== null || $this->plannedSleep !== null)
                 <native:column ref="wake-consistency" class="w-full gap-2 rounded-2xl border border-theme-outline bg-theme-surface p-4">
                     <native:row class="w-full items-center gap-2">
                         <native:icon :android="Android::Bedtime" name="bedtime" class="text-theme-primary" size="22"/>
@@ -129,8 +128,11 @@
                     @if ($this->wakeConsistency !== null)
                         <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.wake_consistency_average', ['minutes' => $this->wakeConsistency['average_delay_minutes']]) }}</native:text>
                     @endif
-                    @if ($this->sleepWindow !== null)
-                        <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.wake_consistency_sleep', $this->sleepWindow) }}</native:text>
+                    @if ($this->actualSleep !== null)
+                        <native:text ref="actual-sleep" class="text-sm text-theme-on-surface">{{ __('app.sleep_actual', $this->actualSleep) }}</native:text>
+                    @endif
+                    @if ($this->plannedSleep !== null)
+                        <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.wake_consistency_sleep', $this->plannedSleep) }}</native:text>
                     @endif
                 </native:column>
             @endif
@@ -140,7 +142,7 @@
                     class="w-full h-72"
                     :series="$this->dailySeries"
                     :legend="['visible' => true, 'position' => 'bottom']"
-                    :y-axis="['minimum' => 0, 'maximumFractionDigits' => 0]"
+                    :y-axis="['minimum' => 0, 'maximum' => $this->dailyChartMaximum, 'interval' => 1, 'maximumFractionDigits' => 0]"
                     :style="['bar' => ['radius' => 6], 'grid' => ['color' => theme('outline')]]"
                     :locale="str_replace('_', '-', app()->getLocale())"
                     :a11y-label="__('app.habits_daily_results_a11y')"

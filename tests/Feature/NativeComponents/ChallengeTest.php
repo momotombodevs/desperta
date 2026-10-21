@@ -505,3 +505,37 @@ it('announces a level up when the wake-up crosses the next threshold', function 
     $challenge->assertSet('reachedLevel', 2)
         ->assertSee('¡Subiste al nivel 2: Madrugador!');
 });
+
+it('scores an attempt that ended early against the questions actually answered', function () {
+    $alarm = Alarm::factory()->create(['challenge_types' => ['mental_math']]);
+    mock(NativeAlarmScheduler::class)->shouldReceive('activeRingingOccurrence')
+        ->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+    $challenge = Native::test(Challenge::class);
+
+    answerQuestions($challenge, [false, false, false, false]);
+
+    $challenge->assertSet('completed', true)
+        ->assertSet('answeredCount', 2)
+        ->assertSee('0 / 2')
+        ->assertSee('Ya no alcanzabas los 3 aciertos, así que terminamos antes.');
+    $this->assertDatabaseHas('alarm_challenge_attempts', ['alarm_execution_id' => 'execution-1', 'question_count' => 4, 'correct_answers' => 0]);
+});
+
+it('adds the routine XP to the celebration once the morning routine is finished', function () {
+    $this->travelTo('2026-09-03 07:01:00');
+    MorningRoutineStep::query()->create(['label' => 'Tomar agua', 'position' => 0]);
+    $alarm = Alarm::factory()->create(['difficulty' => 'easy', 'challenge_types' => ['mental_math'], 'scheduling_status' => 'scheduled']);
+    $scheduler = mock(NativeAlarmScheduler::class);
+    $scheduler->shouldReceive('activeRingingOccurrence')->andReturn(new ActiveAlarmOccurrence($alarm->id, 'execution-1', '2026-09-03T07:00:00+00:00'));
+    $scheduler->shouldReceive('completeRinging')->once()->with($alarm->id);
+    app()->instance(NativeAlarmScheduler::class, $scheduler);
+    $challenge = Native::test(Challenge::class);
+    completeChallenge($challenge);
+    $challenge->assertSet('earnedXp', 45);
+
+    $step = $challenge->instance()->routineSteps->sole();
+    $challenge->call('completeRoutineStep', $step->id)
+        ->assertSet('earnedXp', 55)
+        ->assertSee('+55 XP')
+        ->assertSee('+10 XP');
+});

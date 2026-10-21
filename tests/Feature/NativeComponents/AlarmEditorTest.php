@@ -361,8 +361,9 @@ it('saves the challenge types and trivia topic chosen for the alarm', function (
 
     Native::visit('/alarms/new')
         ->assertSee('Igual que en Ajustes')
-        ->set('memoryChallenge', false)
-        ->set('sequenceChallenge', false)
+        ->call('toggleChallengeType', 'memory', false)
+        ->call('toggleChallengeType', 'sequence', false)
+        ->assertElement('chip', fn (array $node): bool => ($node['ref'] ?? null) === 'challenge-type-memory' && isset($node['props']['on_change']) && ($node['props']['value'] ?? null) === false)
         ->select('challengeTopicDisplay', 'Matemáticas')
         ->toggle('enabled', false)
         ->tap('save-alarm')
@@ -378,12 +379,12 @@ it('keeps following the settings when every challenge type stays selected', func
     app()->instance(NativeAlarmScheduler::class, mock(NativeAlarmScheduler::class));
 
     Native::visit("/alarms/{$alarm->id}/edit")
-        ->assertSet('memoryChallenge', true)
-        ->assertSet('triviaChallenge', false)
+        ->assertSet('challengeTypes', ['memory'])
         ->assertSet('challengeTopicDisplay', 'Matemáticas')
-        ->set('triviaChallenge', true)
-        ->set('sequenceChallenge', true)
-        ->set('mentalMathChallenge', true)
+        ->call('toggleChallengeType', 'mental_math', true)
+        ->call('toggleChallengeType', 'trivia', true)
+        ->call('toggleChallengeType', 'sequence', true)
+        ->call('toggleChallengeType', 'dance', true)
         ->select('challengeTopicDisplay', 'Igual que en Ajustes')
         ->tap('save-alarm')
         ->assertReplacedWith('/');
@@ -399,10 +400,7 @@ it('requires at least one challenge type before saving', function () {
     app()->instance(NativeAlarmScheduler::class, $scheduler);
 
     Native::visit('/alarms/new')
-        ->set('triviaChallenge', false)
-        ->set('memoryChallenge', false)
-        ->set('sequenceChallenge', false)
-        ->set('mentalMathChallenge', false)
+        ->set('challengeTypes', [])
         ->tap('save-alarm')
         ->assertToastShownWithMessage('Elegí al menos un tipo de reto.');
 

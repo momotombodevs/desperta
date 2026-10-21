@@ -1,3 +1,5 @@
+@use('App\Application\Challenges\ChallengeType')
+
 <native:top-bar :title="$isEditing ? __('app.edit_alarm') : __('app.new_alarm')" display-mode="inline"
                 show-navigation-icon/>
 
@@ -59,13 +61,14 @@
                            native:model="difficultyDisplay"/>
             <native:text class="text-sm text-theme-on-surface-variant">{{ __('app.challenge_types') }}</native:text>
             <native:row class="w-full flex-wrap gap-2">
-                <native:chip ref="challenge-type-trivia" :label="__('challenges.types.trivia.name')" native:model="triviaChallenge"/>
-                <native:chip ref="challenge-type-memory" :label="__('challenges.types.memory.name')" native:model="memoryChallenge"/>
-                <native:chip ref="challenge-type-sequence" :label="__('challenges.types.sequence.name')" native:model="sequenceChallenge"/>
-                <native:chip ref="challenge-type-mental-math" :label="__('challenges.types.mental_math.name')" native:model="mentalMathChallenge"/>
+                @foreach (ChallengeType::playable() as $challengeType)
+                    <native:chip key="challenge-type-{{ $challengeType->value }}" ref="challenge-type-{{ $challengeType->value }}"
+                                 :label="$challengeType->label()" :selected="in_array($challengeType->value, $challengeTypes, true)"
+                                 @change="toggleChallengeType('{{ $challengeType->value }}')"/>
+                @endforeach
             </native:row>
-            @if ($triviaChallenge)
-                <native:select ref="challenge-topic" :label="__('app.challenge_topic')" :options="array_values($this->challengeTopicOptions())"
+            @if (in_array(ChallengeType::Trivia->value, $challengeTypes, true))
+                <native:select ref="challenge-topic" :label="__('app.challenge_topic')" :options="array_values($this->challengeTopicOptions)"
                                native:model="challengeTopicDisplay" :a11y-label="__('app.challenge_topic')"/>
             @endif
         </native:column>
