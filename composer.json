@@ -13,13 +13,6 @@
     "repositories": [
         {
             "type": "path",
-            "url": "packages/momotombo/nativephp-alarms",
-            "options": {
-                "symlink": false
-            }
-        },
-        {
-            "type": "path",
             "url": "packages/momotombo/nativephp-mobile-share",
             "options": {
                 "symlink": false
@@ -36,7 +29,7 @@
         "donmanueldev/nativephp-charts": "^1.0",
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0",
-        "momotombo/nativephp-alarms": "dev-main",
+        "momotombo/nativephp-alarms": "^0.1",
         "momotombo/nativephp-appearance": "^1.0",
         "nativephp/mobile": "^4.7",
         "nativephp/mobile-browser": "^1.0",
@@ -62,10 +55,7 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        },
-        "classmap": [
-            "packages/momotombo/nativephp-alarms/src/"
-        ]
+        }
     },
     "autoload-dev": {
         "psr-4": {
