@@ -417,47 +417,6 @@ main section[id] {
   flex: 0 0 13px;
 }
 
-.nativephp {
-  background: var(--navy);
-  color: white;
-  padding-block: 3.3rem;
-}
-
-.nativephp-inner {
-  align-items: center;
-  display: flex;
-  gap: 2.2rem;
-}
-
-.nativephp-logo {
-  height: auto;
-  object-fit: contain;
-  width: 112px;
-}
-
-.nativephp h2 {
-  font-size: clamp(2rem, 3vw, 3.25rem);
-}
-
-.nativephp p {
-  font-size: 1.03rem;
-  margin: 1rem 0 0;
-  max-width: 560px;
-}
-
-.nativephp-link {
-  color: white;
-  display: inline-flex;
-  font-weight: 800;
-  gap: .55rem;
-  margin-top: 1.1rem;
-  text-underline-offset: 4px;
-}
-
-.nativephp-link:hover {
-  text-decoration-thickness: 2px;
-}
-
 .faq {
   padding-block: 5.6rem;
 }
@@ -758,20 +717,6 @@ details p {
 
   .legend {
     margin-left: 0;
-  }
-
-  .nativephp {
-    padding-block: 2.8rem;
-  }
-
-  .nativephp-inner {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 1.3rem;
-  }
-
-  .nativephp-logo {
-    width: 88px;
   }
 
   .faq {

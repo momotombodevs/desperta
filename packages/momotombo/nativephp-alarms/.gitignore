@@ -1,7 +1,0 @@
-/vendor/
-/node_modules/
-/composer.lock
-/.remember/
-.DS_Store
-*.log
-.idea

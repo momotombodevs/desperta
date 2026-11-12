@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "95d680970e9ab3845d8857dae7110906",
+    "content-hash": "2f5fac9479d5e18345f4d56c62ed9779",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -2320,11 +2320,17 @@
         },
         {
             "name": "momotombo/nativephp-alarms",
-            "version": "dev-main",
+            "version": "v0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/momotombodevs/nativephp-alarms.git",
+                "reference": "a0867fb2fd50c05f6a4834dd76b08741ead20736"
+            },
             "dist": {
-                "type": "path",
-                "url": "packages/momotombo/nativephp-alarms",
-                "reference": "56fc73f6ef78199a5212c439c93823698db16532"
+                "type": "zip",
+                "url": "https://api.github.com/repos/momotombodevs/nativephp-alarms/zipball/a0867fb2fd50c05f6a4834dd76b08741ead20736",
+                "reference": "a0867fb2fd50c05f6a4834dd76b08741ead20736",
+                "shasum": ""
             },
             "require": {
                 "nativephp/mobile": "^4.6.1",
@@ -2337,12 +2343,12 @@
             "type": "nativephp-plugin",
             "extra": {
                 "laravel": {
-                    "providers": [
-                        "Momotombo\\NativePHPAlarms\\AlarmServiceProvider"
-                    ],
                     "aliases": {
                         "Alarm": "Momotombo\\NativePHPAlarms\\Facades\\Alarm"
-                    }
+                    },
+                    "providers": [
+                        "Momotombo\\NativePHPAlarms\\AlarmServiceProvider"
+                    ]
                 },
                 "nativephp": {
                     "manifest": "nativephp.json"
@@ -2353,11 +2359,7 @@
                     "Momotombo\\NativePHPAlarms\\": "src/"
                 }
             },
-            "scripts": {
-                "test": [
-                    "pest"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -2385,10 +2387,7 @@
                 "issues": "https://github.com/momotombodevs/nativephp-alarms/issues",
                 "source": "https://github.com/momotombodevs/nativephp-alarms"
             },
-            "transport-options": {
-                "symlink": false,
-                "relative": true
-            }
+            "time": "2026-11-12T17:35:11+00:00"
         },
         {
             "name": "momotombo/nativephp-appearance",
@@ -11228,9 +11227,7 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "momotombo/nativephp-alarms": 20
-    },
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
