@@ -35,7 +35,7 @@ final class AlarmScheduler
     /** Return the current exact-alarm authorization state. */
     public function authorizationStatus(): AuthorizationStatus
     {
-        return AuthorizationStatus::from((string) ($this->call('Alarms.AuthorizationStatus')['status'] ?? 'unsupported'));
+        return $this->status($this->call('Alarms.AuthorizationStatus'));
     }
 
     /**
@@ -45,7 +45,7 @@ final class AlarmScheduler
      */
     public function requestAuthorization(): AuthorizationStatus
     {
-        return AuthorizationStatus::from((string) ($this->call('Alarms.RequestAuthorization')['status'] ?? 'unsupported'));
+        return $this->status($this->call('Alarms.RequestAuthorization'));
     }
 
     /** Return whether Android allows full-screen alarm intents. */
@@ -63,7 +63,7 @@ final class AlarmScheduler
     /** Return the current notification authorization state. */
     public function notificationAuthorizationStatus(): AuthorizationStatus
     {
-        return AuthorizationStatus::from((string) ($this->call('Alarms.NotificationAuthorizationStatus')['status'] ?? 'unsupported'));
+        return $this->status($this->call('Alarms.NotificationAuthorizationStatus'));
     }
 
     /**
@@ -73,7 +73,7 @@ final class AlarmScheduler
      */
     public function requestNotificationAuthorization(string $requestId): AuthorizationStatus
     {
-        return AuthorizationStatus::from((string) ($this->call('Alarms.RequestNotificationAuthorization', ['requestId' => $requestId])['status'] ?? 'unsupported'));
+        return $this->status($this->call('Alarms.RequestNotificationAuthorization', ['requestId' => $requestId]));
     }
 
     /** Return true only when notification authorization is granted. */
@@ -124,16 +124,19 @@ final class AlarmScheduler
         $this->call('Alarms.Schedule', $configuration->toPayload());
     }
 
+    /** Store and schedule a recurring, silent bedtime notification (one per app). */
     public function scheduleBedtimeReminder(BedtimeReminderConfiguration $configuration): void
     {
         $this->call('Alarms.ScheduleBedtimeReminder', $configuration->toPayload());
     }
 
+    /** Cancel the bedtime reminder and remove its stored configuration. */
     public function cancelBedtimeReminder(): void
     {
         $this->call('Alarms.CancelBedtimeReminder');
     }
 
+    /** Remove a deleted alarm from the home-screen widget's remembered state. */
     public function forgetWidgetAlarm(string $alarmId): void
     {
         $this->call('Alarms.ForgetWidgetAlarm', ['id' => $alarmId]);
@@ -162,6 +165,7 @@ final class AlarmScheduler
      *
      * @throws InvalidAlarmConfiguration When minutes is less than one.
      * @throws AlarmNotFound When the alarm is not actively ringing.
+     * @throws UnsupportedFeature When the alarm was scheduled with snoozing disabled.
      */
     public function snooze(string $alarmId, int $minutes): void
     {
@@ -170,6 +174,16 @@ final class AlarmScheduler
         }
 
         $this->call('Alarms.Snooze', ['id' => $alarmId, 'minutes' => $minutes]);
+    }
+
+    /**
+     * Read a native status value, treating unknown values as unsupported.
+     *
+     * @param  array<string, mixed>  $response
+     */
+    private function status(array $response): AuthorizationStatus
+    {
+        return AuthorizationStatus::tryFrom((string) ($response['status'] ?? '')) ?? AuthorizationStatus::Unsupported;
     }
 
     /**
@@ -192,7 +206,8 @@ final class AlarmScheduler
             'authorization_denied' => new AlarmAuthorizationDenied($message),
             'exact_alarm_permission_denied' => new ExactAlarmPermissionDenied($message),
             'alarm_not_found' => new AlarmNotFound($message),
-            'unsupported_feature', 'not_implemented' => new UnsupportedFeature($message),
+            'invalid_alarm', 'invalid_id', 'invalid_snooze', 'alarm_in_past' => new InvalidAlarmConfiguration($message),
+            'unsupported_feature', 'not_implemented', 'snooze_disabled' => new UnsupportedFeature($message),
             default => new NativeAlarmSchedulingFailed($message),
         };
     }

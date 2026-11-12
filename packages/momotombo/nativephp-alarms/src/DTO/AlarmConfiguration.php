@@ -100,7 +100,7 @@ final readonly class AlarmConfiguration
     /** Set a one-time local calendar date. Repeating weekdays must remain empty. */
     public function onDate(?string $date): self
     {
-        return self::fromPayload(array_replace($this->toPayload(), ['alarm_date' => $date]));
+        return $this->with(alarmDate: $date);
     }
 
     /** Explicitly allow or prevent snoozing for this alarm. */
@@ -202,8 +202,9 @@ final readonly class AlarmConfiguration
             hour: (int) ($payload['hour'] ?? 0),
             minute: (int) ($payload['minute'] ?? 0),
             weekdays: array_map(
-                fn (mixed $weekday): Weekday => Weekday::from((string) $weekday),
-                $payload['weekdays'] ?? [],
+                fn (mixed $weekday): Weekday => Weekday::tryFrom((string) $weekday)
+                    ?? throw new InvalidAlarmConfiguration('Weekdays must be Weekday values.'),
+                is_array($payload['weekdays'] ?? null) ? array_values($payload['weekdays']) : [],
             ),
             label: isset($payload['label']) ? (string) $payload['label'] : null,
             vibration: (bool) ($payload['vibration'] ?? false),
@@ -219,39 +220,30 @@ final readonly class AlarmConfiguration
         );
     }
 
-    /** @param list<Weekday>|null $weekdays */
-    private function with(
-        ?int $hour = null,
-        ?int $minute = null,
-        ?array $weekdays = null,
-        ?string $label = null,
-        ?bool $vibration = null,
-        ?bool $progressiveVolume = null,
-        ?int $snoozeMinutes = null,
-        ?string $launchPath = null,
-        ?string $notificationTitle = null,
-        ?string $notificationBody = null,
-        ?string $occurrenceId = null,
-        ?string $scheduledFor = null,
-        ?string $alarmDate = null,
-        ?bool $snoozeEnabled = null,
-    ): self {
-        return new self(
-            id: $this->id,
-            hour: $hour ?? $this->hour,
-            minute: $minute ?? $this->minute,
-            weekdays: $weekdays ?? $this->weekdays,
-            label: $label ?? $this->label,
-            vibration: $vibration ?? $this->vibration,
-            progressiveVolume: $progressiveVolume ?? $this->progressiveVolume,
-            snoozeMinutes: $snoozeMinutes ?? $this->snoozeMinutes,
-            launchPath: $launchPath ?? $this->launchPath,
-            notificationTitle: $notificationTitle ?? $this->notificationTitle,
-            notificationBody: $notificationBody ?? $this->notificationBody,
-            occurrenceId: $occurrenceId ?? $this->occurrenceId,
-            scheduledFor: $scheduledFor ?? $this->scheduledFor,
-            alarmDate: $alarmDate ?? $this->alarmDate,
-            snoozeEnabled: $snoozeEnabled ?? $this->snoozeEnabled,
-        );
+    /**
+     * Return a copy with the given constructor arguments replaced.
+     *
+     * Unlike null-coalescing, this lets callers clear nullable values such as
+     * `label(null)` or `launchPath(null)`.
+     */
+    private function with(mixed ...$changes): self
+    {
+        return new self(...array_replace([
+            'id' => $this->id,
+            'hour' => $this->hour,
+            'minute' => $this->minute,
+            'weekdays' => $this->weekdays,
+            'label' => $this->label,
+            'vibration' => $this->vibration,
+            'progressiveVolume' => $this->progressiveVolume,
+            'snoozeMinutes' => $this->snoozeMinutes,
+            'launchPath' => $this->launchPath,
+            'notificationTitle' => $this->notificationTitle,
+            'notificationBody' => $this->notificationBody,
+            'occurrenceId' => $this->occurrenceId,
+            'scheduledFor' => $this->scheduledFor,
+            'alarmDate' => $this->alarmDate,
+            'snoozeEnabled' => $this->snoozeEnabled,
+        ], $changes));
     }
 }

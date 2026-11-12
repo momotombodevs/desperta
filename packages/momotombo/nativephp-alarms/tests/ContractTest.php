@@ -179,3 +179,82 @@ it('translates native error cases into typed exceptions', function (array $respo
     'missing alarm' => [['status' => 'error', 'code' => 'alarm_not_found', 'message' => 'Not found'], AlarmNotFound::class],
     'unimplemented bridge' => [['status' => 'error', 'code' => 'not_implemented', 'message' => 'Not implemented'], UnsupportedFeature::class],
 ]);
+
+it('clears optional values instead of silently keeping the previous ones', function () {
+    $payload = AlarmConfiguration::make('wake-up')
+        ->label('Wake up')
+        ->launchPath('/wake-up')
+        ->notification('Title', 'Body')
+        ->onDate('2026-09-03')
+        ->label(null)
+        ->launchPath(null)
+        ->notification(null, null)
+        ->onDate(null)
+        ->toPayload();
+
+    expect($payload['label'])->toBeNull()
+        ->and($payload['launch_path'])->toBeNull()
+        ->and($payload['notification_title'])->toBeNull()
+        ->and($payload['notification_body'])->toBeNull()
+        ->and($payload['alarm_date'])->toBeNull();
+});
+
+it('round-trips a configuration through its bridge payload', function () {
+    $alarm = AlarmConfiguration::make('weekday-wake-up')
+        ->at('06:30')
+        ->repeatOn([Weekday::Monday, Weekday::Friday])
+        ->snooze(5)
+        ->occurrence('occurrence-1', '2026-09-03T06:30:00+00:00');
+
+    expect(AlarmConfiguration::fromPayload($alarm->toPayload())->toPayload())->toBe($alarm->toPayload());
+});
+
+it('rejects unknown weekdays in a bridge payload with a typed exception', function () {
+    expect(fn () => AlarmConfiguration::fromPayload(['id' => 'wake-up', 'weekdays' => ['funday']]))
+        ->toThrow(InvalidAlarmConfiguration::class, 'Weekday values');
+});
+
+it('treats an unknown native authorization status as unsupported', function () {
+    $scheduler = new AlarmScheduler(new class implements NativeAlarmBridge
+    {
+        public function call(string $method, array $parameters = []): array
+        {
+            return ['status' => 'provisional'];
+        }
+    });
+
+    expect($scheduler->authorizationStatus())->toBe(AuthorizationStatus::Unsupported)
+        ->and($scheduler->notificationAuthorizationStatus())->toBe(AuthorizationStatus::Unsupported);
+});
+
+it('maps a snooze on a no-snooze alarm to an unsupported feature', function () {
+    $scheduler = new AlarmScheduler(new class implements NativeAlarmBridge
+    {
+        public function call(string $method, array $parameters = []): array
+        {
+            return ['status' => 'error', 'code' => 'snooze_disabled', 'message' => 'Snoozing is disabled for this alarm.'];
+        }
+    });
+
+    expect(fn () => $scheduler->snooze('wake-up', 5))->toThrow(UnsupportedFeature::class, 'disabled');
+});
+
+it('marks plugin events as dispatchable from native code', function (string $event) {
+    expect(is_subclass_of($event, \Native\Mobile\Events\Contracts\DispatchableFromNative::class))->toBeTrue();
+})->with([
+    NotificationAuthorizationChanged::class,
+    \Momotombo\NativePHPAlarms\Events\AppResumed::class,
+]);
+
+it('maps a past one-time date reported by Android to an invalid configuration', function () {
+    $scheduler = new AlarmScheduler(new class implements NativeAlarmBridge
+    {
+        public function call(string $method, array $parameters = []): array
+        {
+            return ['status' => 'error', 'code' => 'alarm_in_past', 'message' => 'A one-time alarm date must be in the future.'];
+        }
+    });
+
+    expect(fn () => $scheduler->schedule(AlarmConfiguration::make('wake-up')->at('06:30')->onDate('2020-01-01')))
+        ->toThrow(InvalidAlarmConfiguration::class, 'future');
+});

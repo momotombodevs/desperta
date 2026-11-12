@@ -30,7 +30,7 @@
             android:fontFamily="sans-serif-medium"
             android:includeFontPadding="false"
             android:letterSpacing="0.04"
-            android:text="Próxima alarma"
+            android:text="@string/widget_next_alarm"
             android:textColor="@color/alarm_widget_accent"
             android:textSize="12sp"
             android:textStyle="bold" />
@@ -42,7 +42,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
         android:includeFontPadding="false"
-        android:text="7:00"
+        android:text="--:--"
         android:textColor="@color/alarm_widget_foreground"
         android:textSize="36sp"
         android:textStyle="bold" />
@@ -55,7 +55,7 @@
         android:ellipsize="end"
         android:fontFamily="sans-serif-medium"
         android:maxLines="1"
-        android:text="Despertá"
+        android:text="@string/widget_empty_body"
         android:textColor="@color/alarm_widget_supporting"
         android:textSize="13sp" />
 
@@ -65,11 +65,11 @@
         android:layout_height="38dp"
         android:layout_marginTop="8dp"
         android:background="@drawable/alarm_widget_action_background"
-        android:contentDescription="Activar o pausar la próxima alarma"
+        android:contentDescription="@string/widget_toggle"
         android:fontFamily="sans-serif-medium"
         android:gravity="center"
         android:includeFontPadding="false"
-        android:text="Activar o pausar"
+        android:text="@string/widget_toggle"
         android:textColor="@color/alarm_widget_action_foreground"
         android:textSize="14sp" />
 </LinearLayout>

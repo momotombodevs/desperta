@@ -3,6 +3,7 @@
 namespace Momotombo\NativePHPAlarms\Events;
 
 use Illuminate\Foundation\Events\Dispatchable;
+use Native\Mobile\Events\Contracts\DispatchableFromNative;
 
 /**
  * Dispatched by Android when a requested notification-permission flow resolves.
@@ -10,7 +11,7 @@ use Illuminate\Foundation\Events\Dispatchable;
  * `$requestId` is supplied by the caller of `requestNotificationAuthorization()`
  * and lets UI state correlate the asynchronous platform result.
  */
-final readonly class NotificationAuthorizationChanged
+final readonly class NotificationAuthorizationChanged implements DispatchableFromNative
 {
     use Dispatchable;
 
