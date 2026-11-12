@@ -5,6 +5,7 @@ namespace Momotombo\NativePHPAlarms\DTO;
 use Momotombo\NativePHPAlarms\Enums\Weekday;
 use Momotombo\NativePHPAlarms\Exceptions\InvalidAlarmConfiguration;
 
+/** Recurring, silent bedtime notification. It never starts alarm playback. */
 final readonly class BedtimeReminderConfiguration
 {
     /** @param list<Weekday> $weekdays */
@@ -16,6 +17,12 @@ final readonly class BedtimeReminderConfiguration
     ) {
         if (preg_match('/^(?<hour>[01][0-9]|2[0-3]):(?<minute>[0-5][0-9])$/', $time) !== 1) {
             throw new InvalidAlarmConfiguration('Reminder time must use the HH:MM format.');
+        }
+
+        foreach ($weekdays as $weekday) {
+            if (! $weekday instanceof Weekday) {
+                throw new InvalidAlarmConfiguration('Weekdays must be Weekday values.');
+            }
         }
 
         if ($weekdays === [] || count($weekdays) !== count(array_unique(array_map(fn (Weekday $day): string => $day->value, $weekdays)))) {

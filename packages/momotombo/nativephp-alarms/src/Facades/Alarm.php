@@ -4,12 +4,15 @@ namespace Momotombo\NativePHPAlarms\Facades;
 
 use Illuminate\Support\Facades\Facade;
 use Momotombo\NativePHPAlarms\AlarmScheduler;
+use Momotombo\NativePHPAlarms\DTO\ActiveAlarmOccurrence;
 use Momotombo\NativePHPAlarms\DTO\AlarmCapabilities;
 use Momotombo\NativePHPAlarms\DTO\AlarmConfiguration;
 use Momotombo\NativePHPAlarms\DTO\BedtimeReminderConfiguration;
 use Momotombo\NativePHPAlarms\Enums\AuthorizationStatus;
 
 /**
+ * Facade for {@see AlarmScheduler}.
+ *
  * @method static AlarmCapabilities capabilities()
  * @method static AuthorizationStatus authorizationStatus()
  * @method static AuthorizationStatus requestAuthorization()
@@ -19,6 +22,9 @@ use Momotombo\NativePHPAlarms\Enums\AuthorizationStatus;
  * @method static AuthorizationStatus requestNotificationAuthorization(string $requestId)
  * @method static bool canSchedule()
  * @method static bool canPostNotifications()
+ * @method static ActiveAlarmOccurrence|null activeRingingOccurrence()
+ * @method static list<array{alarm_id: string, occurrence_id: string, scheduled_for: string, status: string, occurred_at: string}> occurrenceEvents()
+ * @method static void acknowledgeOccurrences(list<string> $occurrenceIds)
  * @method static void schedule(AlarmConfiguration $configuration)
  * @method static void scheduleBedtimeReminder(BedtimeReminderConfiguration $configuration)
  * @method static void cancelBedtimeReminder()

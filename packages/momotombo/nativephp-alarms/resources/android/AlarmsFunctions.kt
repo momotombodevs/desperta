@@ -157,13 +157,9 @@ object AlarmsFunctions {
                     "A notification permission request id is required.",
                 )
 
-                if (pendingNotificationPermissionRequest != null) {
-                    return BridgeResponse.error(
-                        "notification_permission_request_in_progress",
-                        "A notification permission request is already in progress.",
-                    )
-                }
-
+                // A newer request replaces an unresolved one. Rejecting it instead would
+                // block every later request forever if Android never delivered a result
+                // (for example, when the activity was recreated mid-dialog).
                 pendingNotificationPermissionRequest = PendingNotificationPermissionRequest(activity, requestId)
                 observeNotificationPermissionResult()
                 activity.requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_REQUEST_CODE)
@@ -238,6 +234,10 @@ object AlarmsFunctions {
 
             if (minutes < 1) {
                 return BridgeResponse.error("invalid_snooze", "Snooze duration must be at least one minute.")
+            }
+
+            if (TriggeredAlarmStore.get(activity, alarmId)?.first?.values?.get("snooze_enabled") == false) {
+                return BridgeResponse.error("snooze_disabled", "Snoozing is disabled for this alarm.")
             }
 
             if (! snooze(activity, alarmId, minutes)) {
@@ -316,6 +316,13 @@ object AlarmsFunctions {
             return BridgeResponse.error("exact_alarm_permission_denied", "Exact alarm permission is unavailable.")
         }
 
+        if (nextTriggerAt(payload) <= System.currentTimeMillis()) {
+            return BridgeResponse.error("alarm_in_past", "A one-time alarm date must be in the future.")
+        }
+
+        // An update replaces any pending snooze of the previous configuration.
+        context.getSystemService(AlarmManager::class.java).cancel(snoozeIntent(context, payload.id))
+        SnoozeStore.remove(context, payload.id)
         AlarmStore.save(context, payload)
         WidgetAlarmStore.remember(context, payload, true)
         scheduleNext(context, payload)
@@ -349,6 +356,26 @@ object AlarmsFunctions {
         refreshWidgets(context)
     }
 
+    /** Remove a one-time alarm whose date passed without ringing (e.g. the device was off). */
+    internal fun expire(context: Context, alarm: AlarmPayload) {
+        AlarmStore.remove(context, alarm.id)
+        WidgetAlarmStore.remember(context, alarm, false)
+    }
+
+    /** Re-arm snoozes after boot; Android clears AlarmManager alarms on reboot. */
+    internal fun restoreSnoozes(context: Context, now: Long) {
+        SnoozeStore.pending(context).forEach { (alarm, triggerAt) ->
+            if (triggerAt > now) {
+                context.getSystemService(AlarmManager::class.java).setAlarmClock(
+                    AlarmManager.AlarmClockInfo(triggerAt, launchIntent(context, alarm)),
+                    snoozeIntent(context, alarm.id),
+                )
+            } else {
+                SnoozeStore.remove(context, alarm.id)
+            }
+        }
+    }
+
     internal fun complete(context: Context, alarmId: String) {
         TriggeredAlarmStore.get(context, alarmId)?.first?.let { OccurrenceJournal.record(context, it, "completed") }
         AlarmPlaybackService.stop(context, alarmId)
@@ -378,13 +405,13 @@ object AlarmsFunctions {
     internal fun nextTriggerAt(payload: AlarmPayload): Long {
         val now = Calendar.getInstance()
         payload.alarmDate()?.let { date ->
-            val target = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.ROOT).apply {
-                isLenient = false
-                timeZone = java.util.TimeZone.getDefault()
-            }.parse("$date %02d:%02d".format(payload.hour, payload.minute))
-                ?: throw IllegalArgumentException("Alarm date is invalid.")
-
-            return target.time
+            // java.time avoids locale-dependent digit formatting (e.g. Arabic-Indic
+            // digits from String.format) that broke SimpleDateFormat parsing.
+            return java.time.LocalDate.parse(date)
+                .atTime(payload.hour, payload.minute)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
         }
 
         val candidate = Calendar.getInstance().apply {
@@ -489,7 +516,7 @@ object AlarmsFunctions {
         }
     }
 
-    private fun snoozeIntent(context: Context, alarmId: String): PendingIntent = PendingIntent.getBroadcast(
+    internal fun snoozeIntent(context: Context, alarmId: String): PendingIntent = PendingIntent.getBroadcast(
         context,
         ("$alarmId-snooze").hashCode(),
         Intent(context, AlarmReceiver::class.java)
@@ -607,8 +634,8 @@ class AlarmWidgetProvider : AppWidgetProvider() {
         appWidgetIds.forEach { widgetId ->
             val views = RemoteViews(context.packageName, context.resources.getIdentifier("alarm_widget", "layout", context.packageName))
             if (next == null) {
-                val headingKey = if (pausedSelection == null) "widget_brand" else "widget_paused"
-                views.setTextViewText(context.resources.getIdentifier("alarm_widget_heading", "id", context.packageName), widgetCopy(context, headingKey))
+                val heading = if (pausedSelection == null) appName(context) else widgetCopy(context, "widget_paused")
+                views.setTextViewText(context.resources.getIdentifier("alarm_widget_heading", "id", context.packageName), heading)
                 views.setTextViewText(context.resources.getIdentifier("alarm_widget_time", "id", context.packageName), widgetCopy(context, "widget_empty"))
                 views.setTextViewText(context.resources.getIdentifier("alarm_widget_label", "id", context.packageName), pausedSelection?.alarm?.let { it.values["label"] as? String } ?: widgetCopy(context, "widget_empty_body"))
                 val actionKey = if (pausedSelection == null) "widget_open" else "widget_enable"
@@ -634,7 +661,7 @@ class AlarmWidgetProvider : AppWidgetProvider() {
                     set(Calendar.MILLISECOND, 0)
                 }.time)
                 views.setTextViewText(context.resources.getIdentifier("alarm_widget_time", "id", context.packageName), time)
-                views.setTextViewText(context.resources.getIdentifier("alarm_widget_label", "id", context.packageName), next.values["label"] as? String ?: "Despertá")
+                views.setTextViewText(context.resources.getIdentifier("alarm_widget_label", "id", context.packageName), (next.values["label"] as? String)?.takeIf(String::isNotBlank) ?: appName(context))
                 val actionText = "widget_pause"
                 views.setTextViewText(context.resources.getIdentifier("alarm_widget_action", "id", context.packageName), widgetCopy(context, actionText))
                 views.setContentDescription(context.resources.getIdentifier("alarm_widget_action", "id", context.packageName), widgetCopy(context, actionText))
@@ -654,6 +681,9 @@ class AlarmWidgetProvider : AppWidgetProvider() {
     } catch (_: IllegalArgumentException) {
         false
     }
+
+    /** The host app's launcher label, so the widget never shows another product's name. */
+    private fun appName(context: Context): String = context.applicationInfo.loadLabel(context.packageManager).toString()
 
     private fun widgetCopy(context: Context, key: String): String = context.getString(context.resources.getIdentifier(key, "string", context.packageName))
 }
@@ -745,6 +775,9 @@ class AlarmPlaybackService : Service() {
                 stopPlayback()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf(startId)
+            } else if (player == null) {
+                // A stop for a non-ringing alarm must not leave an idle started service behind.
+                stopSelf(startId)
             }
 
             return START_NOT_STICKY
@@ -759,7 +792,12 @@ class AlarmPlaybackService : Service() {
         stopPlayback()
         activeAlarmId = alarmId
         playbackPreferences().edit().putString(ACTIVE_ALARM_ID, alarmId).apply()
-        startForeground(NotificationIds.forAlarm(this, alarm.id), notificationFor(alarm), foregroundServiceType())
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NotificationIds.forAlarm(this, alarm.id), notificationFor(alarm), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            // The three-argument overload only exists from API 29; minSdk is 26.
+            startForeground(NotificationIds.forAlarm(this, alarm.id), notificationFor(alarm))
+        }
         startPlayback(alarm)
 
         return START_NOT_STICKY
@@ -779,7 +817,7 @@ class AlarmPlaybackService : Service() {
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build(),
                 )
-                setDataSource(this@AlarmPlaybackService, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
+                setDataSource(this@AlarmPlaybackService, alarmToneUri())
                 isLooping = true
                 prepare()
                 if (alarm.values["progressive_volume"] as? Boolean == true) {
@@ -890,11 +928,10 @@ class AlarmPlaybackService : Service() {
         )
     }
 
-    private fun foregroundServiceType(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-    } else {
-        0
-    }
+    /** The default alarm tone can be unset ("None"); fall back so the alarm is never silent. */
+    private fun alarmToneUri(): Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
     companion object {
         private const val ACTION_START = "momotombo.nativephp.alarms.action.START_PLAYBACK"
@@ -932,15 +969,35 @@ class AlarmPlaybackService : Service() {
 /** Restores stored exact alarms after Android finishes booting. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action !in setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED)) {
+        if (intent.action !in RESTORE_ACTIONS) {
             return
         }
 
         if (canScheduleExactly(context)) {
-            AlarmStore.all(context).values.forEach { AlarmsFunctions.scheduleNext(context, it) }
+            val now = System.currentTimeMillis()
+
+            AlarmStore.all(context).values.forEach { alarm ->
+                // A one-time date that passed while the device was off is dropped
+                // instead of ringing immediately after boot.
+                if (alarm.alarmDate() != null && AlarmsFunctions.nextTriggerAt(alarm) <= now) {
+                    AlarmsFunctions.expire(context, alarm)
+                } else {
+                    AlarmsFunctions.scheduleNext(context, alarm)
+                }
+            }
+            AlarmsFunctions.restoreSnoozes(context, now)
             BedtimeReminder.schedule(context)
         }
         AlarmsFunctions.refreshWidgets(context)
+    }
+
+    private companion object {
+        val RESTORE_ACTIONS = setOf(
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED",
+        )
     }
 
     private fun canScheduleExactly(context: Context): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || context
@@ -1038,6 +1095,20 @@ private object SnoozeStore {
             .putString(alarmId, JSONObject(alarm.toMap()).put("snooze_trigger_at", triggerAt).toString())
             .apply()
     }
+
+    fun pending(context: Context): List<Pair<AlarmPayload, Long>> = context
+        .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        .all
+        .values
+        .mapNotNull { value ->
+            val json = value as? String ?: return@mapNotNull null
+            val triggerAt = try {
+                JSONObject(json).optLong("snooze_trigger_at", 0L)
+            } catch (_: Exception) {
+                0L
+            }
+            AlarmPayload.fromJson(json)?.let { it to triggerAt }
+        }
 
     fun remove(context: Context, alarmId: String): AlarmPayload? {
         val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)

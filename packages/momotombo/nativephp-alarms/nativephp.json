@@ -1,18 +1,17 @@
 {
     "name": "momotombo/nativephp-alarms",
     "version": "0.1.0",
-    "description": "Android alarm contract for NativePHP Mobile.",
+    "description": "Exact, alarm-clock-grade alarms for NativePHP Mobile on Android.",
     "namespace": "Alarms",
     "keywords": [
         "nativephp",
         "plugin",
         "alarms",
-        "utilities",
+        "alarm-clock",
         "mobile",
         "android",
         "notifications",
-        "background",
-        "tasks"
+        "widget"
     ],
     "category": "utilities",
     "license": "MIT",
@@ -95,6 +94,9 @@
                     },
                     {
                         "action": "android.intent.action.TIMEZONE_CHANGED"
+                    },
+                    {
+                        "action": "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"
                     }
                 ]
             },
